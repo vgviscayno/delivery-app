@@ -33,7 +33,7 @@ The two directions of a per-weight line item's packed weight against the estimat
 _Avoid_: Overage, underage, variance
 
 **Price approval**:
-The customer's answer, obtained by a dispatcher over the phone, to a Weight tolerance breach. Recorded per Order as an outcome — not required, pending, approved, or rejected — with the dispatcher, the time, and the exact total approved. While it is pending, the Delivery cannot advance to `Picked up`, whatever its prep status. No money moves; it is consent to a revised price, not a payment.
+The customer's answer, obtained by a dispatcher over the phone, to a Weight tolerance breach. The call always goes to the customer's Account phone, never to the Arrival contact — consent to a revised price can only come from the person who placed the Order. Recorded per Order as an outcome — not required, pending, approved, or rejected — with the dispatcher, the time, the exact total approved, and the number actually dialled. While it is pending, the Delivery cannot advance to `Picked up`, whatever its prep status. No money moves; it is consent to a revised price, not a payment.
 _Avoid_: Confirmation, authorization (authorization means a card hold, which does not exist here), sign-off
 
 **Removed line item**:
@@ -69,8 +69,20 @@ The hours during which a customer may submit an Order. Bounded by when drivers a
 _Avoid_: Store hours, opening hours, trading hours
 
 **Address**:
-A place a customer has saved to receive Orders at. Its authoritative part is a **pin** — a point on the map the customer placed themselves — not the written address, because a street string here often resolves to the wrong building or to nothing at all. The written address, the unit or floor, and the **landmark note** ("green gate beside the sari-sari store") are there to help a human close the last few metres; the pin is what a driver navigates to. Every Address also carries the name and number of the person to call on arrival, who is not necessarily the customer who placed the Order. A customer may keep several, one of which is the default. Deleting one hides it from future Orders but never from past ones.
+A place a customer has saved to receive Orders at. Its authoritative part is a **pin** — a point on the map the customer placed themselves — not the written address, because a street string here often resolves to the wrong building or to nothing at all. The written address, the unit or floor, and the **landmark note** ("green gate beside the sari-sari store") are there to help a human close the last few metres; the pin is what a driver navigates to. Every Address also carries an **Arrival contact** (see below), who is not necessarily the customer who placed the Order. A customer may keep several, one of which is the default. Deleting one hides it from future Orders but never from past ones.
 _Avoid_: Location (means a driver's live position elsewhere in this system), destination, drop-off point
+
+**Account phone**:
+The phone number of the customer who placed an Order, held on their account and required to open one. The number a dispatcher rings for a Price approval, and the only number a customer's consent to a revised price may be taken on. Contact data only: it is never a way to sign in, is never verified by SMS, and a dispatcher can read it but never change it — editing it would let the shop choose whose "yes" is recorded. The current number is always the one dialled; unlike a Delivery address, it is never copied onto an Order.
+_Avoid_: Mobile number, contact number (ambiguous — an Order has two), phone (unqualified)
+
+**Arrival contact**:
+The name and number on an Address of whoever should be called at that door — a mother, a helper, an office receptionist — which is often not the customer who placed the Order. The driver's number, for reaching the delivery. Never carries a commercial decision: it may be rung about a missing gate or a late van, never about money.
+_Avoid_: Recipient (implies a distinct actor, which this system does not have), contact person
+
+**Shop phone**:
+The single number a customer rings to reach the shop, shown in the customer app and maintained by the dispatcher alongside the Ordering window and Delivery fee. The customer-initiated half of every conversation this system pushes onto the telephone rather than into software.
+_Avoid_: Support line, hotline, customer service number
 
 **Delivery address**:
 The Address an Order is going to, copied onto the Order at submission the same way a Product's name and price are (see `docs/adr/0003-catalog-snapshot-on-order.md`). Once copied it never changes: editing or deleting the saved Address leaves every placed Order pointing where it was actually sent, and an in-flight Delivery can never have its destination moved out from under the driver. The one exception is deliberately narrow — a dispatcher may correct the *contact details and landmark note* on a single Order's copy when a driver can't find the door, never the pin.
