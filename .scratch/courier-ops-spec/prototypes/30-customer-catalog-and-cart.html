@@ -1,0 +1,715 @@
+<meta charset="utf-8" />
+<title>Customer catalog browse & cart — prototype</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<style>
+  :root {
+    --ink: #14181f;
+    --ink-soft: #1d232c;
+    --paper: #ece7db;
+    --paper-dim: #cfc9ba;
+    --rust: #c1502f;
+    --amber: #e2a53a;
+    --moss: #587a5b;
+    --slate: #6b7280;
+    --line: rgba(236, 231, 219, 0.14);
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; min-height: 100vh;
+    background: var(--ink); color: var(--paper);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  }
+  body { display: flex; flex-direction: column; align-items: center; gap: 16px; padding: 32px 16px 120px; }
+  .intro { max-width: 720px; text-align: center; }
+  .eyebrow {
+    font-size: 11px; text-transform: uppercase; letter-spacing: .12em;
+    color: var(--amber); margin-bottom: 8px;
+  }
+  .intro h1 { margin: 0 0 10px; font-size: 25px; }
+  .intro p { margin: 0 0 8px; font-size: 13.5px; line-height: 1.6; color: var(--paper-dim); }
+
+  /* --- control rows --- */
+  .ctl { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; align-items: center; max-width: 760px; }
+  .ctl .lbl { font-size: 10.5px; text-transform: uppercase; letter-spacing: .08em; color: var(--slate); margin-right: 4px; }
+  .ctl button {
+    border: 1px solid var(--line); background: var(--ink-soft); color: var(--paper-dim);
+    border-radius: 999px; padding: 6px 12px; font-size: 12px; cursor: pointer;
+  }
+  .ctl button.on { background: rgba(226,165,58,0.16); border-color: var(--amber); color: var(--amber); font-weight: 700; }
+
+  /* --- phone frame --- */
+  .stage { display: flex; justify-content: center; }
+  .phone {
+    width: 375px; height: 812px; max-width: 92vw;
+    border-radius: 40px; border: 8px solid var(--ink-soft);
+    background: #0b1420; position: relative; overflow: hidden;
+    box-shadow: 0 30px 60px -20px rgba(0,0,0,0.6);
+  }
+  .notch {
+    position: absolute; top: 8px; left: 50%; transform: translateX(-50%);
+    width: 120px; height: 22px; background: var(--ink-soft);
+    border-radius: 0 0 14px 14px; z-index: 50;
+  }
+  .screen {
+    position: absolute; inset: 0; display: flex; flex-direction: column;
+    font-size: 13px; overflow: hidden;
+  }
+  .screen .body { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+  .hdr {
+    padding: 40px 16px 12px; border-bottom: 1px solid var(--line);
+    display: flex; align-items: flex-end; justify-content: space-between; gap: 10px;
+  }
+  .hdr h2 { margin: 0; font-size: 17px; }
+  .hdr .sub { font-size: 11px; color: var(--slate); }
+  .backlink { font-size: 12px; color: var(--amber); cursor: pointer; }
+
+  /* --- shared bits --- */
+  .cat-head {
+    padding: 14px 16px 6px; font-size: 11px; text-transform: uppercase;
+    letter-spacing: .1em; color: var(--amber); background: #0b1420;
+  }
+  .cat-head.sticky { position: sticky; top: 0; z-index: 5; }
+  .thumb {
+    width: 46px; height: 46px; border-radius: 8px; flex: none;
+    display: grid; place-items: center; font-weight: 800; font-size: 16px;
+    color: rgba(255,255,255,0.75);
+    background: radial-gradient(circle at 30% 25%, #8e3f34, #4a2220);
+  }
+  .thumb.big { width: 100%; height: 120px; border-radius: 10px; font-size: 30px; }
+  /* no photo_url on the Product (ticket 26 keeps it nullable) -> store logo mark */
+  .thumb.logo { background: #232b36; color: rgba(226,165,58,0.55); }
+  .thumb.logo svg { width: 62%; height: 62%; }
+  .thumb.big.logo svg { width: 44%; height: 44%; }
+  .rate { color: var(--amber); font-weight: 700; }
+  .flat { color: var(--paper); font-weight: 700; }
+  .est { color: var(--slate); font-size: 10.5px; }
+  .soldout { font-size: 9.5px; text-transform: uppercase; letter-spacing: .07em; color: var(--rust); border: 1px solid var(--rust); border-radius: 4px; padding: 1px 5px; }
+  .dim { opacity: .42; }
+  .btn {
+    border: none; border-radius: 8px; padding: 7px 12px; font-size: 12px;
+    font-weight: 700; cursor: pointer; background: var(--rust); color: #fff;
+  }
+  .btn.ghost { background: rgba(226,165,58,0.14); color: var(--amber); }
+  .btn.flat { background: rgba(236,231,219,0.10); color: var(--paper-dim); }
+  .btn:disabled { background: var(--slate); color: rgba(255,255,255,0.6); cursor: not-allowed; }
+  .step-ctl { display: flex; align-items: center; gap: 8px; }
+  /* the round − / + only — never a .btn that happens to sit in the same row */
+  .step-ctl button:not(.btn) {
+    width: 28px; height: 28px; border-radius: 50%; border: 1px solid var(--line);
+    background: rgba(236,231,219,0.06); color: var(--paper); font-size: 16px; font-weight: 700; cursor: pointer;
+  }
+  .step-ctl .btn { flex: none; white-space: nowrap; }
+  .step-ctl .val { min-width: 62px; text-align: center; font-weight: 700; font-size: 13px; }
+
+  /* banners */
+  /* Collapsed to one line each: every failure stays visible at once
+     (ticket 29 never fail-fasts), detail is one tap away. */
+  .banner {
+    margin: 8px 12px 0; border-radius: 8px; font-size: 11.5px; line-height: 1.45;
+    border-left: 3px solid var(--rust); background: rgba(193,80,47,0.13); color: #f2c7bb;
+  }
+  .banner.warn { border-left-color: var(--amber); background: rgba(226,165,58,0.12); color: #f0dcae; }
+  .banner b { color: #fff; }
+  .banner .head {
+    display: flex; align-items: center; gap: 8px; cursor: pointer;
+    padding: 8px 10px; font-weight: 600;
+  }
+  .banner .head .txt { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .banner .head .chev { flex: none; opacity: .65; transition: transform .12s; font-size: 13px; }
+  .banner.open .head .chev { transform: rotate(90deg); }
+  .banner .detail { padding: 0 10px 9px 10px; opacity: .92; }
+  .inline-err {
+    margin-top: 6px; font-size: 10.5px; line-height: 1.4; color: #f2b5a4;
+    border-left: 2px solid var(--rust); padding-left: 7px;
+  }
+  .inline-err.warn { color: #f0dcae; border-left-color: var(--amber); }
+
+  /* footer / submit */
+  .foot { border-top: 1px solid var(--line); background: #0e1620; padding: 10px 14px 22px; }
+  .totrow { display: flex; justify-content: space-between; font-size: 12px; padding: 2px 0; color: var(--paper-dim); }
+  .totrow.grand { font-size: 14.5px; font-weight: 800; color: var(--paper); padding-top: 7px; margin-top: 5px; border-top: 1px solid var(--line); }
+  .submit { width: 100%; margin-top: 10px; padding: 13px; border-radius: 10px; border: none; font-size: 14px; font-weight: 800; cursor: pointer; background: var(--rust); color: #fff; }
+  .submit:disabled { background: #33404e; color: #8a97a5; cursor: not-allowed; }
+  .submit.ack { background: var(--amber); color: #241c07; }
+  .addr {
+    margin: 10px 12px 0; padding: 10px 11px; border: 1px solid var(--line); border-radius: 9px;
+    display: flex; justify-content: space-between; align-items: center; gap: 10px; font-size: 12px;
+  }
+  .addr .who { font-weight: 700; }
+  .addr .l2 { color: var(--slate); font-size: 11px; margin-top: 2px; }
+
+  /* ===== Variant A ===== */
+  #variantA .row {
+    display: flex; gap: 11px; padding: 10px 14px; border-bottom: 1px solid var(--line); align-items: center;
+  }
+  #variantA .row .mid { flex: 1; min-width: 0; }
+  #variantA .row .nm { font-weight: 600; font-size: 13px; }
+  #variantA .row .px { font-size: 11.5px; margin-top: 2px; }
+  #variantA .expand { padding: 0 14px 12px 71px; border-bottom: 1px solid var(--line); }
+  #variantA .expand .live { font-size: 11px; color: var(--paper-dim); margin-top: 7px; }
+  #variantA .stickybar {
+    position: absolute; left: 0; right: 0; bottom: 0; padding: 11px 14px 24px;
+    background: rgba(14,22,32,0.96); border-top: 1px solid var(--line);
+    display: flex; justify-content: space-between; align-items: center;
+  }
+
+  /* ===== Variant B ===== */
+  #variantB .tabs { display: flex; gap: 7px; overflow-x: auto; padding: 10px 12px; border-bottom: 1px solid var(--line); }
+  #variantB .tabs button {
+    white-space: nowrap; border: 1px solid var(--line); background: transparent; color: var(--paper-dim);
+    border-radius: 999px; padding: 6px 12px; font-size: 11.5px; cursor: pointer;
+  }
+  #variantB .tabs button.on { background: var(--amber); border-color: var(--amber); color: #241c07; font-weight: 700; }
+  #variantB .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 12px; }
+  #variantB .card { border: 1px solid var(--line); border-radius: 11px; overflow: hidden; cursor: pointer; }
+  #variantB .card .meta { padding: 8px 9px 10px; }
+  #variantB .card .nm { font-size: 12.5px; font-weight: 600; line-height: 1.25; }
+  #variantB .card .px { font-size: 11.5px; margin-top: 4px; }
+  #variantB .fab {
+    position: absolute; right: 16px; bottom: 26px; z-index: 20;
+    background: var(--rust); color: #fff; border: none; border-radius: 999px;
+    padding: 13px 18px; font-size: 13px; font-weight: 800; cursor: pointer;
+    box-shadow: 0 10px 24px rgba(0,0,0,0.5);
+  }
+  #variantB .sheet {
+    position: absolute; left: 0; right: 0; bottom: 0; z-index: 40;
+    background: #131c27; border-top: 1px solid var(--line);
+    border-radius: 18px 18px 0 0; padding: 14px 16px 26px;
+    box-shadow: 0 -14px 34px rgba(0,0,0,0.55);
+  }
+  #variantB .sheet .grab { width: 38px; height: 4px; border-radius: 2px; background: var(--line); margin: 0 auto 12px; }
+  #variantB .chips { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 10px; }
+  #variantB .chips button {
+    border: 1px solid var(--line); background: transparent; color: var(--paper-dim);
+    border-radius: 999px; padding: 8px 13px; font-size: 12px; cursor: pointer; font-weight: 600;
+  }
+  #variantB .chips button.on { background: rgba(226,165,58,0.18); border-color: var(--amber); color: var(--amber); }
+  #variantB .cartline { padding: 11px 14px; border-bottom: 1px solid var(--line); }
+  #variantB .cartline .top { display: flex; justify-content: space-between; gap: 10px; }
+
+  /* ===== Variant C ===== */
+  #variantC .tot-hdr { text-align: right; }
+  #variantC .tot-hdr .n { font-size: 16px; font-weight: 800; color: var(--amber); }
+  #variantC .sec-head {
+    padding: 11px 14px; background: rgba(236,231,219,0.05); border-bottom: 1px solid var(--line);
+    display: flex; justify-content: space-between; cursor: pointer;
+    font-size: 11.5px; text-transform: uppercase; letter-spacing: .09em; font-weight: 700; color: var(--amber);
+  }
+  #variantC .lst { padding: 4px 14px 10px; border-bottom: 1px solid var(--line); }
+  #variantC .prow { padding: 9px 0; border-bottom: 1px dotted rgba(236,231,219,0.12); }
+  #variantC .prow:last-child { border-bottom: none; }
+  #variantC .prow .top { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+  #variantC .prow .nm { font-weight: 600; font-size: 13px; }
+  #variantC .slider-wrap { margin-top: 9px; display: flex; align-items: center; gap: 10px; }
+  #variantC input[type=range] { flex: 1; accent-color: var(--rust); }
+  #variantC .readout { min-width: 108px; text-align: right; font-size: 12px; font-weight: 700; }
+  #variantC .readout small { display: block; font-weight: 400; color: var(--slate); font-size: 10px; }
+  #variantC .ledger { padding: 4px 14px; }
+  #variantC .lline { padding: 10px 0; border-bottom: 1px dotted rgba(236,231,219,0.12); }
+  #variantC .lline .top { display: flex; justify-content: space-between; gap: 8px; }
+
+  /* --- switcher --- */
+  .switcher {
+    position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); z-index: 100;
+    display: flex; align-items: center; gap: 12px; padding: 8px 10px; border-radius: 999px;
+    background: var(--ink-soft); border: 1px solid var(--line);
+    box-shadow: 0 12px 30px rgba(0,0,0,0.45); font-size: 13px;
+  }
+  .switcher button {
+    width: 30px; height: 30px; border-radius: 50%; border: none;
+    background: rgba(226,165,58,0.14); color: var(--amber);
+    font-weight: 700; cursor: pointer; font-size: 15px;
+  }
+  .switcher .label { min-width: 210px; text-align: center; font-weight: 600; }
+  .switcher .label small { display: block; color: var(--paper-dim); font-weight: 400; font-size: 10.5px; margin-top: 1px; }
+  .hidden { display: none !important; }
+</style>
+
+<div class="intro">
+  <div class="eyebrow">Ticket 30 — throwaway prototype, not production code</div>
+  <h1>Customer catalog browse &amp; cart</h1>
+  <p>Three structurally different treatments of browse → add → cart. The <strong>by-weight quantity input is the crux</strong>, so each variant uses a different one: <strong>A</strong> inline stepper, <strong>B</strong> preset chips, <strong>C</strong> snap slider. Cycle with ← / →.</p>
+  <p>Flip to <strong>Cart</strong> and drive the gate states to see ticket 29's stack render — the same by-weight control has to work on the product row <em>and</em> the cart line. Money is seeded in centavos (₱); per-weight lines are always marked <code>~</code> as estimates.</p>
+</div>
+
+<div class="ctl">
+  <span class="lbl">Screen</span>
+  <button data-screen="browse">Browse</button>
+  <button data-screen="cart">Cart &amp; checkout</button>
+</div>
+
+<div class="ctl" id="stateRow">
+  <span class="lbl">Cart state</span>
+  <button data-state="clean">Clean</button>
+  <button data-state="unavailable">Line unavailable</button>
+  <button data-state="price-up">Price increased</button>
+  <button data-state="closed">Outside store hours</button>
+  <button data-state="radius">Out of radius</button>
+  <button data-state="all">All four at once</button>
+</div>
+
+<div class="stage">
+  <div class="phone">
+    <div class="notch"></div>
+    <div id="variantA" class="screen"></div>
+    <div id="variantB" class="screen hidden"></div>
+    <div id="variantC" class="screen hidden"></div>
+  </div>
+</div>
+
+<div class="switcher">
+  <button id="prevBtn" aria-label="Previous variant">←</button>
+  <div class="label" id="variantLabel"></div>
+  <button id="nextBtn" aria-label="Next variant">→</button>
+</div>
+
+<script>
+/* ============================================================
+   Seeded catalog. Money in CENTAVOS (ticket 27), weights in GRAMS.
+   Ribeye + brisket sit in two Categories at different positions —
+   ticket 26's many-to-many with per-category ordering.
+   ============================================================ */
+const P = {
+  ribeye:   {name:'Ribeye steak',           type:'per_weight', rate:115000, step:250, tol:250, avail:true,  note:'Aged 21 days, cut to order'},
+  brisket:  {name:'Beef brisket',           type:'per_weight', rate:78000,  step:500, tol:250, avail:true,  note:'Whole packer cut'},
+  giniling: {name:'Ground beef (giniling)', type:'per_weight', rate:62000,  step:500, tol:250, avail:true},
+  liempo:   {name:'Pork belly (liempo)',    type:'per_weight', rate:42000,  step:500, tol:250, avail:true,  note:'Skin on'},
+  porkchop: {name:'Pork chop',              type:'per_weight', rate:39000,  step:250, tol:250, avail:true},
+  kawali:   {name:'Lechon kawali cut',      type:'per_weight', rate:45000,  step:500, tol:250, photo:false, avail:true},
+  thigh:    {name:'Chicken thigh fillet',   type:'per_weight', rate:34000,  step:250, tol:250, avail:true},
+  whole:    {name:'Whole chicken',          type:'per_unit',   price:28000, avail:true,  unit:'each, approx 1.2 kg'},
+  longga:   {name:'Longganisa',             type:'per_unit',   price:28500, avail:true,  unit:'500 g pack'},
+  tocino:   {name:'Tocino',                 type:'per_unit',   price:26500, photo:false, avail:true,  unit:'500 g pack'},
+  hungarian:{name:'Hungarian sausage',      type:'per_unit',   price:56000, avail:false, unit:'1 kg pack'},
+  bacon:    {name:'Bacon slab',             type:'per_unit',   price:21500, photo:false, avail:true,  unit:'250 g'},
+};
+const CATS = [
+  {id:'premium', name:'Premium cuts',      items:['ribeye','brisket']},
+  {id:'beef',    name:'Beef',              items:['brisket','ribeye','giniling']},
+  {id:'pork',    name:'Pork',              items:['liempo','porkchop','kawali']},
+  {id:'chicken', name:'Chicken',           items:['whole','thigh']},
+  {id:'deli',    name:'Processed & deli',  items:['longga','tocino','bacon','hungarian']},
+];
+
+const FEE = 7900;                 // dispatcher-editable setting (ticket 22 surface)
+const RIBEYE_NEW_RATE = 129000;   // the "price increased" scenario
+
+/* ---------- formatting ---------- */
+function peso(c) {
+  const v = c / 100;
+  return '₱' + v.toLocaleString('en-PH', {minimumFractionDigits: c % 100 ? 2 : 0, maximumFractionDigits: 2});
+}
+function kg(g) { return (g/1000).toFixed(2).replace(/0+$/,'').replace(/\.$/,'') + ' kg'; }
+function wt(g) { return g < 1000 ? g + ' g' : kg(g); }
+function initial(k) { return P[k].name.charAt(0); }
+
+/* Store logo mark, stood in for a real brand asset. Rendered whenever a
+   Product has no photo_url, so card height never varies. */
+const LOGO = '<svg viewBox="0 0 64 64" aria-label="store logo">' +
+  '<circle cx="32" cy="32" r="29" fill="none" stroke="currentColor" stroke-width="2.5" opacity=".5"/>' +
+  '<path d="M17 21 h21 a3 3 0 0 1 3 3 v13 a3 3 0 0 1 -3 3 h-21 z" fill="currentColor"/>' +
+  '<circle cx="22.5" cy="26" r="2.1" fill="#232b36"/>' +
+  '<rect x="41" y="27" width="12" height="4.6" rx="2.3" fill="currentColor"/>' +
+'</svg>';
+function thumbHtml(k, big) {
+  const cls = 'thumb' + (big ? ' big' : '');
+  return P[k].photo === false
+    ? '<div class="' + cls + ' logo">' + LOGO + '</div>'
+    : '<div class="' + cls + '">' + initial(k) + '</div>';
+}
+
+/* ---------- app state ---------- */
+let screen    = 'browse';
+let cartState = 'clean';
+let acked     = false;
+let cart = [
+  {p:'ribeye',   grams:1000},
+  {p:'liempo',   grams:1500},
+  {p:'longga',   qty:2},
+  {p:'porkchop', grams:500},
+];
+let openRowA  = null;              // variant A: which row has its stepper expanded
+let draftA    = {};                // variant A: in-row draft weights
+let tabB      = 'premium';         // variant B: selected category tab
+let sheetB    = null;              // variant B: open product sheet
+let draftB    = {};                // variant B: chip selections
+let openC     = {premium:true, beef:true, pork:true, chicken:false, deli:false};
+let openBanner = {};               // which collapsed cart banners are expanded
+let draftC    = {};                // variant C: slider positions
+
+/* ---------- gates (ticket 29) ---------- */
+function gates() {
+  const s = cartState, all = s === 'all';
+  return {
+    hours:  all || s === 'closed',
+    radius: all || s === 'radius',
+    unavail:all || s === 'unavailable',
+    priceUp:all || s === 'price-up',
+  };
+}
+function rateOf(key) {
+  if (key === 'ribeye' && gates().priceUp) return RIBEYE_NEW_RATE;
+  return P[key].rate;
+}
+function lineBlocked(l) { return l.p === 'porkchop' && gates().unavail; }
+function lineRaised(l)  { return l.p === 'ribeye'   && gates().priceUp; }
+function lineTotal(l) {
+  const p = P[l.p];
+  return p.type === 'per_unit' ? p.price * l.qty : Math.round(rateOf(l.p) * l.grams / 1000);
+}
+function goodsTotal() { return cart.filter(l => !lineBlocked(l)).reduce((a,l) => a + lineTotal(l), 0); }
+function grandTotal() { return goodsTotal() + FEE; }
+function hasEstimate() { return cart.some(l => P[l.p].type === 'per_weight' && !lineBlocked(l)); }
+function blockingFailure() { const g = gates(); return g.hours || g.radius || g.unavail; }
+
+/* Submit label + enablement. Price rise blocks until the SECOND tap (ticket 29). */
+function submitSpec() {
+  const g = gates();
+  if (g.hours)  return {disabled:true,  label:'Closed · opens tomorrow 8:00 AM'};
+  if (g.radius) return {disabled:true,  label:'Address outside delivery area'};
+  if (g.unavail)return {disabled:true,  label:'Remove unavailable item to continue'};
+  if (g.priceUp && !acked) return {disabled:false, ack:true, label:'Prices changed · tap again to accept ' + peso(grandTotal())};
+  return {disabled:false, label:'Submit order · ' + (hasEstimate() ? '~' : '') + peso(grandTotal())};
+}
+function tapSubmit() {
+  const s = submitSpec();
+  if (s.disabled) return;
+  if (s.ack) { acked = true; render(); return; }
+  alert('Prototype stub — submits, then hands straight to ticket 14’s unassigned tracking screen. No receipt screen.');
+}
+function removeLine(key) { cart = cart.filter(l => l.p !== key); render(); }
+
+/* ---------- shared fragments ---------- */
+function priceLabel(key) {
+  const p = P[key];
+  if (p.type === 'per_unit') return '<span class="flat">' + peso(p.price) + '</span> <span class="est">' + (p.unit||'') + '</span>';
+  return '<span class="rate">' + peso(p.rate) + '/kg</span> <span class="est">· from ' + wt(p.step) + ', ' + wt(p.step) + ' steps</span>';
+}
+function bannerList() {
+  const g = gates(), out = [];
+  /* order is blast radius, widest first — ticket 29. Density is one line each. */
+  if (g.hours) out.push({id:'hours', tone:'', head:'Shop closed — opens 8:00 AM',
+    detail:'Orders open tomorrow at 8:00 AM. Your cart is saved and still editable until then.'});
+  if (g.radius) out.push({id:'radius', tone:'', head:'Address outside delivery area',
+    detail:'12 Kalayaan Ave is 14.2 km by road — 4.2 km past the 10 km limit. Pick another saved address.'});
+  if (g.priceUp) out.push({id:'price', tone:'warn', head:'Ribeye rose to ' + peso(RIBEYE_NEW_RATE) + '/kg',
+    detail:'Was ' + peso(P.ribeye.rate) + '/kg when you added it. New estimated total ~' + peso(grandTotal()) + '.'});
+  return out;
+}
+function bannersHtml() {
+  return bannerList().map(b => {
+    const open = !!openBanner[b.id];
+    return '<div class="banner ' + b.tone + (open ? ' open' : '') + '">' +
+      '<div class="head" data-bnr="' + b.id + '"><span class="txt">' + b.head + '</span><span class="chev">›</span></div>' +
+      (open ? '<div class="detail">' + b.detail + '</div>' : '') +
+    '</div>';
+  }).join('');
+}
+function addrHtml() {
+  const g = gates();
+  return '<div class="addr" style="' + (g.radius ? 'border-color:var(--rust)' : '') + '">' +
+    '<div><div class="who">Home · Vonrie A.</div><div class="l2">' +
+    (g.radius ? '12 Kalayaan Ave, Quezon City · 14.2 km' : '48 Mabini St, San Juan · 3.4 km by road') +
+    '</div></div><button class="btn flat">Change</button></div>';
+}
+function totalsHtml() {
+  const s = submitSpec(), tilde = hasEstimate() ? '~' : '';
+  return '<div class="foot">' +
+    '<div class="totrow"><span>Goods ' + (hasEstimate() ? '(estimated)' : '') + '</span><span>' + tilde + peso(goodsTotal()) + '</span></div>' +
+    '<div class="totrow"><span>Delivery fee</span><span>' + peso(FEE) + '</span></div>' +
+    '<div class="totrow grand"><span>Total</span><span>' + tilde + peso(grandTotal()) + '</span></div>' +
+    (hasEstimate() ? '<div class="est" style="margin-top:6px">Cut-to-order items are weighed when packed. If a weight lands more than its allowance off, we call you before it goes out.</div>' : '') +
+    '<button class="submit ' + (s.ack ? 'ack' : '') + '" ' + (s.disabled ? 'disabled' : '') + ' id="submitBtn">' + s.label + '</button>' +
+  '</div>';
+}
+function lineErrHtml(l) {
+  if (lineBlocked(l)) return '<div class="inline-err"><b>Sold out</b> since you added this. Remove it to continue — we won’t drop it for you.</div>';
+  if (lineRaised(l))  return '<div class="inline-err warn">Rate rose to ' + peso(RIBEYE_NEW_RATE) + '/kg. This line is now ~' + peso(lineTotal(l)) + '.</div>';
+  return '';
+}
+
+/* ============================================================
+   VARIANT A — one scrolling catalog, inline stepper in the row
+   ============================================================ */
+function renderA() {
+  const el = document.querySelector('#variantA');
+  if (screen === 'cart') { el.innerHTML = cartA(); wireCommon(el); return; }
+
+  let rows = '';
+  CATS.forEach(c => {
+    rows += '<div class="cat-head sticky">' + c.name + '</div>';
+    c.items.forEach(k => {
+      const p = P[k], out = !p.avail;
+      rows += '<div class="row ' + (out ? 'dim' : '') + '">' +
+        thumbHtml(k, false) +
+        '<div class="mid"><div class="nm">' + p.name + (out ? ' <span class="soldout">Sold out</span>' : '') + '</div>' +
+        '<div class="px">' + priceLabel(k) + '</div></div>' +
+        (out ? '' : '<button class="btn ' + (p.type === 'per_weight' ? 'ghost' : '') + '" data-a-add="' + k + '">' +
+          (p.type === 'per_weight' ? 'Choose' : 'Add') + '</button>') +
+      '</div>';
+      if (openRowA === k && p.type === 'per_weight') {
+        const g = draftA[k] || p.step;
+        rows += '<div class="expand"><div class="step-ctl">' +
+          '<button data-a-step="' + k + '|-1">−</button>' +
+          '<span class="val">~' + wt(g) + '</span>' +
+          '<button data-a-step="' + k + '|1">+</button>' +
+          '<button class="btn" style="margin-left:auto" data-a-commit="' + k + '">Add ~' + peso(Math.round(p.rate*g/1000)) + '</button>' +
+        '</div><div class="live">' + wt(p.step) + ' steps · minimum ' + wt(p.step) + ' · we weigh it when we pack it, so this is an estimate.</div></div>';
+      }
+    });
+  });
+
+  el.innerHTML =
+    '<div class="hdr"><div><h2>Order meat</h2><div class="sub">Delivering to San Juan</div></div></div>' +
+    '<div class="body" style="padding-bottom:70px">' + rows + '</div>' +
+    '<div class="stickybar"><div><div style="font-weight:800">~' + peso(goodsTotal()) + '</div>' +
+    '<div class="est">' + cart.length + ' items · fee at checkout</div></div>' +
+    '<button class="btn" data-goto-cart>View cart</button></div>';
+  wireCommon(el);
+
+  el.querySelectorAll('[data-a-add]').forEach(b => b.onclick = () => {
+    const k = b.dataset.aAdd;
+    if (P[k].type === 'per_weight') { openRowA = openRowA === k ? null : k; render(); }
+    else alert('Prototype stub — added 1 × ' + P[k].name);
+  });
+  el.querySelectorAll('[data-a-step]').forEach(b => b.onclick = () => {
+    const [k, d] = b.dataset.aStep.split('|');
+    const p = P[k], cur = draftA[k] || p.step;
+    draftA[k] = Math.max(p.step, cur + Number(d) * p.step);
+    render();
+  });
+  el.querySelectorAll('[data-a-commit]').forEach(b => b.onclick = () => { openRowA = null; render(); });
+}
+function cartA() {
+  let lines = '';
+  cart.forEach(l => {
+    const p = P[l.p], blocked = lineBlocked(l);
+    lines += '<div class="row ' + (blocked ? 'dim' : '') + '" style="align-items:flex-start">' +
+      thumbHtml(l.p, false) +
+      '<div class="mid"><div class="nm">' + p.name + (blocked ? ' <span class="soldout">Sold out</span>' : '') + '</div>' +
+      '<div class="px" style="margin-top:5px">' +
+        (p.type === 'per_weight'
+          ? '<div class="step-ctl"><button data-c-step="' + l.p + '|-1">−</button><span class="val">~' + wt(l.grams) + '</span><button data-c-step="' + l.p + '|1">+</button></div>' +
+            '<div class="est" style="margin-top:4px">' + peso(rateOf(l.p)) + '/kg · ~' + peso(lineTotal(l)) + '</div>'
+          : '<div class="step-ctl"><button data-c-qty="' + l.p + '|-1">−</button><span class="val">' + l.qty + '</span><button data-c-qty="' + l.p + '|1">+</button></div>' +
+            '<div class="est" style="margin-top:4px">' + peso(p.price) + ' each · ' + peso(lineTotal(l)) + '</div>') +
+      '</div>' + lineErrHtml(l) + '</div>' +
+      (blocked ? '<button class="btn" data-rm="' + l.p + '">Remove</button>' : '') +
+    '</div>';
+  });
+  return '<div class="hdr"><div><h2>Your cart</h2><div class="sub">' + cart.length + ' items</div></div><span class="backlink" data-goto-browse>Keep shopping</span></div>' +
+    '<div class="body">' + bannersHtml() + lines + addrHtml() + '<div style="height:12px"></div></div>' + totalsHtml();
+}
+
+/* ============================================================
+   VARIANT B — category tabs, photo cards, product sheet w/ chips
+   ============================================================ */
+function renderB() {
+  const el = document.querySelector('#variantB');
+  if (screen === 'cart') { el.innerHTML = cartB(); wireCommon(el); return; }
+
+  const tabs = CATS.map(c => '<button class="' + (tabB === c.id ? 'on' : '') + '" data-b-tab="' + c.id + '">' + c.name + '</button>').join('');
+  const cat  = CATS.find(c => c.id === tabB);
+  const cards = cat.items.map(k => {
+    const p = P[k], out = !p.avail;
+    return '<div class="card ' + (out ? 'dim' : '') + '" data-b-open="' + k + '">' +
+      thumbHtml(k, true) +
+      '<div class="meta"><div class="nm">' + p.name + '</div>' +
+      '<div class="px">' + (p.type === 'per_unit'
+          ? '<span class="flat">' + peso(p.price) + '</span>'
+          : '<span class="rate">' + peso(p.rate) + '/kg</span>') +
+        (out ? ' <span class="soldout">Sold out</span>' : '') + '</div>' +
+      '<div class="est" style="margin-top:3px">' + (p.type === 'per_unit' ? (p.unit||'') : 'cut to order · ' + wt(p.step) + ' steps') + '</div></div></div>';
+  }).join('');
+
+  let sheet = '';
+  if (sheetB) {
+    const p = P[sheetB];
+    if (p.type === 'per_weight') {
+      const presets = [p.step, p.step*2, 1000, 1500, 2000].filter((v,i,a) => v >= p.step && v % p.step === 0 && a.indexOf(v) === i);
+      const sel = draftB[sheetB] || p.step;
+      sheet = '<div class="sheet"><div class="grab"></div>' +
+        '<div style="font-size:16px;font-weight:700">' + p.name + '</div>' +
+        '<div class="rate" style="margin-top:3px">' + peso(p.rate) + '/kg</div>' +
+        '<div class="est" style="margin-top:5px">' + (p.note || '') + ' · sold in ' + wt(p.step) + ' steps</div>' +
+        '<div class="chips">' + presets.map(g => '<button class="' + (sel === g ? 'on' : '') + '" data-b-chip="' + sheetB + '|' + g + '">' + wt(g) + '</button>').join('') +
+        '<button data-b-chip="' + sheetB + '|custom">Custom…</button></div>' +
+        (draftB[sheetB + ':custom']
+          ? '<div class="step-ctl" style="margin-top:11px"><button data-b-step="' + sheetB + '|-1">−</button><span class="val">~' + wt(sel) + '</span><button data-b-step="' + sheetB + '|1">+</button></div>'
+          : '') +
+        '<div style="margin-top:12px;font-size:12px;color:var(--paper-dim)">Estimated ~' + wt(sel) + ' · <b style="color:var(--paper)">~' + peso(Math.round(p.rate*sel/1000)) + '</b><br><span class="est">Weighed when packed. If it lands more than ' + wt(p.tol) + ' off, we call you first.</span></div>' +
+        '<button class="submit" data-b-close style="margin-top:12px">Add to cart</button></div>';
+    } else {
+      sheet = '<div class="sheet"><div class="grab"></div>' +
+        '<div style="font-size:16px;font-weight:700">' + p.name + '</div>' +
+        '<div class="flat" style="margin-top:3px">' + peso(p.price) + ' <span class="est">' + (p.unit||'') + '</span></div>' +
+        '<div class="step-ctl" style="margin-top:14px"><button>−</button><span class="val">1</span><button>+</button></div>' +
+        '<button class="submit" data-b-close style="margin-top:12px">Add to cart · ' + peso(p.price) + '</button></div>';
+    }
+  }
+
+  el.innerHTML =
+    '<div class="hdr"><div><h2>Catalog</h2><div class="sub">Pick a section</div></div></div>' +
+    '<div class="tabs">' + tabs + '</div>' +
+    '<div class="body"><div class="grid">' + cards + '</div><div style="height:80px"></div></div>' +
+    (sheetB ? '' : '<button class="fab" data-goto-cart>Cart · ~' + peso(goodsTotal()) + '</button>') + sheet;
+  wireCommon(el);
+
+  el.querySelectorAll('[data-b-tab]').forEach(b => b.onclick = () => { tabB = b.dataset.bTab; render(); });
+  el.querySelectorAll('[data-b-open]').forEach(b => b.onclick = () => { const k = b.dataset.bOpen; if (P[k].avail) { sheetB = k; render(); } });
+  el.querySelectorAll('[data-b-chip]').forEach(b => b.onclick = () => {
+    const [k, v] = b.dataset.bChip.split('|');
+    if (v === 'custom') draftB[k + ':custom'] = true;
+    else { draftB[k] = Number(v); draftB[k + ':custom'] = false; }
+    render();
+  });
+  el.querySelectorAll('[data-b-step]').forEach(b => b.onclick = () => {
+    const [k, d] = b.dataset.bStep.split('|'), p = P[k];
+    draftB[k] = Math.max(p.step, (draftB[k] || p.step) + Number(d) * p.step);
+    render();
+  });
+  el.querySelectorAll('[data-b-close]').forEach(b => b.onclick = () => { sheetB = null; render(); });
+}
+function cartB() {
+  let lines = '';
+  cart.forEach(l => {
+    const p = P[l.p], blocked = lineBlocked(l);
+    const presets = p.type === 'per_weight' ? [p.step, p.step*2, 1000, 1500, 2000].filter((v,i,a) => v >= p.step && v % p.step === 0 && a.indexOf(v) === i) : [];
+    lines += '<div class="cartline ' + (blocked ? 'dim' : '') + '">' +
+      '<div class="top"><div><div style="font-weight:700">' + p.name + (blocked ? ' <span class="soldout">Sold out</span>' : '') + '</div>' +
+      '<div class="est" style="margin-top:2px">' + (p.type === 'per_weight' ? peso(rateOf(l.p)) + '/kg' : peso(p.price) + ' each · ' + (p.unit||'')) + '</div></div>' +
+      '<div style="text-align:right;font-weight:800;white-space:nowrap">' + (p.type === 'per_weight' ? '~' : '') + peso(lineTotal(l)) + '</div></div>' +
+      (p.type === 'per_weight'
+        ? '<div class="chips">' + presets.map(g => '<button class="' + (l.grams === g ? 'on' : '') + '" data-bc-set="' + l.p + '|' + g + '">' + wt(g) + '</button>').join('') + '</div>'
+        : '<div class="step-ctl" style="margin-top:8px"><button data-c-qty="' + l.p + '|-1">−</button><span class="val">' + l.qty + '</span><button data-c-qty="' + l.p + '|1">+</button></div>') +
+      lineErrHtml(l) +
+      (blocked ? '<button class="btn" style="margin-top:8px" data-rm="' + l.p + '">Remove from cart</button>' : '') +
+    '</div>';
+  });
+  return '<div class="hdr"><div><h2>Checkout</h2><div class="sub">Cart, address, and total</div></div><span class="backlink" data-goto-browse>Back</span></div>' +
+    '<div class="body">' + bannersHtml() + lines + addrHtml() + '<div style="height:12px"></div></div>' + totalsHtml();
+}
+
+/* ============================================================
+   VARIANT C — no photos, counter price-list, snap slider
+   ============================================================ */
+function renderC() {
+  const el = document.querySelector('#variantC');
+  if (screen === 'cart') { el.innerHTML = cartC(); wireCommon(el); return; }
+
+  let secs = '';
+  CATS.forEach(c => {
+    const open = openC[c.id];
+    secs += '<div class="sec-head" data-c-tog="' + c.id + '"><span>' + c.name + '</span><span>' + (open ? '−' : '+') + '</span></div>';
+    if (!open) return;
+    secs += '<div class="lst">' + c.items.map(k => {
+      const p = P[k], out = !p.avail;
+      if (out) return '<div class="prow dim"><div class="top"><span class="nm">' + p.name + ' <span class="soldout">Sold out</span></span><span class="est">' + (p.type === 'per_unit' ? peso(p.price) : peso(p.rate) + '/kg') + '</span></div></div>';
+      if (p.type === 'per_unit') {
+        return '<div class="prow"><div class="top"><span class="nm">' + p.name + '</span><span class="flat">' + peso(p.price) + '</span></div>' +
+          '<div class="top" style="margin-top:6px"><span class="est">' + (p.unit||'') + '</span>' +
+          '<div class="step-ctl"><button>−</button><span class="val">0</span><button>+</button></div></div></div>';
+      }
+      const g = draftC[k] || 0;
+      const max = 3000;
+      return '<div class="prow"><div class="top"><span class="nm">' + p.name + '</span><span class="rate">' + peso(p.rate) + '/kg</span></div>' +
+        '<div class="slider-wrap">' +
+          '<input type="range" min="0" max="' + max + '" step="' + p.step + '" value="' + g + '" data-c-slide="' + k + '">' +
+          '<div class="readout">' + (g ? '~' + peso(Math.round(p.rate*g/1000)) : '—') + '<small>' + (g ? '~' + wt(g) : 'drag · ' + wt(p.step) + ' steps') + '</small></div>' +
+        '</div></div>';
+    }).join('') + '</div>';
+  });
+
+  el.innerHTML =
+    '<div class="hdr"><div><h2>Price list</h2><div class="sub">Today · San Juan</div></div>' +
+    '<div class="tot-hdr"><div class="n">~' + peso(goodsTotal()) + '</div><div class="est">' + cart.length + ' in cart</div></div></div>' +
+    '<div class="body">' + secs + '<div style="padding:14px"><button class="submit" data-goto-cart>Go to cart</button></div></div>';
+  wireCommon(el);
+
+  el.querySelectorAll('[data-c-tog]').forEach(b => b.onclick = () => { openC[b.dataset.cTog] = !openC[b.dataset.cTog]; render(); });
+  el.querySelectorAll('[data-c-slide]').forEach(s => s.oninput = () => { draftC[s.dataset.cSlide] = Number(s.value); render(); });
+}
+function cartC() {
+  let lines = '';
+  cart.forEach(l => {
+    const p = P[l.p], blocked = lineBlocked(l);
+    lines += '<div class="lline ' + (blocked ? 'dim' : '') + '">' +
+      '<div class="top"><span style="font-weight:700">' + p.name + (blocked ? ' <span class="soldout">Sold out</span>' : '') + '</span>' +
+      '<span style="font-weight:800;white-space:nowrap">' + (p.type === 'per_weight' ? '~' : '') + peso(lineTotal(l)) + '</span></div>' +
+      (p.type === 'per_weight'
+        ? '<div class="slider-wrap"><input type="range" min="' + p.step + '" max="3000" step="' + p.step + '" value="' + l.grams + '" data-cc-slide="' + l.p + '">' +
+          '<div class="readout">~' + wt(l.grams) + '<small>' + peso(rateOf(l.p)) + '/kg</small></div></div>'
+        : '<div class="top" style="margin-top:6px"><span class="est">' + peso(p.price) + ' × ' + l.qty + '</span>' +
+          '<div class="step-ctl"><button data-c-qty="' + l.p + '|-1">−</button><span class="val">' + l.qty + '</span><button data-c-qty="' + l.p + '|1">+</button></div></div>') +
+      lineErrHtml(l) +
+      (blocked ? '<button class="btn" style="margin-top:8px" data-rm="' + l.p + '">Remove</button>' : '') +
+    '</div>';
+  });
+  return '<div class="hdr"><div><h2>Cart</h2><div class="sub">Review and send</div></div><span class="backlink" data-goto-browse>Price list</span></div>' +
+    '<div class="body">' + bannersHtml() + '<div class="ledger">' + lines + '</div>' + addrHtml() + '<div style="height:12px"></div></div>' + totalsHtml();
+}
+
+/* ---------- wiring shared across variants ---------- */
+function wireCommon(el) {
+  el.querySelectorAll('[data-goto-cart]').forEach(b => b.onclick = () => { screen = 'cart'; paintCtl(); render(); });
+  el.querySelectorAll('[data-goto-browse]').forEach(b => b.onclick = () => { screen = 'browse'; paintCtl(); render(); });
+  el.querySelectorAll('[data-rm]').forEach(b => b.onclick = () => removeLine(b.dataset.rm));
+  el.querySelectorAll('[data-bnr]').forEach(b => b.onclick = () => {
+    openBanner[b.dataset.bnr] = !openBanner[b.dataset.bnr]; render();
+  });
+  el.querySelectorAll('[data-c-step]').forEach(b => b.onclick = () => {
+    const [k, d] = b.dataset.cStep.split('|'), p = P[k], l = cart.find(x => x.p === k);
+    l.grams = Math.max(p.step, l.grams + Number(d) * p.step); acked = false; render();
+  });
+  el.querySelectorAll('[data-c-qty]').forEach(b => b.onclick = () => {
+    const [k, d] = b.dataset.cQty.split('|'), l = cart.find(x => x.p === k);
+    l.qty = Math.max(1, l.qty + Number(d)); acked = false; render();
+  });
+  el.querySelectorAll('[data-bc-set]').forEach(b => b.onclick = () => {
+    const [k, g] = b.dataset.bcSet.split('|');
+    cart.find(x => x.p === k).grams = Number(g); acked = false; render();
+  });
+  el.querySelectorAll('[data-cc-slide]').forEach(s => s.oninput = () => {
+    cart.find(x => x.p === s.dataset.ccSlide).grams = Number(s.value); acked = false; render();
+  });
+  const sb = el.querySelector('#submitBtn');
+  if (sb) sb.onclick = tapSubmit;
+}
+
+function render() { renderA(); renderB(); renderC(); }
+
+/* ---------- outer controls ---------- */
+function paintCtl() {
+  document.querySelectorAll('[data-screen]').forEach(b => b.classList.toggle('on', b.dataset.screen === screen));
+  document.querySelectorAll('[data-state]').forEach(b => b.classList.toggle('on', b.dataset.state === cartState));
+  document.querySelector('#stateRow').style.opacity = screen === 'cart' ? '1' : '0.35';
+}
+document.querySelectorAll('[data-screen]').forEach(b => b.onclick = () => { screen = b.dataset.screen; paintCtl(); render(); });
+document.querySelectorAll('[data-state]').forEach(b => b.onclick = () => {
+  cartState = b.dataset.state; acked = false; openBanner = {}; screen = 'cart'; paintCtl(); render();
+});
+
+/* ---------- variant switcher ---------- */
+const order = ['A', 'B', 'C'];
+const names = {
+  A: 'Scrolling list, inline stepper',
+  B: 'Category tabs, sheet + preset chips',
+  C: 'Counter price-list, snap slider',
+};
+let variant = 'A';
+function paint() {
+  order.forEach(v => document.querySelector('#variant' + v).classList.toggle('hidden', v !== variant));
+  document.querySelector('#variantLabel').innerHTML = variant + ' — ' + names[variant] + '<small>' + (order.indexOf(variant)+1) + ' / ' + order.length + '</small>';
+}
+function cycle(dir) { variant = order[(order.indexOf(variant) + dir + order.length) % order.length]; paint(); }
+document.getElementById('prevBtn').onclick = () => cycle(-1);
+document.getElementById('nextBtn').onclick = () => cycle(1);
+document.addEventListener('keydown', e => {
+  const tag = document.activeElement.tagName;
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || document.activeElement.isContentEditable) return;
+  if (e.key === 'ArrowLeft') cycle(-1);
+  if (e.key === 'ArrowRight') cycle(1);
+});
+paintCtl(); render(); paint();
+</script>

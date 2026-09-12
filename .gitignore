@@ -1,0 +1,5 @@
+# macOS
+.DS_Store
+
+# Claude Code local overrides (per-machine permission grants, not shared config)
+.claude/settings.local.json

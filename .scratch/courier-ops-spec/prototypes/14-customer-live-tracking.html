@@ -1,0 +1,714 @@
+<title>Customer live-tracking screen — prototype</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<style>
+  :root {
+    --ink: #14181f;
+    --ink-soft: #1d232c;
+    --paper: #ece7db;
+    --paper-dim: #cfc9ba;
+    --rust: #c1502f;
+    --amber: #e2a53a;
+    --moss: #587a5b;
+    --slate: #6b7280;
+    --line: rgba(236, 231, 219, 0.14);
+    color-scheme: dark;
+  }
+  :root[data-theme="light"] {
+    --ink: #f4f1e8;
+    --ink-soft: #ffffff;
+    --paper: #1c2029;
+    --paper-dim: #3a4150;
+    --line: rgba(20, 24, 31, 0.12);
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    min-height: 100vh;
+    background: var(--ink);
+    color: var(--paper);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  }
+  body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+    padding: 32px 16px 120px;
+  }
+  .intro {
+    max-width: 640px;
+    text-align: center;
+  }
+  .eyebrow {
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--rust);
+    font-weight: 700;
+  }
+  h1 {
+    font-size: 22px;
+    margin: 6px 0 8px;
+    text-wrap: balance;
+  }
+  .intro p {
+    margin: 0;
+    color: var(--paper-dim);
+    font-size: 13.5px;
+    line-height: 1.5;
+  }
+
+  /* --- state selector --- */
+  .state-row {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    justify-content: center;
+    max-width: 640px;
+  }
+  .state-btn {
+    font: inherit;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 7px 12px;
+    border-radius: 999px;
+    border: 1px solid var(--line);
+    background: var(--ink-soft);
+    color: var(--paper-dim);
+    cursor: pointer;
+  }
+  .state-btn.active {
+    background: var(--rust);
+    border-color: var(--rust);
+    color: #fff2ea;
+  }
+
+  /* --- phone frame --- */
+  .stage { display: flex; justify-content: center; }
+  .phone {
+    width: 375px;
+    height: 812px;
+    max-width: 92vw;
+    border-radius: 40px;
+    border: 8px solid var(--ink-soft);
+    background: #0b1420;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 30px 60px -20px rgba(0, 0, 0, 0.6);
+  }
+  .notch {
+    position: absolute;
+    top: 8px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 120px;
+    height: 22px;
+    background: var(--ink-soft);
+    border-radius: 0 0 14px 14px;
+    z-index: 50;
+  }
+  .screen {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* --- fake map --- */
+  .map {
+    position: relative;
+    flex: 1;
+    overflow: hidden;
+    background:
+      radial-gradient(circle at 30% 20%, rgba(226,165,58,0.06), transparent 45%),
+      repeating-linear-gradient(0deg, rgba(255,255,255,0.035) 0 1px, transparent 1px 46px),
+      repeating-linear-gradient(90deg, rgba(255,255,255,0.035) 0 1px, transparent 1px 46px),
+      linear-gradient(160deg, #12202f, #0b1420 70%);
+  }
+  .map::before {
+    /* fake "river"/artery road */
+    content: "";
+    position: absolute;
+    top: -10%;
+    left: 62%;
+    width: 34%;
+    height: 130%;
+    background: rgba(58, 90, 122, 0.35);
+    transform: rotate(12deg);
+    border-radius: 40%;
+  }
+  .route-line {
+    position: absolute;
+    border-top: 3px dashed rgba(226,165,58,0.55);
+    border-radius: 2px;
+    pointer-events: none;
+  }
+  .pin {
+    position: absolute;
+    transform: translate(-50%, -100%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--paper);
+  }
+  .pin .dot {
+    width: 14px;
+    height: 14px;
+    border-radius: 50% 50% 50% 0;
+    transform: rotate(-45deg);
+    margin-bottom: 4px;
+    border: 2px solid var(--ink);
+  }
+  .pin.pickup .dot { background: var(--slate); }
+  .pin.dropoff .dot { background: var(--moss); }
+
+  .me-dot {
+    position: absolute;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: #4d8dff;
+    border: 3px solid rgba(77,141,255,0.35);
+    box-shadow: 0 0 0 6px rgba(77,141,255,0.15);
+  }
+
+  .driver-marker {
+    position: absolute;
+    width: 30px;
+    height: 30px;
+    display: grid;
+    place-items: center;
+    transition: left 0.6s linear, top 0.6s linear, opacity 0.4s;
+  }
+  .driver-marker .puck {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: var(--amber);
+    border: 3px solid var(--ink);
+    box-shadow: 0 0 0 0 rgba(226,165,58,0.5);
+  }
+  .driver-marker.live .puck { animation: pulse 1.8s infinite; }
+  @media (prefers-reduced-motion: reduce) {
+    .driver-marker.live .puck { animation: none; }
+  }
+  @keyframes pulse {
+    0% { box-shadow: 0 0 0 0 rgba(226,165,58,0.45); }
+    70% { box-shadow: 0 0 0 14px rgba(226,165,58,0); }
+    100% { box-shadow: 0 0 0 0 rgba(226,165,58,0); }
+  }
+  .driver-marker.stale .puck { background: #b89a63; opacity: 0.7; }
+  .driver-marker.lost .puck {
+    background: transparent;
+    border: 2px dashed rgba(236,231,219,0.5);
+  }
+  .driver-marker .badge {
+    position: absolute;
+    bottom: -18px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 9px;
+    font-weight: 700;
+    white-space: nowrap;
+    color: var(--paper-dim);
+    background: rgba(11,20,32,0.85);
+    padding: 2px 6px;
+    border-radius: 6px;
+  }
+
+  /* --- top status bar --- */
+  .topbar {
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    z-index: 20;
+    padding: 40px 16px 10px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: linear-gradient(to bottom, rgba(11,20,32,0.85), transparent);
+  }
+  .topbar .back {
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    background: rgba(20,24,31,0.6);
+    color: var(--paper);
+    display: grid; place-items: center;
+    font-size: 16px;
+  }
+  .live-chip {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 11px; font-weight: 700; letter-spacing: 0.04em;
+    padding: 5px 10px;
+    border-radius: 999px;
+    background: rgba(20,24,31,0.65);
+  }
+  .live-chip .led { width: 7px; height: 7px; border-radius: 50%; background: var(--moss); }
+  .live-chip.stale .led { background: var(--amber); }
+  .live-chip.lost .led { background: var(--rust); }
+
+  /* --- recenter --- */
+  .recenter {
+    position: absolute;
+    right: 14px;
+    bottom: 14px;
+    z-index: 25;
+    display: none;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    font-weight: 700;
+    padding: 8px 12px;
+    border-radius: 999px;
+    background: var(--ink-soft);
+    color: var(--paper);
+    border: 1px solid var(--line);
+    box-shadow: 0 8px 18px rgba(0,0,0,0.35);
+  }
+  .recenter.show { display: flex; }
+  .pan-toggle {
+    position: absolute;
+    left: 14px;
+    bottom: 14px;
+    z-index: 25;
+    font-size: 11px;
+    padding: 6px 10px;
+    border-radius: 8px;
+    background: rgba(20,24,31,0.6);
+    color: var(--paper-dim);
+    border: 1px dashed var(--line);
+  }
+
+  /* --- stepper --- */
+  .stepper {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .step {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .step .node {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--paper-dim);
+    opacity: 0.4;
+  }
+  .step.done .node { background: var(--moss); opacity: 1; }
+  .step.current .node { background: var(--amber); opacity: 1; box-shadow: 0 0 0 4px rgba(226,165,58,0.2); }
+  .step .bar { width: 18px; height: 2px; background: var(--line); }
+  .step.done .bar { background: var(--moss); }
+  .step-label { font-size: 9.5px; color: var(--paper-dim); text-transform: uppercase; letter-spacing: 0.04em; }
+
+  /* --- shared card bits --- */
+  .status-label { font-size: 17px; font-weight: 700; }
+  .status-sub { font-size: 12.5px; color: var(--paper-dim); }
+  .driver-row {
+    display: flex; align-items: center; gap: 10px;
+    padding-top: 10px;
+    border-top: 1px solid var(--line);
+    margin-top: 10px;
+  }
+  .avatar {
+    width: 36px; height: 36px; border-radius: 50%;
+    background: linear-gradient(135deg, var(--rust), #8a3620);
+    display: grid; place-items: center;
+    font-weight: 700; font-size: 13px;
+  }
+  .driver-name { font-size: 13px; font-weight: 700; }
+  .driver-meta { font-size: 11px; color: var(--paper-dim); }
+  .call-btn {
+    margin-left: auto;
+    width: 34px; height: 34px; border-radius: 50%;
+    background: var(--moss);
+    display: grid; place-items: center;
+    font-size: 15px;
+  }
+  .banner {
+    display: none;
+    font-size: 11.5px;
+    padding: 8px 10px;
+    border-radius: 10px;
+    background: rgba(193,80,47,0.16);
+    color: #f3b79a;
+    border: 1px solid rgba(193,80,47,0.35);
+    margin-top: 8px;
+  }
+  .banner.show { display: block; }
+
+  /* === VARIANT A — full-bleed + floating sheet === */
+  #variantA .sheet {
+    position: absolute;
+    left: 12px; right: 12px; bottom: 20px;
+    z-index: 20;
+    background: var(--ink-soft);
+    border: 1px solid var(--line);
+    border-radius: 20px;
+    padding: 14px 16px 16px;
+    box-shadow: 0 20px 40px rgba(0,0,0,0.4);
+  }
+  #variantA .grabber {
+    width: 36px; height: 4px; border-radius: 4px;
+    background: var(--line);
+    margin: 0 auto 10px;
+  }
+  #variantA .prep-body {
+    position: absolute; inset: 0; z-index: 30;
+    display: none;
+    flex-direction: column; align-items: center; justify-content: center;
+    gap: 10px; text-align: center; padding: 40px;
+    background: var(--ink-soft);
+  }
+  #variantA .prep-body.show { display: flex; }
+
+  /* === VARIANT B — split panel === */
+  #variantB .map { flex: 0 0 54%; border-radius: 0 0 22px 22px; }
+  #variantB .panel {
+    flex: 1;
+    padding: 16px 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    overflow: hidden;
+  }
+  #variantB .stepper-full { justify-content: space-between; padding: 2px 2px 6px; }
+  #variantB .distance-hero { font-size: 30px; font-weight: 800; font-variant-numeric: tabular-nums; line-height: 1.1; }
+  #variantB .distance-hero .unit { font-size: 15px; font-weight: 600; color: var(--paper-dim); margin-left: 4px; }
+  #variantB .distance-caption { font-size: 10.5px; color: var(--paper-dim); margin-top: 2px; }
+  #variantB .unassigned-card {
+    flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 10px; text-align: center; padding: 40px;
+  }
+  .driver-marker.lost .puck { background: var(--amber); opacity: 0.35; border-style: dashed; }
+  .call-btn[href] { text-decoration: none; }
+
+  /* === VARIANT C — minimal chrome === */
+  #variantC .pill {
+    position: absolute;
+    top: 76px; left: 16px; right: 16px;
+    z-index: 20;
+    background: rgba(20,24,31,0.72);
+    backdrop-filter: blur(6px);
+    border-radius: 14px;
+    padding: 10px 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border: 1px solid var(--line);
+  }
+  #variantC .bottombar {
+    position: relative;
+    z-index: 20;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px 20px;
+    background: var(--ink-soft);
+    border-top: 1px solid var(--line);
+  }
+  #variantC .bottombar .status-label { font-size: 13px; }
+  #variantC .bottombar .status-sub { font-size: 10.5px; }
+
+  /* --- variant switch bar (per prototype convention) --- */
+  .switcher {
+    position: fixed;
+    left: 50%;
+    bottom: 20px;
+    transform: translateX(-50%);
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 10px;
+    border-radius: 999px;
+    background: var(--ink-soft);
+    border: 1px solid var(--line);
+    box-shadow: 0 12px 30px rgba(0,0,0,0.45);
+    font-size: 13px;
+  }
+  .switcher button {
+    width: 30px; height: 30px;
+    border-radius: 50%;
+    border: none;
+    background: rgba(226,165,58,0.14);
+    color: var(--amber);
+    font-weight: 700;
+    cursor: pointer;
+    font-size: 15px;
+  }
+  .switcher .label { min-width: 190px; text-align: center; font-weight: 600; }
+  .switcher .label small { display: block; color: var(--paper-dim); font-weight: 400; font-size: 10.5px; margin-top: 1px; }
+
+  .hidden { display: none !important; }
+</style>
+
+<div class="intro">
+  <div class="eyebrow">Ticket 14 — throwaway prototype, not production code</div>
+  <h1>Customer live-tracking screen</h1>
+  <p><strong>Decided: Variant B, split map panel + status panel.</strong> A and C remain here as the rejected alternatives for reference — cycle with ← / →. Switch delivery state with the row below to see the decided layout hold up before assignment, mid-route, stale, lost signal, and after delivery. No ETA is ever shown, by design; distance is always straight-line and labeled as such.</p>
+</div>
+
+<div class="state-row" id="stateRow"></div>
+
+<div class="stage">
+  <div class="phone">
+    <div class="notch"></div>
+    <div id="variantA" class="screen"></div>
+    <div id="variantB" class="screen hidden"></div>
+    <div id="variantC" class="screen hidden"></div>
+  </div>
+</div>
+
+<div class="switcher">
+  <button id="prevBtn" aria-label="Previous variant">←</button>
+  <div class="label" id="variantLabel"></div>
+  <button id="nextBtn" aria-label="Next variant">→</button>
+</div>
+
+<script>
+const STATES = {
+  before_assignment: {
+    name: "Before assignment", chip: "Preparing", chipClass: "",
+    statusLabel: "We're getting your order ready",
+    statusSub: "Order #4821 · A driver will be assigned shortly",
+    step: 0, driver: null, distance: null, banner: null,
+  },
+  assigned: {
+    name: "Assigned", chip: "Live", chipClass: "",
+    statusLabel: "Miguel is heading to pick up your order",
+    statusSub: "From Coastal Meat Co.",
+    step: 1, driver: "toward_pickup", distance: "0.4 mi to pickup",
+    heroValue: "0.4", heroUnit: "mi to pickup", heroCaption: "Straight-line distance, updates live", banner: null,
+  },
+  picked_up_live: {
+    name: "Live · en route", chip: "Live", chipClass: "",
+    statusLabel: "Miguel is on the way to you",
+    statusSub: "Updated 8s ago",
+    step: 2, driver: "toward_customer_live", distance: "0.6 mi away",
+    heroValue: "0.6", heroUnit: "mi away", heroCaption: "Straight-line distance, updates live", banner: null,
+  },
+  picked_up_stale: {
+    name: "Stale (90s–3min)", chip: "Stale", chipClass: "stale",
+    statusLabel: "Miguel is on the way to you",
+    statusSub: "Last seen 1m 42s ago — signal is weak",
+    step: 2, driver: "toward_customer_stale", distance: "~0.6 mi away (last known)",
+    heroValue: "0.6", heroUnit: "mi away", heroCaption: "Frozen — last updated 1m 42s ago", banner: null,
+  },
+  picked_up_lost: {
+    name: "Lost signal (>3min)", chip: "Lost", chipClass: "lost",
+    statusLabel: "Miguel is on the way to you",
+    statusSub: "We've lost his signal — your order is still out for delivery",
+    step: 2, driver: "toward_customer_lost", distance: null,
+    heroValue: null, heroUnit: null, heroCaption: null,
+    banner: "No updates for 4 minutes. This sometimes happens in areas with poor signal — we'll keep trying.",
+  },
+  delivered: {
+    name: "Delivered", chip: "Delivered", chipClass: "delivered",
+    statusLabel: "Delivered at 3:42 PM",
+    statusSub: "Left at the front door · Order #4821",
+    step: 3, driver: null, distance: null, banner: null,
+  },
+};
+const STATE_KEYS = Object.keys(STATES);
+
+const POS = {
+  pickup: { left: "26%", top: "30%" },
+  dropoff: { left: "70%", top: "68%" },
+  me: { left: "70%", top: "68%" },
+  toward_pickup: { left: "48%", top: "22%" },
+  toward_customer_live: { left: "50%", top: "48%" },
+  toward_customer_stale: { left: "56%", top: "55%" },
+  toward_customer_lost: { left: "56%", top: "55%" },
+};
+
+let stateKey = "picked_up_live";
+let variant = "B";
+let panned = false;
+
+function mapMarkup(driverKind) {
+  const driver = driverKind ? `
+    <div class="driver-marker ${driverKind.includes('live') ? 'live' : driverKind.includes('stale') ? 'stale' : driverKind.includes('lost') ? 'lost' : 'live'}"
+         style="left:${POS[driverKind].left}; top:${POS[driverKind].top};">
+      <div class="puck"></div>
+      ${driverKind.includes('stale') ? '<div class="badge">1m 42s ago</div>' : ''}
+      ${driverKind.includes('lost') ? '<div class="badge">Last seen 4m ago</div>' : ''}
+    </div>` : '';
+  return `
+    <div class="map" id="mapEl">
+      <div class="pin pickup" style="left:${POS.pickup.left}; top:${POS.pickup.top};"><span>Pickup</span><div class="dot"></div></div>
+      <div class="pin dropoff" style="left:${POS.dropoff.left}; top:${POS.dropoff.top};"><span>You</span><div class="dot"></div></div>
+      <div class="me-dot" style="left:${POS.me.left}; top:${POS.me.top}; transform: translate(-50%,-50%);"></div>
+      ${driver}
+      <button class="pan-toggle" id="panToggle">Simulate pan</button>
+      <button class="recenter" id="recenterBtn">⦿ Re-center</button>
+    </div>`;
+}
+
+function stepperMarkup(step, full) {
+  const labels = ["Preparing", "Assigned", "Picked up", "Delivered"];
+  return `<div class="stepper ${full ? 'stepper-full' : ''}">
+    ${labels.map((l, i) => `
+      <div class="step ${i < step ? 'done' : ''} ${i === step ? 'current' : ''}">
+        <div class="node"></div>
+        ${full ? `<span class="step-label">${l}</span>` : ''}
+      </div>
+      ${i < labels.length - 1 && !full ? '<div class="bar"></div>' : ''}
+    `).join('')}
+  </div>`;
+}
+
+function driverCard(s) {
+  if (!s.driver) return '';
+  return `
+    <div class="driver-row">
+      <div class="avatar">M</div>
+      <div>
+        <div class="driver-name">Miguel R.</div>
+        <div class="driver-meta">${s.distance ?? 'Distance unavailable'}</div>
+      </div>
+      <a class="call-btn" href="tel:+15551234567" aria-label="Call Miguel">✆</a>
+    </div>`;
+}
+
+function distanceHero(s) {
+  if (!s.heroValue) return '';
+  return `
+    <div class="distance-hero">${s.heroValue}<span class="unit">${s.heroUnit}</span></div>
+    <div class="distance-caption">${s.heroCaption}</div>`;
+}
+
+function renderA(s) {
+  if (s.step === 0) {
+    document.querySelector('#variantA').innerHTML = `
+      ${mapMarkup(null)}
+      <div class="prep-body show">
+        <div style="font-size:34px;">🧾</div>
+        <div class="status-label">${s.statusLabel}</div>
+        <div class="status-sub">${s.statusSub}</div>
+        ${stepperMarkup(s.step, true)}
+      </div>`;
+    return;
+  }
+  document.querySelector('#variantA').innerHTML = `
+    <div class="topbar">
+      <div class="back">‹</div>
+      <div class="live-chip ${s.chipClass}"><span class="led"></span>${s.chip}</div>
+    </div>
+    ${mapMarkup(s.driver)}
+    <div class="sheet">
+      <div class="grabber"></div>
+      ${stepperMarkup(s.step)}
+      <div style="height:10px;"></div>
+      <div class="status-label">${s.statusLabel}</div>
+      <div class="status-sub">${s.statusSub}</div>
+      <div class="banner ${s.banner ? 'show' : ''}">${s.banner ?? ''}</div>
+      ${driverCard(s)}
+    </div>`;
+  wirePan();
+}
+
+function renderB(s) {
+  if (s.step === 0) {
+    document.querySelector('#variantB').innerHTML = `
+      <div class="topbar" style="background:none; position:relative; padding:16px 16px 0;">
+        <div class="back">‹</div>
+        <div></div>
+      </div>
+      <div class="unassigned-card">
+        <div style="font-size:34px;">🧾</div>
+        <div class="status-label">${s.statusLabel}</div>
+        <div class="status-sub">${s.statusSub}</div>
+        ${stepperMarkup(s.step, true)}
+      </div>`;
+    return;
+  }
+  document.querySelector('#variantB').innerHTML = `
+    <div class="topbar">
+      <div class="back">‹</div>
+      <div class="live-chip ${s.chipClass}"><span class="led"></span>${s.chip}</div>
+    </div>
+    ${mapMarkup(s.driver)}
+    <div class="panel">
+      ${stepperMarkup(s.step, true)}
+      <div>
+        <div class="status-label">${s.statusLabel}</div>
+        <div class="status-sub">${s.statusSub}</div>
+      </div>
+      ${distanceHero(s)}
+      <div class="banner ${s.banner ? 'show' : ''}">${s.banner ?? ''}</div>
+      ${driverCard(s)}
+    </div>`;
+  wirePan();
+}
+
+function renderC(s) {
+  document.querySelector('#variantC').innerHTML = `
+    <div class="topbar">
+      <div class="back">‹</div>
+      <div></div>
+    </div>
+    ${mapMarkup(s.driver)}
+    <div class="pill">
+      ${stepperMarkup(s.step)}
+      <div class="live-chip ${s.chipClass}" style="background:transparent;"><span class="led"></span>${s.chip}</div>
+    </div>
+    <div class="bottombar">
+      ${s.driver ? `<div class="avatar" style="width:30px;height:30px;font-size:11px;">M</div>` : `<div style="font-size:20px;">🧾</div>`}
+      <div>
+        <div class="status-label">${s.statusLabel}</div>
+        <div class="status-sub">${s.banner ?? s.statusSub}</div>
+      </div>
+      ${s.driver ? `<div class="call-btn">✆</div>` : ''}
+    </div>`;
+  wirePan();
+}
+
+function wirePan() {
+  const toggle = document.querySelector(`#variant${variant} #panToggle`);
+  const recenter = document.querySelector(`#variant${variant} #recenterBtn`);
+  if (!toggle) return;
+  toggle.onclick = () => {
+    panned = !panned;
+    recenter.classList.toggle('show', panned);
+    toggle.textContent = panned ? "Panning (camera yielded)" : "Simulate pan";
+  };
+}
+
+function renderAll() {
+  const s = STATES[stateKey];
+  renderA(s);
+  renderB(s);
+  renderC(s);
+  document.querySelectorAll('.screen').forEach(el => el.classList.add('hidden'));
+  document.querySelector(`#variant${variant}`).classList.remove('hidden');
+
+  const names = { A: "Full-bleed + floating sheet", B: "Split map panel + status panel", C: "Full-bleed + minimal top/bottom chrome" };
+  document.querySelector('#variantLabel').innerHTML = `${variant} — ${names[variant]}<small>${STATES[stateKey].name}</small>`;
+
+  document.querySelectorAll('.state-btn').forEach(b => b.classList.toggle('active', b.dataset.key === stateKey));
+}
+
+document.querySelector('#stateRow').innerHTML = STATE_KEYS.map(k =>
+  `<button class="state-btn" data-key="${k}">${STATES[k].name}</button>`
+).join('');
+document.querySelectorAll('.state-btn').forEach(b => b.onclick = () => { stateKey = b.dataset.key; panned = false; renderAll(); });
+
+const order = ["A", "B", "C"];
+function cycle(dir) {
+  const i = order.indexOf(variant);
+  variant = order[(i + dir + order.length) % order.length];
+  panned = false;
+  renderAll();
+}
+document.querySelector('#prevBtn').onclick = () => cycle(-1);
+document.querySelector('#nextBtn').onclick = () => cycle(1);
+document.addEventListener('keydown', (e) => {
+  if (['INPUT','TEXTAREA'].includes(document.activeElement.tagName)) return;
+  if (e.key === 'ArrowLeft') cycle(-1);
+  if (e.key === 'ArrowRight') cycle(1);
+});
+
+renderAll();
+</script>

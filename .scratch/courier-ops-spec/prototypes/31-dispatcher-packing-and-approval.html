@@ -1,0 +1,944 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Dispatcher packing &amp; price-approval — prototype</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<!--
+  PROTOTYPE — wayfinder ticket 31. Throwaway. No backend, no persistence.
+  Three structurally different takes on the dispatcher packing surface,
+  switchable with the floating bar / arrow keys.
+-->
+<style>
+  :root {
+    --ink: #0b1420;
+    --panel: #12202f;
+    --panel-2: #16283a;
+    --panel-3: #1c3347;
+    --line: rgba(236, 231, 219, 0.10);
+    --paper: #ece7db;
+    --paper-dim: #97a1ad;
+    --rust: #c1502f;
+    --amber: #e2a53a;
+    --moss: #587a5b;
+    --moss-lit: #7ba37f;
+    --slate: #6b7280;
+    --danger: #d1495b;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; height: 100%;
+    background: var(--ink); color: var(--paper);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    overflow: hidden;
+  }
+  body { display: flex; flex-direction: column; }
+
+  .intro { padding: 14px 20px 10px; border-bottom: 1px solid var(--line); flex: 0 0 auto; }
+  .eyebrow { font-size: 10.5px; letter-spacing: .14em; text-transform: uppercase; color: var(--rust); font-weight: 700; }
+  .intro h1 { font-size: 16px; margin: 4px 0 4px; }
+  .intro p { margin: 0; color: var(--paper-dim); font-size: 12.5px; line-height: 1.5; max-width: 1000px; }
+
+  .stage { position: relative; flex: 1; min-height: 0; }
+  .screen { position: absolute; inset: 0; display: flex; }
+  .hidden { display: none !important; }
+
+  /* ---------- shared atoms ---------- */
+  .badge {
+    display: inline-block; padding: 2px 7px; border-radius: 999px;
+    font-size: 10px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase;
+  }
+  .badge.ok      { background: rgba(88,122,91,.22);  color: var(--moss-lit); }
+  .badge.excess  { background: rgba(193,80,47,.20);  color: #e8825f; }
+  .badge.short   { background: rgba(226,165,58,.18); color: var(--amber); }
+  .badge.hold    { background: rgba(209,73,91,.18);  color: #ea7f8e; }
+  .badge.wait    { background: rgba(255,255,255,.07); color: var(--paper-dim); }
+  .badge.age-ok  { background: rgba(255,255,255,.06); color: var(--paper-dim); }
+  .badge.age-mid { background: rgba(226,165,58,.16); color: var(--amber); }
+  .badge.age-bad { background: rgba(209,73,91,.18);  color: #ea7f8e; }
+
+  .money { font-variant-numeric: tabular-nums; }
+  .dim { color: var(--paper-dim); }
+  .delta-up   { color: #e8825f; font-variant-numeric: tabular-nums; }
+  .delta-down { color: var(--amber); font-variant-numeric: tabular-nums; }
+  .delta-flat { color: var(--paper-dim); font-variant-numeric: tabular-nums; }
+
+  input.g {
+    width: 86px; background: var(--ink); border: 1px solid var(--line);
+    color: var(--paper); border-radius: 6px; padding: 6px 8px;
+    font-size: 13px; font-variant-numeric: tabular-nums; text-align: right;
+    font-family: inherit;
+  }
+  input.g:focus { outline: none; border-color: var(--amber); }
+  input.g.breached { border-color: var(--rust); background: rgba(193,80,47,.08); }
+  input.g.big { width: 150px; font-size: 26px; padding: 10px 12px; }
+
+  button.primary {
+    background: var(--moss); color: var(--paper); border: none; border-radius: 7px;
+    padding: 9px 16px; font-size: 12.5px; font-weight: 700; font-family: inherit; cursor: pointer;
+  }
+  button.primary[disabled] { background: var(--slate); opacity: .5; cursor: not-allowed; }
+  button.ghost {
+    background: rgba(255,255,255,.06); color: var(--paper); border: 1px solid var(--line);
+    border-radius: 7px; padding: 8px 14px; font-size: 12.5px; font-family: inherit; cursor: pointer;
+  }
+  button.danger {
+    background: rgba(209,73,91,.16); color: #ea7f8e; border: 1px solid rgba(209,73,91,.4);
+    border-radius: 7px; padding: 8px 14px; font-size: 12.5px; font-family: inherit; cursor: pointer;
+  }
+  textarea.note {
+    width: 100%; background: var(--ink); border: 1px solid var(--line); color: var(--paper);
+    border-radius: 6px; padding: 8px; font-size: 12px; font-family: inherit; resize: vertical; min-height: 46px;
+  }
+  .blocked-reason { font-size: 11px; color: var(--amber); margin-top: 6px; line-height: 1.45; }
+  .fake-map {
+    background:
+      radial-gradient(circle at 30% 30%, rgba(88,122,91,.10), transparent 45%),
+      repeating-linear-gradient(0deg, rgba(255,255,255,.028) 0 1px, transparent 1px 46px),
+      repeating-linear-gradient(90deg, rgba(255,255,255,.028) 0 1px, transparent 1px 46px),
+      #0e1a26;
+    position: relative;
+  }
+  .map-note {
+    position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%);
+    color: rgba(236,231,219,.20); font-size: 12px; letter-spacing: .18em; text-transform: uppercase;
+  }
+
+  /* ================= Variant A: packing panel inside ticket 15's drawer ================= */
+  #variantA .fake-map { flex: 1; }
+  #variantA .drawer {
+    position: absolute; top: 14px; right: 14px; bottom: 14px; width: 430px;
+    background: rgba(18,32,47,.96); border: 1px solid var(--line); border-radius: 12px;
+    box-shadow: 0 18px 50px rgba(0,0,0,.55); display: flex; flex-direction: column; overflow: hidden;
+  }
+  #variantA .tabs { display: flex; border-bottom: 1px solid var(--line); flex: 0 0 auto; }
+  #variantA .tabs button {
+    flex: 1; background: none; border: none; color: var(--paper-dim); font-family: inherit;
+    font-size: 12px; font-weight: 700; padding: 11px 0; cursor: pointer; letter-spacing: .04em;
+    text-transform: uppercase; border-bottom: 2px solid transparent;
+  }
+  #variantA .tabs button.on { color: var(--paper); border-bottom-color: var(--amber); }
+  #variantA .tabs .count { color: var(--rust); }
+  #variantA .body { overflow-y: auto; flex: 1; }
+  #variantA .order-row { padding: 11px 13px; border-bottom: 1px solid var(--line); cursor: pointer; }
+  #variantA .order-row:hover { background: rgba(255,255,255,.03); }
+  #variantA .order-row.open { background: rgba(226,165,58,.07); border-left: 2px solid var(--amber); }
+  #variantA .order-row .top { display: flex; justify-content: space-between; align-items: center; font-size: 12.5px; font-weight: 600; }
+  #variantA .order-row .sub { font-size: 10.5px; color: var(--paper-dim); margin-top: 3px; display: flex; gap: 7px; align-items: center; }
+  #variantA .pack-panel { padding: 4px 13px 13px; border-bottom: 1px solid var(--line); background: rgba(0,0,0,.18); }
+  #variantA .pline { display: flex; align-items: center; gap: 9px; padding: 8px 0; border-bottom: 1px dashed rgba(236,231,219,.07); }
+  #variantA .pline .name { flex: 1; font-size: 12px; }
+  #variantA .pline .name small { display: block; color: var(--paper-dim); font-size: 10px; margin-top: 2px; }
+  #variantA .pline.done .name { color: var(--paper-dim); }
+  #variantA .pline .tick { width: 15px; text-align: center; font-size: 12px; }
+  #variantA .foot { padding: 10px 0 0; }
+  #variantA .totals { display: flex; justify-content: space-between; font-size: 12px; padding: 3px 0; }
+  #variantA .banner {
+    margin: 9px 0 0; padding: 8px 10px; border-radius: 7px; font-size: 11.5px; line-height: 1.45;
+    background: rgba(193,80,47,.13); border: 1px solid rgba(193,80,47,.35); color: #f0a488;
+  }
+
+  /* ================= Variant B: full-screen packing bench ================= */
+  #variantB { flex-direction: column; }
+  #variantB .topbar {
+    display: flex; align-items: center; gap: 14px; padding: 9px 16px;
+    border-bottom: 1px solid var(--line); background: var(--panel); flex: 0 0 auto;
+  }
+  #variantB .modeswitch { display: flex; background: var(--ink); border-radius: 8px; padding: 3px; }
+  #variantB .modeswitch span {
+    padding: 5px 13px; font-size: 11.5px; font-weight: 700; border-radius: 6px; color: var(--paper-dim); cursor: pointer;
+  }
+  #variantB .modeswitch span.on { background: var(--panel-3); color: var(--paper); }
+  #variantB .cols { display: flex; flex: 1; min-height: 0; }
+  #variantB .queue { width: 275px; border-right: 1px solid var(--line); display: flex; flex-direction: column; }
+  #variantB .queue-head, #variantB .bench-head {
+    padding: 9px 13px; font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em;
+    color: var(--paper-dim); border-bottom: 1px solid var(--line); display: flex; justify-content: space-between;
+  }
+  #variantB .queue-body { overflow-y: auto; flex: 1; }
+  #variantB .qrow { padding: 11px 13px; border-bottom: 1px solid var(--line); cursor: pointer; }
+  #variantB .qrow.on { background: rgba(226,165,58,.08); border-left: 2px solid var(--amber); }
+  #variantB .qrow.held { border-left: 2px solid rgba(209,73,91,.6); }
+  #variantB .qrow.held.on { background: rgba(209,73,91,.10); border-left-color: #ea7f8e; }
+  #variantB .held-head { color: #ea7f8e; border-top: 1px solid var(--line); margin-top: 4px; }
+  #variantB .qrow .top { display: flex; justify-content: space-between; font-size: 12.5px; font-weight: 600; }
+  #variantB .qrow .sub { font-size: 10.5px; color: var(--paper-dim); margin-top: 3px; }
+  #variantB .bench { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+  #variantB .bench-body { overflow-y: auto; flex: 1; padding: 16px 22px; }
+  #variantB table.lines { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  #variantB table.lines th {
+    text-align: left; font-size: 10px; text-transform: uppercase; letter-spacing: .06em;
+    color: var(--paper-dim); font-weight: 600; padding: 0 10px 8px 0; border-bottom: 1px solid var(--line);
+  }
+  #variantB table.lines td { padding: 13px 10px 13px 0; border-bottom: 1px solid rgba(236,231,219,.06); vertical-align: middle; }
+  #variantB table.lines td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  #variantB .outside {
+    font-size: 10px; color: var(--paper-dim); font-weight: 500;
+    letter-spacing: .02em; margin-top: 3px; font-variant-numeric: normal;
+  }
+  #variantB .benchfoot {
+    border-top: 1px solid var(--line); padding: 12px 22px; display: flex;
+    align-items: center; justify-content: space-between; background: var(--panel); flex: 0 0 auto;
+  }
+  #variantB .sheet-wrap {
+    position: absolute; inset: 0; background: rgba(4,9,14,.72); display: flex;
+    align-items: center; justify-content: center; z-index: 60;
+  }
+  #variantB .sheet {
+    width: 640px; max-height: 84%; overflow-y: auto; background: var(--panel);
+    border: 1px solid var(--line); border-radius: 14px; box-shadow: 0 24px 70px rgba(0,0,0,.6); padding: 20px 22px;
+  }
+  #variantB .sheet h2 { margin: 0 0 4px; font-size: 16px; }
+  #variantB .sheet .lede { color: var(--paper-dim); font-size: 12.5px; margin: 0 0 14px; line-height: 1.5; }
+  #variantB .sheet .brline {
+    display: flex; align-items: center; gap: 10px; padding: 10px 0;
+    border-bottom: 1px solid rgba(236,231,219,.07); font-size: 13px;
+  }
+  #variantB .sheet .brline .name { flex: 1; }
+  #variantB .sheet .brline .name small { display: block; color: var(--paper-dim); font-size: 10.5px; margin-top: 2px; }
+  #variantB .sheet .actions { display: flex; gap: 9px; margin-top: 16px; }
+
+  /* ================= Variant C: per-line keypad + separate call queue ================= */
+  #variantC { flex-direction: row; }
+  #variantC .rail { width: 62px; background: var(--panel); border-right: 1px solid var(--line); padding: 12px 0; flex: 0 0 auto; }
+  #variantC .rail div {
+    text-align: center; padding: 12px 0; font-size: 10px; color: var(--paper-dim);
+    cursor: pointer; line-height: 1.5; letter-spacing: .03em;
+  }
+  #variantC .rail div.on { color: var(--paper); background: rgba(226,165,58,.10); box-shadow: inset 2px 0 0 var(--amber); }
+  #variantC .rail .glyph { font-size: 17px; display: block; }
+  #variantC .rail .pip {
+    display: inline-block; min-width: 15px; padding: 0 4px; border-radius: 999px;
+    background: var(--rust); color: #fff; font-size: 9px; font-weight: 700; margin-top: 3px;
+  }
+  #variantC .surface { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+  #variantC .shead { padding: 12px 22px; border-bottom: 1px solid var(--line); display: flex; align-items: baseline; gap: 12px; }
+  #variantC .shead h2 { margin: 0; font-size: 15px; }
+  #variantC .sbody { flex: 1; overflow-y: auto; padding: 20px 22px; }
+
+  #variantC .focus-card {
+    max-width: 620px; margin: 0 auto 14px; background: var(--panel);
+    border: 1px solid var(--line); border-radius: 14px; padding: 22px 24px;
+  }
+  #variantC .focus-card.breach { border-color: rgba(193,80,47,.55); background: rgba(193,80,47,.07); }
+  #variantC .focus-card .step { font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--paper-dim); }
+  #variantC .focus-card h3 { margin: 5px 0 2px; font-size: 22px; }
+  #variantC .focus-card .rate { color: var(--paper-dim); font-size: 12.5px; }
+  #variantC .est { display: flex; gap: 26px; margin: 18px 0 14px; }
+  #variantC .est .cell .k { font-size: 10px; text-transform: uppercase; letter-spacing: .06em; color: var(--paper-dim); }
+  #variantC .est .cell .v { font-size: 17px; font-variant-numeric: tabular-nums; margin-top: 3px; }
+  #variantC .verdict { margin-top: 14px; padding: 12px 14px; border-radius: 9px; font-size: 13px; line-height: 1.5; }
+  #variantC .verdict.ok { background: rgba(88,122,91,.15); color: var(--moss-lit); }
+  #variantC .verdict.bad { background: rgba(193,80,47,.16); color: #f0a488; }
+  #variantC .verdict .acts { display: flex; gap: 9px; margin-top: 11px; }
+  #variantC .queue-strip { max-width: 620px; margin: 0 auto; }
+  #variantC .qs-row {
+    display: flex; align-items: center; gap: 10px; padding: 9px 12px; font-size: 12px;
+    border: 1px solid var(--line); border-radius: 9px; margin-bottom: 7px; cursor: pointer;
+  }
+  #variantC .qs-row.on { border-color: var(--amber); background: rgba(226,165,58,.07); }
+  #variantC .qs-row .nm { flex: 1; }
+  #variantC .call-card {
+    max-width: 700px; margin: 0 auto 14px; background: var(--panel);
+    border: 1px solid var(--line); border-radius: 14px; padding: 20px 22px;
+  }
+  #variantC .call-card h3 { margin: 0 0 3px; font-size: 17px; }
+  #variantC .phone { font-size: 13px; color: var(--amber); font-weight: 700; }
+  #variantC .cline { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid rgba(236,231,219,.07); font-size: 13px; }
+  #variantC .cline .name { flex: 1; }
+  #variantC .cline .name small { display: block; color: var(--paper-dim); font-size: 10.5px; margin-top: 2px; }
+  #variantC .cline input[type=checkbox] { width: 15px; height: 15px; accent-color: var(--rust); }
+  #variantC .script {
+    background: rgba(255,255,255,.04); border-left: 2px solid var(--amber); padding: 9px 12px;
+    font-size: 12px; line-height: 1.55; color: var(--paper-dim); margin: 14px 0; border-radius: 0 7px 7px 0;
+  }
+  #variantC .empty { text-align: center; color: var(--paper-dim); font-size: 13px; padding: 60px 0; }
+
+  /* ---------- toast ---------- */
+  .toast {
+    position: fixed; bottom: 74px; left: 50%; transform: translateX(-50%) translateY(14px);
+    background: var(--panel-3); border: 1px solid var(--line); border-radius: 9px;
+    padding: 10px 16px; font-size: 12.5px; opacity: 0; pointer-events: none;
+    transition: all .18s ease; z-index: 400; max-width: 620px; box-shadow: 0 10px 30px rgba(0,0,0,.5);
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  /* --- variant switch bar --- */
+  .switcher {
+    position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%);
+    display: flex; align-items: center; gap: 10px;
+    background: var(--panel-2); border: 1px solid var(--line); border-radius: 999px;
+    padding: 6px 8px; box-shadow: 0 10px 30px rgba(0,0,0,.5); z-index: 300;
+  }
+  .switcher button {
+    width: 28px; height: 28px; border-radius: 50%; border: none;
+    background: rgba(255,255,255,.06); color: var(--paper); font-size: 14px; cursor: pointer;
+  }
+  .switcher .label { min-width: 265px; text-align: center; font-weight: 600; font-size: 12.5px; }
+  .switcher .label small { display: block; color: var(--paper-dim); font-weight: 400; font-size: 10px; margin-top: 1px; }
+</style>
+</head>
+<body>
+
+<div class="intro">
+  <div class="eyebrow">Prototype — ticket 31</div>
+  <h1>Dispatcher packing &amp; price-approval screen</h1>
+  <p>Three structurally different answers to the same three questions: <b>where the packing surface lives</b> relative to ticket 15's map-dominant console, <b>when a tolerance breach announces itself</b>, and <b>who runs the approval call</b>. Seeded with 5 Orders — one all-per-unit (nothing to weigh), one that packs clean, one heading for an excess, one for a shortfall, and one already held awaiting a call. Type packed weights in grams and watch each variant react. Cycle with ← / →.</p>
+</div>
+
+<div class="stage">
+  <div id="variantA" class="screen"></div>
+  <div id="variantB" class="screen hidden"></div>
+  <div id="variantC" class="screen hidden"></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<div class="switcher">
+  <button id="prevBtn" aria-label="Previous variant">←</button>
+  <div class="label" id="variantLabel"></div>
+  <button id="nextBtn" aria-label="Next variant">→</button>
+</div>
+
+<script>
+/* =====================================================================
+   Seed data — PHP centavos, grams. No backend, no persistence.
+   ===================================================================== */
+const FEE = 9000; // ₱90.00 flat delivery fee, captured at submission (ADR 0004)
+
+function mkW(name, perKg, est, step, tol, packed) {
+  return { kind: 'per_weight', name, pricePerKg: perKg, estGrams: est,
+           stepGrams: step, toleranceGrams: tol, packedGrams: packed ?? null, removed: false };
+}
+function mkU(name, unitPrice, qty) {
+  return { kind: 'per_unit', name, unitPrice, qty, removed: false };
+}
+
+let ORDERS = [
+  { id: 'O-113', customer: 'Villanueva, R.', phone: '0917 555 0113', addr: '12 Kalayaan Ave', ageMin: 6,
+    approval: 'not_required', dispatched: false, note: '', lines: [
+      mkU('Longganisa pack (500 g)', 18000, 2),
+      mkU('Tocino pack (500 g)', 22000, 1),
+      mkU('Whole chicken', 28500, 2),
+    ]},
+
+  { id: 'O-104', customer: 'Dela Cruz, M.', phone: '0917 555 0104', addr: '88 Mabini St', ageMin: 11,
+    approval: 'not_required', dispatched: false, note: '', lines: [
+      mkW('Pork belly (liempo)', 38000, 1000, 250, 250, 1120),
+      mkW('Chicken thigh fillet', 39500, 500, 250, 250, null),
+      mkU('Longganisa pack (500 g)', 18000, 1),
+    ]},
+
+  { id: 'O-107', customer: 'Bautista, J.', phone: '0917 555 0107', addr: '4 Rizal Ext', ageMin: 24,
+    approval: 'not_required', dispatched: false, note: '', lines: [
+      mkW('Pork ribs', 41000, 1500, 250, 250, null),
+      mkW('Ground beef', 52000, 750, 250, 250, 760),
+      mkU('Whole chicken', 28500, 1),
+    ]},
+
+  { id: 'O-111', customer: 'Santos, A.', phone: '0917 555 0111', addr: '31 Aguinaldo Rd', ageMin: 17,
+    approval: 'not_required', dispatched: false, note: '', lines: [
+      mkW('Beef brisket', 62000, 1200, 250, 250, null),
+      mkW('Pork belly (liempo)', 38000, 800, 250, 250, 830),
+    ]},
+
+  { id: 'O-098', customer: 'Ramos, L.', phone: '0917 555 0098', addr: '7 Bonifacio Ln', ageMin: 46,
+    approval: 'pending', dispatched: false, note: '', lines: [
+      mkW('Beef brisket', 62000, 1000, 250, 250, 1420),
+      mkW('Pork ribs', 41000, 1000, 250, 250, 1050),
+      mkU('Tocino pack (500 g)', 22000, 2),
+    ]},
+];
+
+/* =====================================================================
+   Money / tolerance maths (ADR 0004 + 0005)
+   ===================================================================== */
+const peso = c => '₱' + (c / 100).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const kg = g => (g / 1000).toFixed(g % 1000 === 0 ? 0 : 3).replace(/0+$/, '').replace(/\.$/, '') + ' kg';
+const grams = g => g.toLocaleString('en-PH') + ' g';
+
+function provisional(l) {
+  if (l.kind === 'per_unit') return l.unitPrice * l.qty;
+  return Math.round(l.estGrams * l.pricePerKg / 1000);
+}
+function final(l) {
+  if (l.kind === 'per_unit') return l.unitPrice * l.qty;
+  if (l.packedGrams == null) return null;
+  return Math.round(l.packedGrams * l.pricePerKg / 1000);
+}
+function deltaG(l) {
+  if (l.kind !== 'per_weight' || l.packedGrams == null) return null;
+  return l.packedGrams - l.estGrams;
+}
+function deltaMoney(l) {
+  const f = final(l); return f == null ? null : f - provisional(l);
+}
+function breached(l) {
+  const d = deltaG(l);
+  return d != null && !l.removed && Math.abs(d) > l.toleranceGrams;
+}
+function breachKind(l) { const d = deltaG(l); return d > 0 ? 'excess' : 'shortfall'; }
+
+const live = o => o.lines.filter(l => !l.removed);
+const unweighed = o => live(o).filter(l => l.kind === 'per_weight' && l.packedGrams == null);
+const breaches  = o => live(o).filter(breached);
+const packed    = o => unweighed(o).length === 0;
+const provTotal = o => live(o).reduce((s, l) => s + provisional(l), 0) + FEE;
+const finTotal  = o => live(o).reduce((s, l) => s + (final(l) ?? provisional(l)), 0) + FEE;
+// `Ready` means packed AND priced (ticket 27). Approval guards Ready -> Picked up (ticket 28).
+const canReady    = o => packed(o);
+const canDispatch = o => packed(o) && (breaches(o).length === 0 ? true : o.approval === 'approved');
+
+function orderState(o) {
+  if (o.dispatched) return { key: 'ready', label: 'Ready · dispatchable', cls: 'ok' };
+  if (o.approval === 'pending') return { key: 'held', label: 'Price approval', cls: 'hold' };
+  if (!packed(o)) return { key: 'packing', label: 'Packing', cls: 'wait' };
+  if (breaches(o).length && o.approval !== 'approved') return { key: 'breach', label: 'Tolerance breach', cls: 'excess' };
+  return { key: 'ready', label: 'Ready', cls: 'ok' };
+}
+function ageCls(m) { return m >= 40 ? 'age-bad' : m >= 20 ? 'age-mid' : 'age-ok'; }
+
+/* =====================================================================
+   Mutations (all in-memory)
+   ===================================================================== */
+function setWeight(orderId, idx, raw) {
+  const o = ORDERS.find(x => x.id === orderId);
+  const l = o.lines[idx];
+  const v = parseInt(String(raw).replace(/[^0-9]/g, ''), 10);
+  const was = l.packedGrams;
+  l.packedGrams = isNaN(v) || v === 0 ? null : v;
+  // A correction after approval voids and re-evaluates it (ticket 28).
+  if (o.approval === 'approved' && was !== l.packedGrams) {
+    o.approval = breaches(o).length ? 'pending' : 'not_required';
+    toast(`${o.id}: weight corrected after approval — approval voided, re-evaluated as <b>${o.approval.replace('_',' ')}</b>.`);
+  }
+}
+function raiseApproval(o) {
+  o.approval = 'pending';
+  toast(`${o.id} held for <b>Price approval</b>. Dispatch is blocked until the customer answers — no timeout, it holds indefinitely.`);
+}
+function recordApprove(o) {
+  const missed = breaches(o).filter(l => !l._discussed);
+  o.approval = 'approved';
+  o.approvedTotal = finTotal(o);
+  toast(`${o.id} approved by <b>dispatcher Mia</b> at ${clock()} — snapshot ${peso(o.approvedTotal)}. Recomputation ran as a check on the human, not the decision.`);
+}
+function recordDecline(o, idxs) {
+  if (!idxs.length) return toast('Pick at least one breaching line to decline, or use Reject &amp; cancel.');
+  const surviving = live(o).length - idxs.length;
+  if (surviving === 0) return recordReject(o, true);
+  idxs.forEach(i => { o.lines[i].removed = true; o.lines[i].removedReason = 'declined on approval call'; });
+  o.approval = breaches(o).length ? 'pending' : 'approved';
+  o.approvedTotal = finTotal(o);
+  toast(`${idxs.length} line(s) <b>soft-removed</b> from ${o.id} (never deleted). New total ${peso(o.approvedTotal)}. Delivery fee unchanged at ${peso(FEE)}.`);
+}
+function recordReject(o, viaAllLines) {
+  o.approval = 'rejected'; o.cancelled = true;
+  toast(`${o.id} <b>rejected and cancelled in one action</b>${viaAllLines ? ' — declining every line is this same cancellation' : ''}. Nothing half-finished left behind.`);
+}
+function markReady(o) {
+  if (!canReady(o)) return;
+  if (breaches(o).length && o.approval !== 'approved') return raiseApproval(o);
+  o.dispatched = true;
+  toast(`${o.id} is <b>Ready</b> — packed and priced. Back to the job queue for assignment.`);
+}
+function clock() { return '14:0' + (3 + Math.floor(ORDERS.length % 6)); }
+
+/* =====================================================================
+   Variant A — packing lives in ticket 15's floating drawer, as a tab.
+   Breach signalled inline the instant a weight is typed.
+   ===================================================================== */
+let openA = 'O-104';
+let tabA = 'prep';
+
+function renderA() {
+  const el = document.querySelector('#variantA');
+  const prep = ORDERS.filter(o => !o.cancelled && !o.dispatched);
+  const held = prep.filter(o => o.approval === 'pending').length;
+
+  const rows = prep.map(o => {
+    const st = orderState(o);
+    const isOpen = openA === o.id;
+    const done = live(o).filter(l => l.kind === 'per_weight').length - unweighed(o).length;
+    const totalW = live(o).filter(l => l.kind === 'per_weight').length;
+    let html = `
+      <div class="order-row ${isOpen ? 'open' : ''}" data-order="${o.id}">
+        <div class="top"><span>${o.customer}</span><span class="badge ${st.cls}">${st.label}</span></div>
+        <div class="sub">
+          <span>${o.id}</span>
+          <span class="badge ${ageCls(o.ageMin)}">${o.ageMin}m</span>
+          <span>${totalW ? `${done}/${totalW} weighed` : 'nothing to weigh'}</span>
+        </div>
+      </div>`;
+    if (isOpen) html += packPanelA(o);
+    return html;
+  }).join('');
+
+  el.innerHTML = `
+    <div class="fake-map"><div class="map-note">ticket 15 console · map stays dominant</div></div>
+    <div class="drawer">
+      <div class="tabs">
+        <button data-tab="queue" class="${tabA === 'queue' ? 'on' : ''}">Dispatch</button>
+        <button data-tab="prep" class="${tabA === 'prep' ? 'on' : ''}">Packing ${held ? `<span class="count">● ${held}</span>` : ''}</button>
+      </div>
+      <div class="body">${tabA === 'prep' ? rows : queueTabA()}</div>
+    </div>`;
+
+  el.querySelectorAll('.tabs button').forEach(b => b.onclick = () => { tabA = b.dataset.tab; render(); });
+  el.querySelectorAll('.order-row').forEach(r => r.onclick = () => {
+    openA = openA === r.dataset.order ? null : r.dataset.order; render();
+  });
+  wireInputs(el);
+  wireActions(el);
+}
+
+function queueTabA() {
+  return ORDERS.filter(o => !o.cancelled).map(o => {
+    const st = orderState(o);
+    const blocked = st.key === 'held';
+    return `<div class="order-row">
+      <div class="top"><span>${o.customer}</span><span class="badge ${st.cls}">${st.label}</span></div>
+      <div class="sub"><span>${o.id}</span><span class="badge ${ageCls(o.ageMin)}">${o.ageMin}m</span><span>${o.addr}</span></div>
+      ${blocked ? `<div class="blocked-reason">Assign disabled — awaiting price confirmation from the customer. Call ${o.phone}.</div>`
+                : st.key === 'ready' ? `<div style="margin-top:7px"><button class="ghost" style="padding:5px 11px">Assign…</button></div>` : ''}
+    </div>`;
+  }).join('');
+}
+
+function packPanelA(o) {
+  const lines = o.lines.map((l, i) => {
+    if (l.removed) return `<div class="pline done"><span class="tick">—</span><div class="name"><s>${l.name}</s><small>soft-removed on the approval call · excluded from totals, still on the Order</small></div></div>`;
+    if (l.kind === 'per_unit') {
+      return `<div class="pline done">
+        <span class="tick" style="color:var(--moss-lit)">✓</span>
+        <div class="name">${l.name} ×${l.qty}<small>per unit · final at submission, nothing to weigh</small></div>
+        <span class="money">${peso(provisional(l))}</span>
+      </div>`;
+    }
+    const d = deltaG(l), b = breached(l);
+    const dm = deltaMoney(l);
+    return `<div class="pline ${l.packedGrams != null ? 'done' : ''}">
+      <span class="tick">${l.packedGrams == null ? '○' : b ? '<span style="color:var(--rust)">!</span>' : '<span style="color:var(--moss-lit)">✓</span>'}</span>
+      <div class="name">${l.name}
+        <small>est ~${grams(l.estGrams)} · ${peso(l.pricePerKg)}/kg · tol ±${l.toleranceGrams} g
+        ${d != null ? ` · <span class="${d > 0 ? 'delta-up' : d < 0 ? 'delta-down' : 'delta-flat'}">${d > 0 ? '+' : ''}${d} g / ${dm > 0 ? '+' : ''}${peso(dm)}</span>` : ''}</small>
+      </div>
+      <input class="g ${b ? 'breached' : ''}" data-order="${o.id}" data-line="${i}" value="${l.packedGrams ?? ''}" placeholder="g" inputmode="numeric" />
+      ${b ? `<span class="badge ${breachKind(l) === 'excess' ? 'excess' : 'short'}">${breachKind(l)}</span>` : ''}
+    </div>`;
+  }).join('');
+
+  const brs = breaches(o);
+  let footer = '';
+  if (o.approval === 'pending') {
+    footer = approvalPanelA(o);
+  } else {
+    footer = `
+      <div class="foot">
+        <div class="totals"><span class="dim">Provisional</span><span class="money dim">${peso(provTotal(o))}</span></div>
+        <div class="totals"><span>Final so far</span><span class="money">${peso(finTotal(o))}</span></div>
+        <div class="totals"><span class="dim" style="font-size:11px">incl. delivery fee ${peso(FEE)} · never moves</span><span></span></div>
+        ${brs.length ? `<div class="banner"><b>${brs.length} line${brs.length > 1 ? 's' : ''} outside tolerance.</b> Marking Ready will hold this Order for a price-approval call to ${o.phone}.</div>` : ''}
+        <div style="margin-top:11px; display:flex; gap:9px; align-items:center">
+          <button class="primary" data-act="ready" data-order="${o.id}" ${canReady(o) ? '' : 'disabled'}>
+            ${brs.length ? 'Mark Ready — hold for approval' : 'Mark Ready'}
+          </button>
+          ${!canReady(o) ? `<span class="blocked-reason" style="margin:0">${unweighed(o).length} line${unweighed(o).length > 1 ? 's' : ''} still need a packed weight</span>` : ''}
+        </div>
+      </div>`;
+  }
+  return `<div class="pack-panel">${lines}${footer}</div>`;
+}
+
+function approvalPanelA(o) {
+  return `
+    <div class="foot">
+      <div class="banner" style="background:rgba(209,73,91,.13); border-color:rgba(209,73,91,.35); color:#ea7f8e">
+        <b>Awaiting price approval.</b> Call ${o.customer} on <b>${o.phone}</b>. Dispatch is blocked; no timeout — the age badge is the pressure.
+      </div>
+      ${breaches(o).map((l, n) => {
+        const i = o.lines.indexOf(l);
+        return `<div class="pline">
+          <input type="checkbox" data-decline="${i}" data-order="${o.id}" />
+          <div class="name">${l.name}<small>~${grams(l.estGrams)} → ${grams(l.packedGrams)} · ${peso(provisional(l))} → ${peso(final(l))}</small></div>
+          <span class="badge ${breachKind(l) === 'excess' ? 'excess' : 'short'}">${breachKind(l)}</span>
+        </div>`;
+      }).join('')}
+      <div class="totals" style="margin-top:9px"><span>Revised total</span><span class="money">${peso(finTotal(o))}</span></div>
+      <textarea class="note" data-note="${o.id}" placeholder="Optional note — often the only surviving record of what was said">${o.note}</textarea>
+      <div style="display:flex; gap:7px; margin-top:9px; flex-wrap:wrap">
+        <button class="primary" data-act="approve" data-order="${o.id}">Approve</button>
+        <button class="ghost" data-act="decline" data-order="${o.id}">Decline ticked lines</button>
+        <button class="danger" data-act="reject" data-order="${o.id}">Reject &amp; cancel</button>
+      </div>
+    </div>`;
+}
+
+/* =====================================================================
+   Variant B — full-screen packing bench, its own mode beside the console.
+   Breach deferred: nothing per-line, it all surfaces at the Ready gate
+   as a review sheet. Built for a packer who is not the decision-maker.
+   ===================================================================== */
+let openB = 'O-107';
+let sheetB = null;
+
+function renderB() {
+  const el = document.querySelector('#variantB');
+  const list = ORDERS.filter(o => !o.cancelled && !o.dispatched);
+  if (!list.find(o => o.id === openB)) openB = list[0]?.id;
+  const o = list.find(x => x.id === openB);
+
+  // Held Orders are split out of the to-pack queue: there is nothing left to
+  // pack on them, only a call to make.
+  const toPack = list.filter(x => x.approval !== 'pending');
+  const heldList = list.filter(x => x.approval === 'pending');
+  const qrow = x => {
+    const tw = live(x).filter(l => l.kind === 'per_weight').length;
+    const isHeld = x.approval === 'pending';
+    return `<div class="qrow ${x.id === openB ? 'on' : ''} ${isHeld ? 'held' : ''}" data-order="${x.id}">
+      <div class="top"><span>${x.customer}</span><span class="badge ${ageCls(x.ageMin)}">${isHeld ? 'waiting ' : ''}${x.ageMin}m</span></div>
+      <div class="sub">${x.id} · ${isHeld
+        ? `<span style="color:#ea7f8e">call ${x.phone}</span>`
+        : (tw ? `${tw - unweighed(x).length}/${tw} weighed` : 'no weighing')}</div>
+    </div>`;
+  };
+  const q = toPack.map(qrow).join('');
+  const qHeld = heldList.map(qrow).join('');
+
+  el.innerHTML = `
+    <div class="topbar">
+      <div class="modeswitch"><span>Dispatch</span><span class="on">Packing bench</span></div>
+      <span class="dim" style="font-size:11.5px">Separate full-screen mode — the map is gone. Dispatcher switches in; a dedicated packer could live here all shift.</span>
+    </div>
+    <div class="cols">
+      <div class="queue">
+        <div class="queue-head"><span>To pack</span><span>${toPack.length}</span></div>
+        <div class="queue-body">
+          ${q || '<div class="dim" style="padding:13px; font-size:12px">Nothing waiting to be packed.</div>'}
+          ${heldList.length ? `
+            <div class="queue-head held-head"><span>Awaiting price call</span><span>${heldList.length}</span></div>
+            ${qHeld}` : ''}
+        </div>
+      </div>
+      <div class="bench">
+        ${o ? benchB(o) : '<div class="bench-body dim">Nothing to pack.</div>'}
+      </div>
+    </div>
+    ${sheetB ? sheetHtmlB(ORDERS.find(x => x.id === sheetB)) : ''}`;
+
+  el.querySelectorAll('.qrow').forEach(r => r.onclick = () => { openB = r.dataset.order; render(); });
+  wireInputs(el);
+  wireActions(el);
+}
+
+function benchB(o) {
+  const rows = o.lines.map((l, i) => {
+    if (l.removed) return `<tr class="dim"><td colspan="5"><s>${l.name}</s> · soft-removed on the approval call</td></tr>`;
+    if (l.kind === 'per_unit') {
+      return `<tr>
+        <td>${l.name}<div class="dim" style="font-size:11px">per unit ×${l.qty}</div></td>
+        <td class="num dim">—</td>
+        <td class="num"><span class="dim" style="font-size:11.5px">nothing to weigh</span></td>
+        <td class="num dim">—</td>
+        <td class="num money">${peso(provisional(l))}</td>
+      </tr>`;
+    }
+    // Quiet, not silent: a breach gets a muted footnote in the Delta column so a
+    // solo packer can catch a misread scale — but no colour on the input, no
+    // banner, no interruption. The decision still only happens at the Ready gate.
+    return `<tr>
+      <td>${l.name}<div class="dim" style="font-size:11px">${peso(l.pricePerKg)}/kg · step ${l.stepGrams} g</div></td>
+      <td class="num">~${grams(l.estGrams)}</td>
+      <td class="num"><input class="g" data-order="${o.id}" data-line="${i}" value="${l.packedGrams ?? ''}" placeholder="grams" inputmode="numeric" /></td>
+      <td class="num ${deltaG(l) == null ? 'dim' : deltaG(l) > 0 ? 'delta-up' : deltaG(l) < 0 ? 'delta-down' : 'delta-flat'}">
+        ${deltaG(l) == null ? '—' : (deltaG(l) > 0 ? '+' : '') + deltaG(l) + ' g'}
+        ${breached(l) ? `<div class="outside">outside ±${l.toleranceGrams} g</div>` : ''}</td>
+      <td class="num money">${final(l) == null ? '<span class="dim">—</span>' : peso(final(l))}</td>
+    </tr>`;
+  }).join('');
+
+  const missing = unweighed(o).length;
+  const st = orderState(o);
+  return `
+    <div class="bench-head"><span>${o.id} · ${o.customer} · ${o.addr}</span><span class="badge ${st.cls}">${st.label}</span></div>
+    <div class="bench-body">
+      <table class="lines">
+        <thead><tr><th>Line</th><th class="num">Estimate</th><th class="num">Packed</th><th class="num">Delta</th><th class="num">Line total</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+      <div style="margin-top:18px; display:flex; gap:34px; font-size:13px">
+        <div><div class="dim" style="font-size:10.5px; text-transform:uppercase; letter-spacing:.06em">Provisional</div><div class="money dim" style="margin-top:4px">${peso(provTotal(o))}</div></div>
+        <div><div class="dim" style="font-size:10.5px; text-transform:uppercase; letter-spacing:.06em">Final so far</div><div class="money" style="margin-top:4px">${peso(finTotal(o))}</div></div>
+        <div><div class="dim" style="font-size:10.5px; text-transform:uppercase; letter-spacing:.06em">Delivery fee</div><div class="money dim" style="margin-top:4px">${peso(FEE)} · never moves</div></div>
+      </div>
+    </div>
+    <div class="benchfoot">
+      <div>
+        ${o.approval === 'pending'
+          ? `<span class="dim" style="font-size:12px">Packed and priced. Nothing more happens here until the customer answers.</span>`
+          : `<span class="dim" style="font-size:12px">${missing ? 'Weigh every per-weight line to price the Order.' : 'All lines weighed. Ready will run the tolerance check.'}</span>`}
+      </div>
+      <div style="display:flex; gap:12px; align-items:center">
+        ${o.approval === 'pending'
+          ? `<span class="blocked-reason" style="margin:0; text-align:right; max-width:270px">Held for price approval — dispatch is blocked until the call is recorded.</span>
+             <button class="primary" data-act="opensheet" data-order="${o.id}">Open approval call</button>`
+          : `${missing ? `<span class="blocked-reason" style="margin:0; text-align:right">${missing} line${missing > 1 ? 's' : ''} still need${missing > 1 ? '' : 's'} a packed weight — <b>Ready</b> means packed <i>and</i> priced.</span>` : ''}
+             <button class="primary" data-act="ready" data-order="${o.id}" ${canReady(o) ? '' : 'disabled'}>Mark Ready</button>`}
+      </div>
+    </div>`;
+}
+
+function sheetHtmlB(o) {
+  if (!o) return '';
+  const brs = breaches(o);
+  if (!brs.length) return '';
+  return `<div class="sheet-wrap"><div class="sheet">
+    <h2>Price approval — ${o.id} · ${o.customer}</h2>
+    <p class="lede">${brs.length} line${brs.length > 1 ? 's are' : ' is'} outside tolerance. Phone <b>${o.phone}</b>. Dispatch stays blocked until an answer is recorded — there is no timeout.</p>
+    ${o.lines.map((l, i) => {
+      if (l.removed || l.kind !== 'per_weight') return '';
+      const b = breached(l);
+      return `<div class="brline">
+        ${b ? `<input type="checkbox" data-decline="${i}" data-order="${o.id}" />` : `<span style="width:15px"></span>`}
+        <div class="name">${l.name}<small>~${grams(l.estGrams)} → ${grams(l.packedGrams)} · ${peso(provisional(l))} → ${peso(final(l))}${b ? '' : ' · within tolerance, cannot be declined'}</small></div>
+        <span class="${deltaG(l) > 0 ? 'delta-up' : 'delta-down'}">${deltaG(l) > 0 ? '+' : ''}${deltaG(l)} g</span>
+        ${b ? `<span class="badge ${breachKind(l) === 'excess' ? 'excess' : 'short'}">${breachKind(l)}</span>` : `<span class="badge ok">ok</span>`}
+      </div>`;
+    }).join('')}
+    <div style="display:flex; justify-content:space-between; margin-top:13px; font-size:14px">
+      <span class="dim">Revised total (incl. ${peso(FEE)} fee)</span><span class="money">${peso(finTotal(o))}</span>
+    </div>
+    <div style="margin-top:13px"><textarea class="note" data-note="${o.id}" placeholder="Optional note — e.g. “said fine, wants it before 5”">${o.note}</textarea></div>
+    <div class="actions">
+      <button class="primary" data-act="approve" data-order="${o.id}">Approve as packed</button>
+      <button class="ghost" data-act="decline" data-order="${o.id}">Decline ticked lines, keep the rest</button>
+      <button class="danger" data-act="reject" data-order="${o.id}">Reject &amp; cancel</button>
+      <button class="ghost" data-act="closesheet">Close</button>
+    </div>
+  </div></div>`;
+}
+
+/* =====================================================================
+   Variant C — one line at a time on a scale-side keypad, plus a
+   SEPARATE call queue surface. Breach blocks right there and must be
+   acknowledged by the packer, who then hands off to whoever calls.
+   ===================================================================== */
+let surfC = 'pack';
+let openC = 'O-111';
+let callC = null;
+
+function renderC() {
+  const el = document.querySelector('#variantC');
+  const heldCount = ORDERS.filter(o => !o.cancelled && o.approval === 'pending').length;
+  el.innerHTML = `
+    <div class="rail">
+      <div class="${surfC === 'dispatch' ? 'on' : ''}" data-surf="dispatch"><span class="glyph">◉</span>Dispatch</div>
+      <div class="${surfC === 'pack' ? 'on' : ''}" data-surf="pack"><span class="glyph">⚖</span>Pack</div>
+      <div class="${surfC === 'calls' ? 'on' : ''}" data-surf="calls"><span class="glyph">☎</span>Calls${heldCount ? `<span class="pip">${heldCount}</span>` : ''}</div>
+    </div>
+    <div class="surface">${surfC === 'calls' ? callsC() : surfC === 'dispatch' ? dispatchC() : packC()}</div>`;
+
+  el.querySelectorAll('.rail div').forEach(d => d.onclick = () => { surfC = d.dataset.surf; render(); });
+  el.querySelectorAll('.qs-row').forEach(r => r.onclick = () => {
+    if (surfC === 'calls') callC = r.dataset.order; else openC = r.dataset.order;
+    render();
+  });
+  wireInputs(el);
+  wireActions(el);
+}
+
+function dispatchC() {
+  return `<div class="shead"><h2>Dispatch</h2><span class="dim" style="font-size:12px">ticket 15's console — unchanged; packing never enters it</span></div>
+    <div class="sbody"><div class="fake-map" style="height:100%; border-radius:12px"><div class="map-note">map-dominant console</div></div></div>`;
+}
+
+function packC() {
+  const list = ORDERS.filter(o => !o.cancelled && !o.dispatched && o.approval !== 'pending');
+  if (!list.find(o => o.id === openC)) openC = list[0]?.id;
+  const o = list.find(x => x.id === openC);
+  const strip = list.map(x => {
+    const tw = live(x).filter(l => l.kind === 'per_weight').length;
+    return `<div class="qs-row ${x.id === openC ? 'on' : ''}" data-order="${x.id}">
+      <span class="nm">${x.customer} <span class="dim">· ${x.id}</span></span>
+      <span class="dim">${tw ? `${tw - unweighed(x).length}/${tw}` : 'no weighing'}</span>
+      <span class="badge ${ageCls(x.ageMin)}">${x.ageMin}m</span>
+    </div>`;
+  }).join('');
+
+  if (!o) return `<div class="shead"><h2>Pack</h2></div><div class="sbody"><div class="empty">Nothing left to pack.</div></div>`;
+
+  const next = unweighed(o)[0];
+  let card;
+  if (next) {
+    const i = o.lines.indexOf(next);
+    const doneN = live(o).filter(l => l.kind === 'per_weight').length - unweighed(o).length;
+    const totalN = live(o).filter(l => l.kind === 'per_weight').length;
+    card = `<div class="focus-card">
+      <div class="step">${o.id} · line ${doneN + 1} of ${totalN} to weigh</div>
+      <h3>${next.name}</h3>
+      <div class="rate">${peso(next.pricePerKg)}/kg · tolerance ±${next.toleranceGrams} g</div>
+      <div class="est">
+        <div class="cell"><div class="k">Customer estimate</div><div class="v">~${grams(next.estGrams)}</div></div>
+        <div class="cell"><div class="k">Provisional</div><div class="v money">${peso(provisional(next))}</div></div>
+        <div class="cell"><div class="k">Acceptable band</div><div class="v">${next.estGrams - next.toleranceGrams}–${next.estGrams + next.toleranceGrams} g</div></div>
+      </div>
+      <div style="display:flex; align-items:center; gap:12px">
+        <input class="g big" data-order="${o.id}" data-line="${i}" value="" placeholder="0" inputmode="numeric" autofocus />
+        <span class="dim">grams, read off the scale · <span style="font-size:11px">a scale integration would drop straight in here</span></span>
+      </div>
+    </div>`;
+  } else {
+    const brs = breaches(o);
+    card = `<div class="focus-card ${brs.length ? 'breach' : ''}">
+      <div class="step">${o.id} · ${o.customer}</div>
+      <h3>${brs.length ? 'Outside tolerance' : 'All weighed'}</h3>
+      ${o.lines.filter(l => !l.removed).map(l => `
+        <div style="display:flex; justify-content:space-between; padding:7px 0; border-bottom:1px solid rgba(236,231,219,.07); font-size:13px">
+          <span>${l.name}${l.kind === 'per_weight' ? ` <span class="dim">~${grams(l.estGrams)} → ${grams(l.packedGrams)}</span>` : ` <span class="dim">×${l.qty}</span>`}</span>
+          <span>${l.kind === 'per_weight' && breached(l) ? `<span class="badge ${breachKind(l) === 'excess' ? 'excess' : 'short'}">${breachKind(l)}</span> ` : ''}<span class="money">${peso(final(l) ?? provisional(l))}</span></span>
+        </div>`).join('')}
+      <div style="display:flex; justify-content:space-between; padding-top:11px; font-size:14px">
+        <span class="dim">Final total (incl. ${peso(FEE)} fee)</span><span class="money">${peso(finTotal(o))}</span>
+      </div>
+      <div class="verdict ${brs.length ? 'bad' : 'ok'}">
+        ${brs.length
+          ? `<b>${brs.length} line${brs.length > 1 ? 's' : ''} breached tolerance.</b> The packer doesn't make this call. Hand it to the call queue, or retype a weight if the scale was misread.
+             <div class="acts">
+               <button class="primary" data-act="ready" data-order="${o.id}">Hand to call queue</button>
+               <button class="ghost" data-act="retype" data-order="${o.id}">Retype a weight</button>
+             </div>`
+          : `<b>Within tolerance on every line.</b> Packed and priced — nothing to confirm with the customer.
+             <div class="acts"><button class="primary" data-act="ready" data-order="${o.id}">Mark Ready</button></div>`}
+      </div>
+    </div>`;
+  }
+
+  return `<div class="shead"><h2>Pack</h2><span class="dim" style="font-size:12px">one line at a time, sized for someone standing at the scale</span></div>
+    <div class="sbody">${card}<div class="queue-strip">${strip}</div></div>`;
+}
+
+function callsC() {
+  const held = ORDERS.filter(o => !o.cancelled && o.approval === 'pending');
+  if (!held.find(o => o.id === callC)) callC = held[0]?.id;
+  const o = held.find(x => x.id === callC);
+  const strip = held.map(x => `<div class="qs-row ${x.id === callC ? 'on' : ''}" data-order="${x.id}">
+      <span class="nm">${x.customer} <span class="dim">· ${x.id}</span></span>
+      <span class="dim">${breaches(x).length} breach${breaches(x).length > 1 ? 'es' : ''}</span>
+      <span class="badge ${ageCls(x.ageMin)}">waiting ${x.ageMin}m</span>
+    </div>`).join('');
+
+  if (!o) return `<div class="shead"><h2>Calls</h2></div><div class="sbody"><div class="empty">No Orders waiting on a price-approval call.</div></div>`;
+
+  return `<div class="shead"><h2>Calls</h2><span class="dim" style="font-size:12px">a worklist for whoever is on the phone — not the packer's screen</span></div>
+    <div class="sbody">
+      <div class="call-card">
+        <h3>${o.customer}</h3>
+        <div class="phone">${o.phone} · tap to call</div>
+        <div class="script">
+          ${breaches(o).some(l => breachKind(l) === 'shortfall')
+            ? 'Shortfall script: we couldn’t reach the weight you ordered. Offer to cut more first — only make the call if it can’t be fixed.'
+            : 'Excess script: the cut came in heavier than your estimate. Read the revised total and ask.'}
+        </div>
+        ${o.lines.map((l, i) => {
+          if (l.removed || l.kind !== 'per_weight') return '';
+          const b = breached(l);
+          return `<div class="cline">
+            ${b ? `<input type="checkbox" data-decline="${i}" data-order="${o.id}" />` : '<span style="width:15px"></span>'}
+            <div class="name">${l.name}<small>~${grams(l.estGrams)} → ${grams(l.packedGrams)} · ${peso(provisional(l))} → ${peso(final(l))}${b ? '' : ' · within tolerance — not declinable'}</small></div>
+            <span class="${deltaG(l) > 0 ? 'delta-up' : 'delta-down'}">${deltaG(l) > 0 ? '+' : ''}${deltaG(l)} g</span>
+            ${b ? `<span class="badge ${breachKind(l) === 'excess' ? 'excess' : 'short'}">${breachKind(l)}</span>` : ''}
+          </div>`;
+        }).join('')}
+        <div style="display:flex; justify-content:space-between; margin-top:13px; font-size:14px">
+          <span class="dim">Revised total (incl. ${peso(FEE)} fee — never waived here)</span><span class="money">${peso(finTotal(o))}</span>
+        </div>
+        <div style="margin-top:12px"><textarea class="note" data-note="${o.id}" placeholder="Optional note — what they actually said">${o.note}</textarea></div>
+        <div style="display:flex; gap:9px; margin-top:11px; flex-wrap:wrap">
+          <button class="primary" data-act="approve" data-order="${o.id}">Approve</button>
+          <button class="ghost" data-act="decline" data-order="${o.id}">Decline ticked, keep the rest</button>
+          <button class="danger" data-act="reject" data-order="${o.id}">Reject &amp; cancel</button>
+        </div>
+        <div class="blocked-reason">No timeout. An unanswered call holds here indefinitely — the waiting badge is the only pressure.</div>
+      </div>
+      <div class="queue-strip">${strip}</div>
+    </div>`;
+}
+
+/* =====================================================================
+   Shared wiring
+   ===================================================================== */
+function wireInputs(el) {
+  el.querySelectorAll('input.g').forEach(inp => {
+    inp.onchange = () => { setWeight(inp.dataset.order, +inp.dataset.line, inp.value); render(); };
+    inp.onkeydown = e => { if (e.key === 'Enter') { setWeight(inp.dataset.order, +inp.dataset.line, inp.value); render(); } };
+  });
+  el.querySelectorAll('textarea.note').forEach(t => {
+    t.onchange = () => { ORDERS.find(o => o.id === t.dataset.note).note = t.value; };
+  });
+}
+
+function wireActions(el) {
+  el.querySelectorAll('[data-act]').forEach(b => b.onclick = () => {
+    const o = ORDERS.find(x => x.id === b.dataset.order);
+    switch (b.dataset.act) {
+      case 'ready':      markReady(o); break;
+      case 'approve':    recordApprove(o); break;
+      case 'decline': {
+        const idxs = [...el.querySelectorAll(`[data-decline][data-order="${o.id}"]`)]
+          .filter(c => c.checked).map(c => +c.dataset.decline);
+        recordDecline(o, idxs); break;
+      }
+      case 'reject':     recordReject(o); break;
+      case 'retype': {
+        const l = live(o).filter(x => x.kind === 'per_weight').find(breached);
+        if (l) l.packedGrams = null;
+        break;
+      }
+      case 'opensheet':  sheetB = o.id; break;
+      case 'closesheet': sheetB = null; break;
+    }
+    if (['approve', 'decline', 'reject'].includes(b.dataset.act)) sheetB = null;
+    render();
+  });
+}
+
+let toastTimer;
+function toast(html) {
+  const t = document.getElementById('toast');
+  t.innerHTML = html; t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 5200);
+}
+
+function render() { renderA(); renderB(); renderC(); }
+render();
+
+/* ---------- variant switcher ---------- */
+const order = ['A', 'B', 'C'];
+const names = {
+  A: 'Packing tab in the console drawer',
+  B: 'Full-screen packing bench',
+  C: 'Scale keypad + separate call queue',
+};
+let variant = 'A';
+function paint() {
+  order.forEach(v => document.querySelector(`#variant${v}`).classList.toggle('hidden', v !== variant));
+  document.querySelector('#variantLabel').innerHTML = `${variant} — ${names[variant]}<small>${order.indexOf(variant) + 1} / ${order.length}</small>`;
+}
+function cycle(dir) {
+  const i = order.indexOf(variant);
+  variant = order[(i + dir + order.length) % order.length];
+  paint();
+}
+document.getElementById('prevBtn').onclick = () => cycle(-1);
+document.getElementById('nextBtn').onclick = () => cycle(1);
+document.addEventListener('keydown', e => {
+  const tag = document.activeElement.tagName;
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || document.activeElement.isContentEditable) return;
+  if (e.key === 'ArrowLeft') cycle(-1);
+  if (e.key === 'ArrowRight') cycle(1);
+});
+paint();
+</script>
+</body>
+</html>

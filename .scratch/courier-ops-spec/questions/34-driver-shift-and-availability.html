@@ -1,0 +1,472 @@
+<title>How Your Drivers Work</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap">
+
+<style>
+  :root {
+    --ground: #F6F8F6;
+    --surface: #FFFFFF;
+    --ink: #16211E;
+    --ink-soft: #57655F;
+    --ink-faint: #85958E;
+    --line: #DCE4DF;
+    --line-strong: #C3CFC8;
+    --accent: #0E6B55;
+    --accent-ink: #0B4E3E;
+    --accent-soft: #E5F1EB;
+    --note: #7A5514;
+    --note-soft: #F6EEDD;
+    --shadow: 0 1px 2px rgba(22, 33, 30, .05), 0 8px 24px -16px rgba(22, 33, 30, .25);
+
+    --display: "Bricolage Grotesque", "Trebuchet MS", sans-serif;
+    --body: "Source Serif 4", Georgia, "Times New Roman", serif;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #0F1513;
+      --surface: #161F1C;
+      --ink: #E9EFEB;
+      --ink-soft: #9DABA4;
+      --ink-faint: #71807A;
+      --line: #26332E;
+      --line-strong: #35453E;
+      --accent: #63CFAC;
+      --accent-ink: #8FE0C4;
+      --accent-soft: #16302A;
+      --note: #DEB775;
+      --note-soft: #2B2317;
+      --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 8px 24px -16px rgba(0, 0, 0, .8);
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --ground: #0F1513;
+    --surface: #161F1C;
+    --ink: #E9EFEB;
+    --ink-soft: #9DABA4;
+    --ink-faint: #71807A;
+    --line: #26332E;
+    --line-strong: #35453E;
+    --accent: #63CFAC;
+    --accent-ink: #8FE0C4;
+    --accent-soft: #16302A;
+    --note: #DEB775;
+    --note-soft: #2B2317;
+    --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 8px 24px -16px rgba(0, 0, 0, .8);
+  }
+
+  body {
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--body);
+    font-size: 19px;
+    line-height: 1.62;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .page {
+    max-width: 41rem;
+    margin: 0 auto;
+    padding: clamp(2rem, 6vw, 4.5rem) clamp(1.1rem, 5vw, 2rem) 5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 2.25rem;
+  }
+
+  /* ---- masthead ---- */
+
+  .eyebrow {
+    font-family: var(--display);
+    font-size: .75rem;
+    font-weight: 600;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin: 0 0 .9rem;
+  }
+
+  h1 {
+    font-family: var(--display);
+    font-weight: 700;
+    font-size: clamp(2.1rem, 7vw, 3rem);
+    line-height: 1.08;
+    letter-spacing: -.02em;
+    text-wrap: balance;
+    margin: 0 0 1rem;
+  }
+
+  .standfirst {
+    font-size: 1.15rem;
+    color: var(--ink-soft);
+    margin: 0;
+    max-width: 34rem;
+  }
+
+  .masthead-rule {
+    margin-top: 1.75rem;
+    border: 0;
+    border-top: 2px solid var(--ink);
+    opacity: .85;
+  }
+
+  /* ---- how to answer ---- */
+
+  .howto {
+    background: var(--accent-soft);
+    border-radius: 4px;
+    padding: 1.1rem 1.3rem;
+    display: flex;
+    flex-direction: column;
+    gap: .5rem;
+  }
+
+  .howto h2 {
+    font-family: var(--display);
+    font-size: .78rem;
+    font-weight: 700;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--accent-ink);
+    margin: 0;
+  }
+
+  .howto p {
+    margin: 0;
+    font-size: 1rem;
+    color: var(--ink);
+  }
+
+  /* ---- question panels ---- */
+
+  .q {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    box-shadow: var(--shadow);
+    padding: clamp(1.3rem, 4vw, 2rem);
+    display: flex;
+    flex-direction: column;
+    gap: 1.15rem;
+  }
+
+  .q-head {
+    display: flex;
+    align-items: baseline;
+    gap: .85rem;
+  }
+
+  .q-num {
+    font-family: var(--display);
+    font-weight: 700;
+    font-size: 1.7rem;
+    line-height: 1;
+    color: var(--accent);
+    font-variant-numeric: tabular-nums;
+    flex: none;
+  }
+
+  .q h2.q-title {
+    font-family: var(--display);
+    font-weight: 600;
+    font-size: clamp(1.3rem, 4.2vw, 1.6rem);
+    line-height: 1.22;
+    letter-spacing: -.01em;
+    text-wrap: balance;
+    margin: 0;
+  }
+
+  .q p {
+    margin: 0;
+  }
+
+  .q-body {
+    display: flex;
+    flex-direction: column;
+    gap: .8rem;
+  }
+
+  /* ---- the three plain asks in Q1 ---- */
+
+  .asks {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: .9rem;
+  }
+
+  .asks li {
+    border-left: 3px solid var(--line-strong);
+    padding: .1rem 0 .1rem 1rem;
+  }
+
+  .asks .hint {
+    display: block;
+    font-size: .95rem;
+    color: var(--ink-faint);
+    margin-top: .15rem;
+  }
+
+  /* ---- option pairs ---- */
+
+  .options {
+    display: flex;
+    flex-direction: column;
+    gap: .7rem;
+  }
+
+  .opt {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: .9rem;
+    align-items: start;
+    border: 1px solid var(--line-strong);
+    border-radius: 5px;
+    padding: .95rem 1.1rem;
+  }
+
+  .opt-letter {
+    font-family: var(--display);
+    font-weight: 700;
+    font-size: .95rem;
+    line-height: 1.6;
+    color: var(--ink-soft);
+    border: 1px solid var(--line-strong);
+    border-radius: 50%;
+    width: 1.85rem;
+    height: 1.85rem;
+    display: grid;
+    place-items: center;
+    flex: none;
+  }
+
+  .opt p {
+    font-size: 1.02rem;
+  }
+
+  .opt strong {
+    font-family: var(--display);
+    font-weight: 600;
+  }
+
+  /* ---- asides: why we're asking / worth knowing ---- */
+
+  .aside {
+    font-size: 1rem;
+    color: var(--ink-soft);
+  }
+
+  .aside .label {
+    font-family: var(--display);
+    font-weight: 600;
+    font-size: .72rem;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    display: block;
+    margin-bottom: .2rem;
+  }
+
+  .worth {
+    background: var(--note-soft);
+    border-radius: 4px;
+    padding: .95rem 1.1rem;
+    font-size: 1rem;
+    color: var(--ink);
+  }
+
+  .worth .label {
+    color: var(--note);
+  }
+
+  /* ---- suggestion strip ---- */
+
+  .suggest {
+    border-top: 1px solid var(--line);
+    padding-top: 1rem;
+    display: flex;
+    gap: .8rem;
+    align-items: baseline;
+  }
+
+  .suggest-tag {
+    font-family: var(--display);
+    font-weight: 700;
+    font-size: .7rem;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--accent-ink);
+    background: var(--accent-soft);
+    padding: .3rem .6rem;
+    border-radius: 3px;
+    white-space: nowrap;
+    flex: none;
+  }
+
+  .suggest p {
+    font-size: 1rem;
+    color: var(--ink-soft);
+  }
+
+  .suggest strong {
+    color: var(--ink);
+  }
+
+  /* ---- close ---- */
+
+  .close {
+    color: var(--ink-soft);
+    font-size: 1.05rem;
+    border-top: 2px solid var(--ink);
+    padding-top: 1.5rem;
+    opacity: .95;
+  }
+
+  @media print {
+    body { background: #fff; color: #000; font-size: 11pt; }
+    .q { break-inside: avoid; box-shadow: none; }
+  }
+</style>
+
+<div class="page">
+
+  <header>
+    <p class="eyebrow">Delivery app · questions for you</p>
+    <h1>How your drivers work</h1>
+    <p class="standfirst">Four things we can't decide without you. They're about how the shop
+      actually runs, not about technology — so there are no wrong answers here, only the real
+      ones.</p>
+    <hr class="masthead-rule">
+  </header>
+
+  <section class="howto">
+    <h2>How to answer</h2>
+    <p>Rough answers are fine. “It depends — for example…” is more useful to us than a firm rule.
+      Where we've suggested something, it's only a starting point; disagreeing with it is genuinely
+      helpful.</p>
+    <p>Question 1 shapes the other three, so if you only have a minute, answer that one first.</p>
+  </section>
+
+  <article class="q">
+    <div class="q-head">
+      <span class="q-num">1</span>
+      <h2 class="q-title">Your drivers and their hours</h2>
+    </div>
+    <div class="q-body">
+      <ul class="asks">
+        <li>How many drivers do you have?</li>
+        <li>Do they work set hours — say 8am to 5pm — or do they come in when there's work to do?
+        </li>
+        <li>At the end of the day, does the company phone go home with the driver, or does it stay
+          at the shop?</li>
+      </ul>
+      <p class="aside"><span class="label">Why we're asking</span> Almost everything below changes
+        depending on whether “the working day” is a fixed thing or a loose one.</p>
+    </div>
+  </article>
+
+  <article class="q">
+    <div class="q-head">
+      <span class="q-num">2</span>
+      <h2 class="q-title">Should a driver tell the app when they've started work?</h2>
+    </div>
+    <div class="q-body">
+      <div class="options">
+        <div class="opt">
+          <span class="opt-letter">A</span>
+          <p><strong>The driver clocks in.</strong> They tap “Start work” when they begin for the
+            day, and “Finish work” when they're done.</p>
+        </div>
+        <div class="opt">
+          <span class="opt-letter">B</span>
+          <p><strong>The app works it out by itself.</strong> If the driver's phone is on and they
+            aren't already out with orders, the app treats them as ready for a job.</p>
+        </div>
+      </div>
+      <p class="aside"><span class="label">Why we're asking</span> Option B is one less thing for a
+        driver to remember — but the app can't tell the difference between “on lunch”, “at the
+        dentist” and “ready for the next job”, so your office may send someone a delivery when they
+        aren't there to take it. Option A costs one tap at each end of the day, and in exchange your
+        office gets an honest picture of who's around.</p>
+    </div>
+    <div class="suggest">
+      <span class="suggest-tag">Our suggestion</span>
+      <p><strong>A</strong> — the clock-in.</p>
+    </div>
+  </article>
+
+  <article class="q">
+    <div class="q-head">
+      <span class="q-num">3</span>
+      <h2 class="q-title">When a driver isn't carrying an order, should the office see where they
+        are?</h2>
+    </div>
+    <div class="q-body">
+      <p>As things stand, a driver only appears on the office map while they're actually out
+        delivering something. Between jobs, they disappear from it.</p>
+      <p>The catch: when a new order comes in, your office wants to send it to whoever is nearest —
+        and it can't work out who's nearest among drivers it can't see.</p>
+      <div class="options">
+        <div class="opt">
+          <span class="opt-letter">A</span>
+          <p><strong>Visible for the whole working day.</strong> From “Start work” to “Finish
+            work”, and never outside those hours.</p>
+        </div>
+        <div class="opt">
+          <span class="opt-letter">B</span>
+          <p><strong>Visible only during an actual delivery.</strong> Your office picks a driver by
+            name and by memory, rather than by who's closest.</p>
+        </div>
+      </div>
+      <div class="worth">
+        <span class="label">Worth knowing, either way</span>
+        The app keeps <strong>no record of anywhere a driver has been</strong>. Nothing is saved and
+        there's no history to look back through — only where somebody is right now, and only while
+        it matters. It can't be used to review someone's day afterwards.
+      </div>
+    </div>
+    <div class="suggest">
+      <span class="suggest-tag">Our suggestion</span>
+      <p><strong>A</strong> — but this one is yours as the employer rather than ours, and it's the
+        kind of thing your drivers should hear directly from you.</p>
+    </div>
+  </article>
+
+  <article class="q">
+    <div class="q-head">
+      <span class="q-num">4</span>
+      <h2 class="q-title">How many orders can one driver carry at once?</h2>
+    </div>
+    <div class="q-body">
+      <p>A driver can be given several deliveries at a time and decide for themselves which to drop
+        off next. Is there a number that's simply too many — because the van is full, or because it
+        gets confusing?</p>
+      <div class="options">
+        <div class="opt">
+          <span class="opt-letter">A</span>
+          <p><strong>A hard limit.</strong> The app refuses to give a driver a sixth order — or
+            whatever the right number turns out to be.</p>
+        </div>
+        <div class="opt">
+          <span class="opt-letter">B</span>
+          <p><strong>No limit.</strong> The app shows your office how many each driver is already
+            carrying, and the person assigning the work decides.</p>
+        </div>
+      </div>
+      <p class="aside"><span class="label">Why we're asking</span> Any limit we set now is a guess.
+        Guess low and it blocks your office on your busiest day; guess high and it does nothing at
+        all.</p>
+    </div>
+    <div class="suggest">
+      <span class="suggest-tag">Our suggestion</span>
+      <p><strong>B</strong> for now — then a real number later, once you've seen how much actually
+        fits in a van.</p>
+    </div>
+  </article>
+
+  <p class="close">Thank you — these four answers unlock the whole driver side of the app.</p>
+
+</div>

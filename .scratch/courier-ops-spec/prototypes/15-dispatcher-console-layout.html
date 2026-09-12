@@ -1,0 +1,486 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Dispatcher console layout — prototype</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<style>
+  :root {
+    --ink: #0b1420;
+    --panel: #12202f;
+    --panel-2: #16283a;
+    --line: rgba(236, 231, 219, 0.10);
+    --paper: #ece7db;
+    --paper-dim: #97a1ad;
+    --rust: #c1502f;
+    --amber: #e2a53a;
+    --moss: #587a5b;
+    --slate: #6b7280;
+    --danger: #d1495b;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    height: 100%;
+    background: var(--ink);
+    color: var(--paper);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    overflow: hidden;
+  }
+  body { display: flex; flex-direction: column; }
+
+  .intro {
+    padding: 14px 20px 10px;
+    border-bottom: 1px solid var(--line);
+    flex: 0 0 auto;
+  }
+  .eyebrow {
+    font-size: 10.5px; letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--rust); font-weight: 700;
+  }
+  .intro h1 { font-size: 16px; margin: 4px 0 4px; }
+  .intro p { margin: 0; color: var(--paper-dim); font-size: 12.5px; line-height: 1.5; max-width: 900px; }
+
+  .stage { position: relative; flex: 1; min-height: 0; }
+  .screen {
+    position: absolute; inset: 0; display: flex;
+  }
+  .hidden { display: none; }
+
+  /* shared bits */
+  .pin {
+    position: absolute; transform: translate(-50%, -100%);
+    display: flex; flex-direction: column; align-items: center;
+    font-size: 9.5px; font-weight: 700; color: var(--paper);
+    cursor: pointer; user-select: none;
+  }
+  .pin .dot {
+    width: 13px; height: 13px; border-radius: 50% 50% 50% 0;
+    transform: rotate(-45deg); border: 2px solid var(--ink);
+    box-shadow: 0 0 0 1px rgba(0,0,0,0.3);
+  }
+  .pin.job .dot { background: var(--amber); }
+  .pin.job.overdue .dot { background: var(--danger); animation: pulse 1.4s infinite; }
+  .pin.driver .dot { background: var(--moss); border-radius: 50%; transform: none; }
+  .pin.driver.stale .dot { background: var(--slate); }
+  .pin.driver.busy .dot { background: var(--rust); border-radius: 50%; transform: none; }
+  .pin.driver.selected .dot, .pin.job.selected .dot { outline: 2px solid var(--paper); outline-offset: 2px; }
+  .pin .lbl {
+    margin-top: 2px; background: rgba(11,20,32,0.85); padding: 1px 5px;
+    border-radius: 4px; white-space: nowrap;
+  }
+  @keyframes pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(209,73,91,0.6); }
+    50% { box-shadow: 0 0 0 6px rgba(209,73,91,0); }
+  }
+
+  .fake-map {
+    position: relative; overflow: hidden;
+    background:
+      radial-gradient(circle at 30% 20%, rgba(226,165,58,0.05), transparent 45%),
+      repeating-linear-gradient(0deg, rgba(255,255,255,0.03) 0 1px, transparent 1px 46px),
+      repeating-linear-gradient(90deg, rgba(255,255,255,0.03) 0 1px, transparent 1px 46px),
+      linear-gradient(160deg, #12202f, #0b1420 70%);
+  }
+  .fake-map::before {
+    content: ""; position: absolute; top: -10%; left: 58%; width: 30%; height: 130%;
+    background: rgba(58, 90, 122, 0.30); transform: rotate(10deg); border-radius: 40%;
+  }
+  .cluster {
+    position: absolute; transform: translate(-50%, -50%);
+    width: 26px; height: 26px; border-radius: 50%;
+    background: rgba(88,122,91,0.35); border: 1px solid var(--moss);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px; font-weight: 700; color: var(--paper);
+    cursor: pointer;
+  }
+
+  .badge {
+    font-size: 9.5px; font-weight: 700; padding: 1px 6px; border-radius: 8px;
+    text-transform: uppercase; letter-spacing: 0.04em;
+  }
+  .badge.age-ok { background: rgba(88,122,91,0.2); color: var(--moss); }
+  .badge.age-warn { background: rgba(226,165,58,0.2); color: var(--amber); }
+  .badge.age-bad { background: rgba(209,73,91,0.22); color: var(--danger); }
+  .badge.stale { background: rgba(107,114,128,0.25); color: var(--slate); }
+
+  button { font-family: inherit; cursor: pointer; }
+
+  .toast {
+    position: fixed; bottom: 76px; left: 50%; transform: translateX(-50%) translateY(8px);
+    background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px;
+    padding: 8px 14px; font-size: 12.5px; opacity: 0; pointer-events: none;
+    transition: opacity 0.2s, transform 0.2s; z-index: 200; box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  /* ================= Variant A: map-dominant, floating drawer ================= */
+  #variantA .fake-map { flex: 1; }
+  #variantA .drawer {
+    position: absolute; top: 14px; left: 14px; width: 300px; max-height: calc(100% - 28px);
+    background: rgba(18,32,47,0.92); backdrop-filter: blur(6px);
+    border: 1px solid var(--line); border-radius: 12px; overflow: hidden;
+    display: flex; flex-direction: column; box-shadow: 0 12px 32px rgba(0,0,0,0.4);
+  }
+  #variantA .drawer-head {
+    padding: 10px 12px; border-bottom: 1px solid var(--line);
+    display: flex; align-items: center; justify-content: space-between;
+    font-size: 12px; font-weight: 700;
+  }
+  #variantA .drawer-list { overflow-y: auto; }
+  #variantA .job-row {
+    padding: 9px 12px; border-bottom: 1px solid var(--line);
+    display: flex; flex-direction: column; gap: 3px; cursor: pointer;
+  }
+  #variantA .job-row:hover { background: rgba(255,255,255,0.03); }
+  #variantA .job-row.selected { background: rgba(226,165,58,0.10); border-left: 2px solid var(--amber); }
+  #variantA .job-row .top { display: flex; justify-content: space-between; align-items: center; font-size: 12.5px; font-weight: 600; }
+  #variantA .job-row .sub { font-size: 10.5px; color: var(--paper-dim); }
+  #variantA .suggest-panel {
+    position: absolute; top: 14px; right: 14px; width: 230px;
+    background: rgba(18,32,47,0.92); backdrop-filter: blur(6px);
+    border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px;
+    box-shadow: 0 12px 32px rgba(0,0,0,0.4);
+  }
+  #variantA .suggest-panel h3 { margin: 0 0 8px; font-size: 11.5px; text-transform: uppercase; letter-spacing: .05em; color: var(--paper-dim); }
+  #variantA .suggest-row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 6px 8px; border-radius: 6px; font-size: 12px; margin-bottom: 4px;
+    background: rgba(255,255,255,0.03);
+  }
+  #variantA .suggest-row button {
+    background: var(--amber); color: #1c1400; border: none; border-radius: 6px;
+    padding: 3px 9px; font-size: 11px; font-weight: 700;
+  }
+  #variantA .suggest-row.locked { opacity: 0.55; }
+  #variantA .suggest-row.locked button { background: var(--slate); color: var(--paper); cursor: not-allowed; }
+  #variantA .empty-hint { padding: 14px 12px; font-size: 11.5px; color: var(--paper-dim); }
+
+  /* ================= Variant B: three-pane, drag to assign ================= */
+  #variantB { flex-direction: row; }
+  #variantB .col-queue, #variantB .col-drivers {
+    width: 268px; flex: 0 0 auto; display: flex; flex-direction: column;
+    background: var(--panel); border-right: 1px solid var(--line);
+  }
+  #variantB .col-drivers { border-right: none; border-left: 1px solid var(--line); }
+  #variantB .col-head {
+    padding: 9px 12px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em;
+    color: var(--paper-dim); border-bottom: 1px solid var(--line); font-weight: 700;
+    display: flex; justify-content: space-between;
+  }
+  #variantB .col-body { overflow-y: auto; flex: 1; }
+  #variantB .job-card {
+    margin: 8px; padding: 9px 10px; border-radius: 8px; background: var(--panel-2);
+    border: 1px solid var(--line); cursor: grab; font-size: 12px;
+  }
+  #variantB .job-card:active { cursor: grabbing; opacity: 0.6; }
+  #variantB .job-card .top { display: flex; justify-content: space-between; font-weight: 700; margin-bottom: 3px; }
+  #variantB .job-card .sub { color: var(--paper-dim); font-size: 10.5px; }
+  #variantB .driver-row {
+    margin: 6px 8px; padding: 8px 10px; border-radius: 8px; border: 1px dashed transparent;
+    display: flex; flex-direction: column; gap: 2px; font-size: 12px;
+    background: rgba(255,255,255,0.02);
+  }
+  #variantB .driver-row.dragover { border-color: var(--amber); background: rgba(226,165,58,0.08); }
+  #variantB .driver-row .top { display: flex; justify-content: space-between; align-items: center; font-weight: 700; }
+  #variantB .driver-row .sub { color: var(--paper-dim); font-size: 10.5px; }
+  #variantB .load-dots { display: flex; gap: 3px; }
+  #variantB .load-dots span { width: 6px; height: 6px; border-radius: 50%; background: var(--line); }
+  #variantB .load-dots span.filled { background: var(--rust); }
+  #variantB .col-map { flex: 1; position: relative; }
+  #variantB .lockpill {
+    position: absolute; font-size: 9.5px; background: var(--danger); color: var(--paper);
+    padding: 1px 6px; border-radius: 8px; margin-left: 6px;
+  }
+
+  /* ================= Variant C: dense table + focus map ================= */
+  #variantC { flex-direction: row; }
+  #variantC .col-table { flex: 1.35; display: flex; flex-direction: column; border-right: 1px solid var(--line); min-width: 0; }
+  #variantC table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  #variantC thead th {
+    text-align: left; font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em;
+    color: var(--paper-dim); padding: 8px 10px; border-bottom: 1px solid var(--line);
+    position: sticky; top: 0; background: var(--panel); cursor: pointer;
+  }
+  #variantC tbody tr { border-bottom: 1px solid var(--line); cursor: pointer; }
+  #variantC tbody tr:hover { background: rgba(255,255,255,0.03); }
+  #variantC tbody tr.selected { background: rgba(226,165,58,0.10); }
+  #variantC tbody tr.focused-row { outline: 1px solid var(--amber); outline-offset: -1px; }
+  #variantC td { padding: 7px 10px; vertical-align: middle; }
+  #variantC .col-focus {
+    width: 300px; flex: 0 0 auto; display: flex; flex-direction: column; background: var(--panel);
+  }
+  #variantC .focus-map { height: 200px; flex: 0 0 auto; }
+  #variantC .focus-list { flex: 1; overflow-y: auto; padding: 8px; }
+  #variantC .focus-empty { padding: 20px 14px; font-size: 12px; color: var(--paper-dim); }
+  #variantC .rank-row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 8px 10px; margin-bottom: 6px; border-radius: 8px; background: var(--panel-2);
+    font-size: 12px; outline: 1px solid transparent;
+  }
+  #variantC .rank-row.kbd-focus { outline: 1px solid var(--amber); }
+  #variantC .rank-row .rank-num { color: var(--paper-dim); font-size: 10.5px; margin-right: 6px; }
+  #variantC .rank-row button {
+    background: var(--amber); color: #1c1400; border: none; border-radius: 6px;
+    padding: 3px 9px; font-size: 11px; font-weight: 700;
+  }
+  #variantC .hint { padding: 8px 10px; font-size: 10.5px; color: var(--paper-dim); border-top: 1px solid var(--line); }
+
+  /* --- variant switch bar --- */
+  .switcher {
+    position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%);
+    display: flex; align-items: center; gap: 10px;
+    background: var(--panel-2); border: 1px solid var(--line); border-radius: 999px;
+    padding: 6px 8px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); z-index: 300;
+  }
+  .switcher button {
+    width: 28px; height: 28px; border-radius: 50%; border: none;
+    background: rgba(255,255,255,0.06); color: var(--paper); font-size: 14px;
+  }
+  .switcher .label { min-width: 220px; text-align: center; font-weight: 600; font-size: 12.5px; }
+  .switcher .label small { display: block; color: var(--paper-dim); font-weight: 400; font-size: 10px; margin-top: 1px; }
+</style>
+</head>
+<body>
+
+<div class="intro">
+  <div class="eyebrow">Prototype — ticket 15</div>
+  <h1>Dispatcher console layout</h1>
+  <p>Three structurally different takes on the console: what dominates the screen, how a job gets assigned to a driver, and how the tool surfaces what needs attention. Seeded with 7 jobs and 5 drivers — one job overdue, one driver stale, one driver already holding two concurrent Deliveries, one driver mid-assignment-lock by another dispatcher. Cycle with ← / →.</p>
+</div>
+
+<div class="stage">
+  <div id="variantA" class="screen"></div>
+  <div id="variantB" class="screen hidden"></div>
+  <div id="variantC" class="screen hidden"></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<div class="switcher">
+  <button id="prevBtn" aria-label="Previous variant">←</button>
+  <div class="label" id="variantLabel"></div>
+  <button id="nextBtn" aria-label="Next variant">→</button>
+</div>
+
+<script>
+const now = Date.now();
+const JOBS = [
+  { id: 'J1', customer: 'Reyes household', addr: '14 Birchwood Ln', x: 62, y: 28, ageMin: 4,  courier: 'Unassigned' },
+  { id: 'J2', customer: 'Okafor deli order', addr: '203 Marlowe Ave', x: 30, y: 62, ageMin: 22, courier: 'Unassigned' },
+  { id: 'J3', customer: 'Chen family pack', addr: '77 Fenwick Rd', x: 74, y: 55, ageMin: 9,  courier: 'Unassigned' },
+  { id: 'J4', customer: 'Patel catering', addr: '5 Harrow Ct', x: 45, y: 20, ageMin: 31, courier: 'Unassigned' },
+  { id: 'J5', customer: 'Dubois butcher box', addr: '19 Colville St', x: 20, y: 30, ageMin: 2,  courier: 'Unassigned' },
+  { id: 'J6', customer: 'Kowalski order', addr: '88 Thistle Way', x: 55, y: 72, ageMin: 12, courier: 'Assigned' },
+  { id: 'J7', customer: 'Nguyen weekly', addr: '31 Aldergate', x: 68, y: 80, ageMin: 6,  courier: 'Assigned' },
+];
+const DRIVERS = [
+  { id: 'D1', name: 'Marcus', x: 58, y: 40, status: 'idle', load: 0, stale: false },
+  { id: 'D2', name: 'Priya',  x: 25, y: 50, status: 'idle', load: 0, stale: false },
+  { id: 'D3', name: 'Tomasz', x: 80, y: 25, status: 'stale', load: 1, stale: true },
+  { id: 'D4', name: 'Aisha',  x: 50, y: 68, status: 'busy', load: 2, stale: false },
+  { id: 'D5', name: 'Owen',   x: 35, y: 15, status: 'idle', load: 0, stale: false, lockedBy: 'Sam' },
+];
+function ageBadge(min) {
+  if (min >= 25) return { cls: 'age-bad', label: min + 'm' };
+  if (min >= 12) return { cls: 'age-warn', label: min + 'm' };
+  return { cls: 'age-ok', label: min + 'm' };
+}
+function dist(a, b) { return Math.round(Math.hypot(a.x - b.x, a.y - b.y) * 8) / 10; }
+
+let selectedJob = null;
+let toastTimer;
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 1800);
+}
+function assign(jobId, driverId) {
+  const job = JOBS.find(j => j.id === jobId);
+  const drv = DRIVERS.find(d => d.id === driverId);
+  if (drv.lockedBy) { toast(`${drv.name} is currently being assigned by ${drv.lockedBy} — try another driver.`); return; }
+  toast(`${job.customer} assigned to ${drv.name}.`);
+  selectedJob = null;
+  render();
+}
+
+const unassigned = JOBS.filter(j => j.courier === 'Unassigned');
+
+/* ---------- Variant A: map-dominant, floating drawer ---------- */
+function renderA() {
+  const el = document.querySelector('#variantA');
+  const jobPins = unassigned.map(j => {
+    const b = ageBadge(j.ageMin);
+    return `<div class="pin job ${b.cls === 'age-bad' ? 'overdue' : ''} ${selectedJob === j.id ? 'selected' : ''}"
+              style="left:${j.x}%; top:${j.y}%" data-job="${j.id}">
+              <div class="dot"></div><div class="lbl">${j.id}</div>
+            </div>`;
+  }).join('');
+  const driverPins = DRIVERS.map(d => `
+    <div class="pin driver ${d.stale ? 'stale' : ''} ${d.load > 0 ? 'busy' : ''}"
+         style="left:${d.x}%; top:${d.y}%" data-driver="${d.id}">
+      <div class="dot"></div><div class="lbl">${d.name}${d.load ? ' ('+d.load+')' : ''}</div>
+    </div>`).join('');
+
+  const rows = unassigned.map(j => {
+    const b = ageBadge(j.ageMin);
+    return `<div class="job-row ${selectedJob === j.id ? 'selected' : ''}" data-job="${j.id}">
+      <div class="top"><span>${j.customer}</span><span class="badge ${b.cls}">${b.label}</span></div>
+      <div class="sub">${j.addr}</div>
+    </div>`;
+  }).join('');
+
+  let suggestHtml = `<div class="empty-hint">Select a job to see suggested drivers, ranked by straight-line distance.</div>`;
+  if (selectedJob) {
+    const job = JOBS.find(j => j.id === selectedJob);
+    const ranked = [...DRIVERS].sort((a, b) => dist(job, a) - dist(job, b)).slice(0, 4);
+    suggestHtml = ranked.map(d => `
+      <div class="suggest-row ${d.lockedBy ? 'locked' : ''}">
+        <span>${d.name} · ${dist(job, d)}km${d.stale ? ' · stale' : ''}${d.load ? ' · '+d.load+' active' : ''}</span>
+        <button data-assign="${d.id}">${d.lockedBy ? d.lockedBy + '…' : 'Assign'}</button>
+      </div>`).join('');
+  }
+
+  el.innerHTML = `
+    <div class="fake-map">
+      ${jobPins}${driverPins}
+      <div class="drawer">
+        <div class="drawer-head"><span>Unassigned (${unassigned.length})</span><span style="color:var(--paper-dim); font-weight:400;">oldest first</span></div>
+        <div class="drawer-list">${rows}</div>
+      </div>
+      <div class="suggest-panel"><h3>Suggested drivers</h3>${suggestHtml}</div>
+    </div>`;
+
+  el.querySelectorAll('[data-job]').forEach(n => n.onclick = () => { selectedJob = n.dataset.job; render(); });
+  el.querySelectorAll('[data-assign]').forEach(n => n.onclick = () => assign(selectedJob, n.dataset.assign));
+}
+
+/* ---------- Variant B: three-pane, drag to assign ---------- */
+function renderB() {
+  const el = document.querySelector('#variantB');
+  const cards = unassigned.map(j => {
+    const b = ageBadge(j.ageMin);
+    return `<div class="job-card" draggable="true" data-job="${j.id}">
+      <div class="top"><span>${j.customer}</span><span class="badge ${b.cls}">${b.label}</span></div>
+      <div class="sub">${j.addr}</div>
+    </div>`;
+  }).join('');
+  const driverRows = DRIVERS.map(d => `
+    <div class="driver-row" data-driver="${d.id}">
+      <div class="top">
+        <span>${d.name} ${d.lockedBy ? `<span class="lockpill">${d.lockedBy} assigning…</span>` : ''}</span>
+        <div class="load-dots">${[0,1].map(i => `<span class="${i < d.load ? 'filled' : ''}"></span>`).join('')}</div>
+      </div>
+      <div class="sub">${d.stale ? 'stale · last seen 4m ago' : d.status}</div>
+    </div>`).join('');
+  const jobPins = unassigned.map(j => {
+    const b = ageBadge(j.ageMin);
+    return `<div class="pin job ${b.cls === 'age-bad' ? 'overdue' : ''}" style="left:${j.x}%; top:${j.y}%"><div class="dot"></div><div class="lbl">${j.id}</div></div>`;
+  }).join('');
+  const driverPins = DRIVERS.map(d => `
+    <div class="pin driver ${d.stale ? 'stale' : ''} ${d.load > 0 ? 'busy' : ''}" style="left:${d.x}%; top:${d.y}%"><div class="dot"></div><div class="lbl">${d.name}</div></div>`).join('');
+
+  el.innerHTML = `
+    <div class="col-queue">
+      <div class="col-head"><span>Unassigned</span><span>${unassigned.length}</span></div>
+      <div class="col-body">${cards}</div>
+    </div>
+    <div class="col-map fake-map">${jobPins}${driverPins}</div>
+    <div class="col-drivers">
+      <div class="col-head"><span>Drivers</span><span>${DRIVERS.length}</span></div>
+      <div class="col-body">${driverRows}</div>
+    </div>`;
+
+  el.querySelectorAll('.job-card').forEach(card => {
+    card.ondragstart = e => e.dataTransfer.setData('text/job', card.dataset.job);
+  });
+  el.querySelectorAll('.driver-row').forEach(row => {
+    row.ondragover = e => { e.preventDefault(); row.classList.add('dragover'); };
+    row.ondragleave = () => row.classList.remove('dragover');
+    row.ondrop = e => {
+      e.preventDefault(); row.classList.remove('dragover');
+      const jobId = e.dataTransfer.getData('text/job');
+      if (jobId) assign(jobId, row.dataset.driver);
+    };
+  });
+}
+
+/* ---------- Variant C: dense table + focus map ---------- */
+let kbdIndex = 0;
+function renderC() {
+  const el = document.querySelector('#variantC');
+  const sorted = [...unassigned].sort((a, b) => b.ageMin - a.ageMin);
+  const rows = sorted.map(j => {
+    const b = ageBadge(j.ageMin);
+    return `<tr class="${selectedJob === j.id ? 'selected' : ''}" data-job="${j.id}">
+      <td>${j.customer}</td>
+      <td style="color:var(--paper-dim)">${j.addr}</td>
+      <td><span class="badge ${b.cls}">${b.label}</span></td>
+      <td style="color:var(--paper-dim)">${j.courier}</td>
+    </tr>`;
+  }).join('');
+
+  let focusHtml = `<div class="focus-empty">Select a row to see the job on the map and a ranked, keyboard-navigable driver list. ↑ / ↓ to move, Enter to assign.</div>`;
+  let focusMapHtml = `<div class="focus-map fake-map"></div>`;
+  if (selectedJob) {
+    const job = JOBS.find(j => j.id === selectedJob);
+    const ranked = [...DRIVERS].sort((a, b) => dist(job, a) - dist(job, b)).slice(0, 4);
+    if (kbdIndex >= ranked.length) kbdIndex = 0;
+    focusMapHtml = `<div class="focus-map fake-map">
+      <div class="pin job selected" style="left:50%; top:50%"><div class="dot"></div><div class="lbl">${job.id}</div></div>
+      ${ranked.map((d, i) => `<div class="pin driver ${d.stale ? 'stale' : ''}" style="left:${50 + (d.x-job.x)*1.4}%; top:${50 + (d.y-job.y)*1.4}%"><div class="dot"></div><div class="lbl">${d.name}</div></div>`).join('')}
+    </div>`;
+    focusHtml = `<div class="focus-list">` + ranked.map((d, i) => `
+      <div class="rank-row ${i === kbdIndex ? 'kbd-focus' : ''}" data-driver="${d.id}">
+        <span><span class="rank-num">#${i+1}</span>${d.name} · ${dist(job, d)}km${d.stale ? ' · stale' : ''}${d.load ? ' · '+d.load+' active' : ''}</span>
+        <button data-assign="${d.id}">${d.lockedBy ? d.lockedBy + '…' : 'Assign'}</button>
+      </div>`).join('') + `</div><div class="hint">↑↓ select · Enter assign · row order = distance, nearest first</div>`;
+  }
+
+  el.innerHTML = `
+    <div class="col-table">
+      <table>
+        <thead><tr><th>Customer</th><th>Address</th><th data-sort>Age ▾</th><th>Courier status</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+    <div class="col-focus">${focusMapHtml}${focusHtml}</div>`;
+
+  el.querySelectorAll('tbody tr').forEach(r => r.onclick = () => { selectedJob = r.dataset.job; kbdIndex = 0; render(); });
+  el.querySelectorAll('[data-assign]').forEach(n => n.onclick = () => assign(selectedJob, n.dataset.assign));
+}
+
+function render() { renderA(); renderB(); renderC(); }
+render();
+
+/* ---------- variant switcher ---------- */
+const order = ['A', 'B', 'C'];
+const names = {
+  A: 'Map-dominant, floating drawer',
+  B: 'Three-pane, drag to assign',
+  C: 'Dense table, focus-map + keyboard',
+};
+let variant = 'A';
+function paint() {
+  order.forEach(v => document.querySelector(`#variant${v}`).classList.toggle('hidden', v !== variant));
+  document.querySelector('#variantLabel').innerHTML = `${variant} — ${names[variant]}<small>${order.indexOf(variant)+1} / ${order.length}</small>`;
+}
+function cycle(dir) {
+  const i = order.indexOf(variant);
+  variant = order[(i + dir + order.length) % order.length];
+  paint();
+}
+document.getElementById('prevBtn').onclick = () => cycle(-1);
+document.getElementById('nextBtn').onclick = () => cycle(1);
+document.addEventListener('keydown', e => {
+  const tag = document.activeElement.tagName;
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || document.activeElement.isContentEditable) return;
+  if (e.key === 'ArrowLeft') cycle(-1);
+  if (e.key === 'ArrowRight') cycle(1);
+});
+paint();
+</script>
+</body>
+</html>

@@ -1,0 +1,562 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Driver app screens &amp; job flow — prototype</title>
+<!--
+  PROTOTYPE — throwaway. Wayfinder ticket 32 (.scratch/courier-ops-spec/issues/32-driver-app-screens-and-job-flow.md)
+  Three radically different driver-app shells, switchable via ?variant=A|B|C and the floating bar.
+  Scenario chips force the hard states the ticket names. No persistence, no backend, no tests.
+-->
+<style>
+  :root{
+    --bg:#12141a; --panel:#1b1e26; --line:#2b3040; --ink:#e8eaf0; --dim:#9aa3b8;
+    --amber:#f2a33c; --amberbg:#3a2a12; --red:#e4574a; --green:#3fb27f; --blue:#5b8def;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 -apple-system,Segoe UI,Roboto,sans-serif;padding:20px 20px 96px}
+  h1{font-size:17px;margin:0 0 2px}
+  .sub{color:var(--dim);font-size:12.5px;margin-bottom:14px}
+  .stage{display:flex;gap:22px;align-items:flex-start;flex-wrap:wrap}
+
+  /* scenario chips */
+  .chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
+  .chips button{background:var(--panel);color:var(--dim);border:1px solid var(--line);border-radius:999px;padding:6px 12px;font-size:12.5px;cursor:pointer}
+  .chips button.on{background:var(--blue);border-color:var(--blue);color:#fff}
+
+  /* phone */
+  .phone{width:390px;height:812px;background:#0b0d12;border:9px solid #2a2e3a;border-radius:38px;overflow:hidden;display:flex;flex-direction:column;position:relative;flex:none}
+  .shade{background:#04060a;padding:7px 12px 9px;border-bottom:1px solid #1c202c;flex:none}
+  .shadetime{display:flex;justify-content:space-between;color:#7d8699;font-size:11px;margin-bottom:6px}
+  .notif{background:#151922;border-radius:11px;padding:8px 10px;display:flex;gap:9px;align-items:flex-start}
+  .notif .ic{width:19px;height:19px;border-radius:5px;background:var(--green);flex:none;margin-top:1px}
+  .notif b{font-size:12px;display:block}
+  .notif span{font-size:11.5px;color:var(--dim)}
+  .screen{flex:1;overflow-y:auto;position:relative}
+  .screen::-webkit-scrollbar{width:0}
+
+  .hdr{padding:13px 15px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:10px;position:sticky;top:0;background:#0b0d12;z-index:5}
+  .hdr h2{font-size:16px;margin:0;flex:1}
+  .duty{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--dim)}
+  .dot{width:8px;height:8px;border-radius:50%;background:var(--green)}
+  .dot.off{background:#5b6275}
+  .btn{border:1px solid var(--line);background:#20242f;color:var(--ink);border-radius:9px;padding:9px 14px;font-size:13.5px;cursor:pointer;font-weight:500}
+  .btn.primary{background:var(--blue);border-color:var(--blue);color:#fff}
+  .btn.ghost{background:transparent;color:var(--dim)}
+  .btn.wide{width:100%;padding:15px;font-size:15px;border-radius:12px}
+  .btn:disabled{opacity:.42;cursor:not-allowed}
+  .btn.sm{padding:6px 10px;font-size:12px;border-radius:8px}
+
+  .banner{margin:10px 12px;padding:10px 12px;border-radius:10px;font-size:12.5px;display:flex;gap:9px;align-items:flex-start}
+  .banner.warn{background:var(--amberbg);border:1px solid #6a4a18;color:#ffd79a}
+  .banner.bad{background:#3a1714;border:1px solid #7a2c25;color:#ffb3ab}
+  .banner.info{background:#16233d;border:1px solid #2c4478;color:#bdd0f7}
+  .banner b{display:block;margin-bottom:2px}
+
+  .card{margin:9px 12px;background:var(--panel);border:1px solid var(--line);border-radius:13px;padding:12px;cursor:pointer}
+  .card.held{border-color:#6a4a18;background:#231d15}
+  .card.van{border-color:#2e6a52;background:#15221d}
+  .cardtop{display:flex;justify-content:space-between;gap:8px;align-items:baseline}
+  .cust{font-weight:600;font-size:14.5px}
+  .km{color:var(--dim);font-size:12px;white-space:nowrap}
+  .addr{color:var(--dim);font-size:12.5px;margin-top:3px}
+  .tags{display:flex;gap:5px;margin-top:9px;flex-wrap:wrap}
+  .tag{font-size:11px;padding:3px 8px;border-radius:6px;background:#262b37;color:var(--dim)}
+  .tag.van{background:#1d3a2e;color:#7fd8ae}
+  .tag.hold{background:#4a3312;color:#ffc97a}
+  .tag.ready{background:#1c2c4d;color:#9dbcf5}
+  .tag.wait{background:#2b2f3c;color:#8f97ab}
+  /* Priority is a violet *overlay*, never a recolour — so it can sit on top of an amber
+     hold or a green in-van card without either signal being lost. */
+  .card.prio{border-color:#6d4fb0;background:#1e1a2b}
+  .priobar{margin:-12px -12px 10px;padding:7px 11px;background:#2c2145;border-radius:12px 12px 0 0;
+           color:#d7c2ff;font-size:11.5px;font-weight:600;border-bottom:1px solid #6d4fb0}
+  .priobar span{display:block;font-weight:400;color:#ad9bd4;margin-top:1px}
+  .banner.prio{background:#241d38;border:1px solid #6d4fb0;color:#d7c2ff}
+  .pin .crown{color:#c9aaff;font-size:13px;line-height:1;margin-bottom:-2px;text-shadow:0 0 4px #000}
+  .sect{color:var(--dim);font-size:11px;text-transform:uppercase;letter-spacing:.7px;margin:16px 13px 2px}
+
+  /* detail */
+  .detail{padding:0 0 22px}
+  .dhero{padding:15px;border-bottom:1px solid var(--line)}
+  .dhero h3{margin:0 0 3px;font-size:19px}
+  .rows{padding:4px 15px}
+  .row{display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid #21252f;font-size:13px}
+  .row span:first-child{color:var(--dim)}
+  .act{padding:14px 15px 0;position:sticky;bottom:0;background:linear-gradient(180deg,transparent,#0b0d12 22%)}
+
+  /* mis-tap guards */
+  .slide{background:#20242f;border:1px solid var(--line);border-radius:12px;height:54px;position:relative;overflow:hidden;user-select:none}
+  .slide .lbl{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--dim);font-size:13.5px;pointer-events:none}
+  .slide .thumb{position:absolute;top:4px;left:4px;width:62px;height:44px;border-radius:9px;background:var(--blue);cursor:grab;display:flex;align-items:center;justify-content:center;color:#fff;font-size:18px}
+  .hold{position:relative;overflow:hidden}
+  .hold .fill{position:absolute;left:0;top:0;bottom:0;background:rgba(91,141,239,.55);width:0}
+  .hold span{position:relative}
+
+  /* map variant */
+  .map{height:330px;background:#182028;position:relative;overflow:hidden;border-bottom:1px solid var(--line)}
+  .map .grid{position:absolute;inset:0;background-image:linear-gradient(#1f2a33 1px,transparent 1px),linear-gradient(90deg,#1f2a33 1px,transparent 1px);background-size:44px 44px}
+  .pin{position:absolute;transform:translate(-50%,-100%);cursor:pointer;text-align:center}
+  .pin .b{width:28px;height:28px;border-radius:50%;background:var(--blue);border:2px solid #0b0d12;color:#fff;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;margin:0 auto}
+  .pin.held .b{background:var(--amber)} .pin.van .b{background:var(--green)}
+  .pin.sel .b{outline:3px solid rgba(255,255,255,.5)}
+  .pin small{display:block;background:#0b0d12cc;border-radius:5px;padding:1px 5px;font-size:10px;margin-top:3px;white-space:nowrap}
+  .me{position:absolute;width:16px;height:16px;border-radius:50%;background:#fff;border:3px solid var(--blue);transform:translate(-50%,-50%)}
+  .sheet{position:absolute;left:0;right:0;bottom:0;background:#141821;border-top:1px solid var(--line);border-radius:16px 16px 0 0;max-height:62%;overflow-y:auto;z-index:8}
+  .grab{width:38px;height:4px;background:#39404f;border-radius:2px;margin:9px auto 4px}
+
+  /* modal sheets */
+  .modal{position:absolute;inset:0;background:#000a;display:flex;align-items:flex-end;z-index:20}
+  .mbox{background:#181c25;width:100%;border-radius:16px 16px 0 0;padding:17px 15px 20px}
+  .mbox h4{margin:0 0 6px;font-size:16px}
+  .mbox p{color:var(--dim);font-size:13px;margin:0 0 14px}
+  .cam{background:#000;height:250px;border-radius:11px;display:flex;align-items:center;justify-content:center;color:#4a5568;font-size:12px;margin-bottom:12px;background-image:radial-gradient(circle at 50% 45%,#1b2430,#000)}
+  .shot{width:64px;height:64px;border-radius:50%;background:#fff;border:4px solid #2a2e3a;margin:0 auto;display:block;cursor:pointer}
+  .inp{width:100%;background:#0f1219;border:1px solid var(--line);color:var(--ink);border-radius:9px;padding:10px;font-size:13px;margin-bottom:9px;font-family:inherit}
+  .opt{color:var(--dim);font-size:11.5px;margin:-4px 0 8px}
+  .thumbimg{height:74px;border-radius:9px;background:linear-gradient(135deg,#33404f,#1b2430);display:flex;align-items:center;justify-content:center;color:#7d8699;font-size:11.5px;margin-bottom:11px}
+
+  /* state readout */
+  .readout{flex:1;min-width:330px;background:var(--panel);border:1px solid var(--line);border-radius:13px;padding:14px;font:12px/1.6 ui-monospace,SFMono-Regular,Menlo,monospace;color:#c3cade;max-height:812px;overflow:auto}
+  .readout h3{font:600 12px/1.4 -apple-system,sans-serif;color:var(--dim);text-transform:uppercase;letter-spacing:.7px;margin:0 0 8px}
+  .readout .k{color:#7d8699}
+  .readout .v{color:#9dd7b5}
+  .readout .w{color:var(--amber)}
+  .readout hr{border:0;border-top:1px solid var(--line);margin:11px 0}
+  .note{font:12.5px/1.55 -apple-system,sans-serif;color:var(--dim);margin-top:10px}
+  .note b{color:var(--ink)}
+
+  /* switcher */
+  .switcher{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);background:#f2f4f8;color:#12141a;border-radius:999px;padding:7px 8px;display:flex;align-items:center;gap:10px;box-shadow:0 10px 32px #000a;z-index:99}
+  .switcher button{border:0;background:#12141a;color:#fff;width:32px;height:32px;border-radius:50%;font-size:15px;cursor:pointer}
+  .switcher .lab{font:600 13px/1 -apple-system,sans-serif;padding:0 6px;min-width:230px;text-align:center}
+</style>
+</head>
+<body>
+
+<h1>Driver app — screens &amp; job flow <span style="color:#9aa3b8;font-weight:400;font-size:13px">· prototype for ticket 32</span></h1>
+<div class="sub">Three structurally different shells. Flip with the bar at the bottom (or ← / →). Scenario chips force the states the ticket names.</div>
+
+<div class="chips" id="chips"></div>
+
+<div class="stage">
+  <div class="phone">
+    <div class="shade" id="shade"></div>
+    <div class="screen" id="screen"></div>
+  </div>
+  <div class="readout" id="readout"></div>
+</div>
+
+<div class="switcher">
+  <button id="prevBtn" aria-label="Previous variant">←</button>
+  <div class="lab" id="vlab"></div>
+  <button id="nextBtn" aria-label="Next variant">→</button>
+</div>
+
+<script>
+/* ---------------------------------------------------------------- data --- */
+const VARIANTS = {
+  A:{name:'List-first — two screens',      guard:'confirm sheet'},
+  B:{name:'Next-stop focus — one thumb',   guard:'slide to confirm'},
+  C:{name:'Map-led — spatial list',        guard:'press &amp; hold'}
+};
+const peso = c => '₱' + (c/100).toLocaleString('en-PH',{minimumFractionDigits:2,maximumFractionDigits:2});
+
+function seed(){
+  return [
+    {id:'1043', cust:"Aling Nena's Carinderia", addr:'118 Kalayaan Ave, Brgy. Central, QC', km:1.2,
+     prep:'Ready', courier:'Picked up', hold:false, total:248000, items:4, x:52, y:38},
+    {id:'1047', cust:'Marites Sari-sari Store', addr:'7 Mahogany St, Brgy. Pinyahan, QC', km:2.4,
+     prep:'Ready', courier:'Assigned', hold:false, total:131500, items:2, x:74, y:62},
+    {id:'1051', cust:'Jomar Reyes', addr:'Unit 4B, Sunrise Twr, Brgy. South Triangle', km:3.9,
+     prep:'Ready', courier:'Assigned', hold:false, total:89000, items:3, x:28, y:70},
+    {id:'1052', cust:'Bahay Kubo Resto', addr:'22 Scout Borromeo, Brgy. Laging Handa', km:5.1,
+     prep:'Preparing', courier:'Assigned', hold:false, total:412000, items:7, x:66, y:20}
+  ].map(j=>({...j, prio:null}));   // prio: null | {reason}  — set by dispatch, advisory only
+}
+
+let S = {};
+function reset(scn){
+  S = {
+    scn, variant:S.variant || 'A',
+    jobs: seed(),
+    onDuty:true, dutyAutoEnded:false, clock:'09:42', perm:'always',
+    open:null,            // job id of the detail view
+    focus:'1043',         // variant B's chosen next stop
+    sheet:null,           // 'confirm' | 'pod' | null
+    pending:null,         // job awaiting a confirm-sheet decision
+    pod:{step:'cam', name:'', sig:false},
+    uploads:[],           // job ids whose PoD photo is still queued
+    toast:null
+  };
+  const j = id => S.jobs.find(x=>x.id===id);
+
+  if(scn==='hold'){ j('1047').hold = true; }
+  if(scn==='offduty'){ S.onDuty=false; S.clock='07:51'; S.jobs.forEach(x=>{ if(x.courier==='Picked up') x.courier='Assigned'; }); }
+  if(scn==='after16'){ S.clock='16:24'; S.dutyAutoEnded=true; S.jobs=S.jobs.filter(x=>x.id==='1043'); S.focus='1043'; }
+  if(scn==='perm'){ S.perm='whenInUse'; }
+  if(scn==='upload'){ const a=j('1043'); a.courier='Delivered'; S.uploads=['1043']; S.focus='1047'; }
+  if(scn==='priority'){ j('1051').prio = {reason:'Restaurant opens at 17:00 — needs it before service'}; }
+  if(scn==='prioheld'){ j('1047').hold = true; j('1047').prio = {reason:'Customer has phoned twice, very unhappy'}; }
+  if(scn==='all'){
+    j('1047').hold=true; j('1047').prio={reason:'Customer has phoned twice, very unhappy'};
+    S.perm='whenInUse'; S.onDuty=false; S.uploads=['1043'];
+    const a=j('1043'); a.courier='Delivered'; S.focus='1047'; S.clock='16:24'; S.dutyAutoEnded=true;
+  }
+  render();
+}
+
+const SCENARIOS = [
+  ['clean',   'Clean — 4 jobs, on duty'],
+  ['hold',    'Price-approval hold'],
+  ['offduty', 'Job arrives while clocked out'],
+  ['after16', 'Past 16:00, still carrying'],
+  ['perm',    'Always downgraded mid-shift'],
+  ['upload',  'PoD photo still uploading'],
+  ['priority','Dispatch flagged one first'],
+  ['prioheld','Urgent + on hold (the clash)'],
+  ['all',     'All at once']
+];
+
+/* ------------------------------------------------------------- helpers --- */
+const job = id => S.jobs.find(x=>x.id===id);
+const held = () => S.jobs.filter(j=>j.courier!=='Delivered');
+const inVan = () => S.jobs.filter(j=>j.courier==='Picked up');
+const tracking = () => S.onDuty || held().length>0;
+
+// ranking: dispatch's flagged job first, then in the van, then collectable by distance,
+// then not-yet-packed. The flag only *sorts* — it never disables or forces anything.
+function ranked(){
+  const rank = j => j.prio ? -1 : (j.courier==='Picked up' ? 0 : (j.prep==='Ready' && !j.hold ? 1 : 2));
+  return S.jobs.filter(j=>j.courier!=='Delivered')
+               .sort((a,b)=> rank(a)-rank(b) || a.km-b.km);
+}
+function nextAction(j){
+  if(j.courier==='Assigned') return {label:'Collected — start delivery', to:'Picked up'};
+  if(j.courier==='Picked up') return {label:'Arrived — take proof photo', to:'Delivered'};
+  return null;
+}
+function blockReason(j){
+  if(j.hold) return 'On hold — do not collect. Dispatch is phoning the customer about a weight change.';
+  if(j.prep!=='Ready' && j.courier==='Assigned') return 'Not packed yet — the shop is still preparing this order.';
+  return null;
+}
+
+/* ------------------------------------------------------------ notification shade --- */
+function shade(){
+  let body;
+  if(!tracking()) body = null;
+  else if(S.dutyAutoEnded && held().length)
+    body = {t:'Meatworks Courier', s:'Work day ended 16:00 · still sharing location until your last delivery is done'};
+  else if(inVan().length)
+    body = {t:'Meatworks Courier', s:'Delivering #'+inVan()[0].id+' · location shared with dispatch'};
+  else
+    body = {t:'Meatworks Courier', s:'On duty · location shared with dispatch'};
+
+  document.getElementById('shade').innerHTML =
+    '<div class="shadetime"><span>'+S.clock+'</span><span>'+(tracking()?'◉ GPS':'')+'  ▰ 82%</span></div>' +
+    (body ? '<div class="notif"><div class="ic"></div><div><b>'+body.t+'</b><span>'+body.s+'</span></div></div>'
+          : '<div class="notif" style="opacity:.35"><div class="ic" style="background:#39404f"></div><div><b>No tracking notification</b><span>Off duty, nothing held — shade is clear</span></div></div>');
+}
+
+/* --------------------------------------------------------------- banners --- */
+function banners(){
+  let h='';
+  if(S.perm==='whenInUse') h +=
+    '<div class="banner bad"><div>⚠</div><div><b>Tracking has stopped</b>Location is set to “While using the app”. Dispatch can’t see you and you can’t be given new jobs. Finish what you’re carrying, then fix it. <u>Open settings</u></div></div>';
+  if(S.dutyAutoEnded && held().length) h +=
+    '<div class="banner warn"><div>◴</div><div><b>Work day ended at 16:00</b>You’re still sharing location because you’re carrying '+held().length+' delivery. It stops on its own once you’re done.</div></div>';
+  if(!S.onDuty && held().length && !S.dutyAutoEnded) h +=
+    '<div class="banner info"><div>⚑</div><div><b>You were given a job while clocked out</b>Dispatch assigned #'+held()[0].id+'. Tap <b>Start work</b> when you’re on the road.</div></div>';
+  if(S.uploads.length) h +=
+    '<div class="banner info"><div>↑</div><div><b>Proof photo still sending</b>#'+S.uploads.join(', #')+' is marked delivered. The photo goes up on its own — you don’t have to wait.</div></div>';
+  return h;
+}
+
+/* ------------------------------------------------------------- job card --- */
+function card(j, onclick){
+  const br = blockReason(j);
+  const cls = (j.hold ? 'held' : (j.courier==='Picked up' ? 'van' : '')) + (j.prio ? ' prio' : '');
+  return '<div class="card '+cls+'" data-open="'+j.id+'">'+
+    (j.prio ? '<div class="priobar">★ Dispatch asked for this one first<span>'+j.prio.reason+'</span></div>' : '')+
+    '<div class="cardtop"><div class="cust">'+j.cust+'</div><div class="km">'+j.km.toFixed(1)+' km</div></div>'+
+    '<div class="addr">'+j.addr+'</div>'+
+    '<div class="tags">'+
+      '<span class="tag">#'+j.id+'</span>'+
+      (j.courier==='Picked up' ? '<span class="tag van">In your van</span>' : '')+
+      (j.hold ? '<span class="tag hold">On hold — do not collect</span>' :
+        (j.prep==='Ready' ? '<span class="tag ready">Packed — ready to collect</span>'
+                          : '<span class="tag wait">Still being packed</span>'))+
+      '<span class="tag">'+j.items+' items · '+peso(j.total)+'</span>'+
+    '</div>'+
+  '</div>';
+}
+
+/* =============================================================== VARIANT A === */
+/* Home is the full list. Order is implicit (van → distance). Detail is a second screen. */
+function renderA(){
+  if(S.open) return detailScreen(S.open, 'confirm');
+  const r = ranked();
+  const prio  = r.filter(j=>j.prio);
+  const van   = r.filter(j=>!j.prio && j.courier==='Picked up');
+  const now   = r.filter(j=>!j.prio && j.courier!=='Picked up' && j.prep==='Ready' && !j.hold);
+  const later = r.filter(j=>!j.prio && j.courier!=='Picked up' && (j.prep!=='Ready' || j.hold));
+  return '<div class="hdr"><h2>Your jobs</h2>'+
+      '<div class="duty"><span class="dot '+(S.onDuty?'':'off')+'"></span>'+(S.onDuty?'On duty':'Off duty')+'</div>'+
+      '<button class="btn sm" data-duty>'+(S.onDuty?'Finish work':'Start work')+'</button></div>'+
+    banners()+
+    (prio.length ? '<div class="sect">Asked for first</div>'+prio.map(card).join('') : '')+
+    (van.length ? '<div class="sect">In your van</div>'+van.map(card).join('') : '')+
+    (now.length ? '<div class="sect">Ready to collect — nearest first</div>'+now.map(card).join('') : '')+
+    (later.length ? '<div class="sect">Not yet</div>'+later.map(card).join('') : '')+
+    (r.length===0 ? '<div class="banner info" style="margin-top:20px"><div>✓</div><div><b>Nothing on you</b>Dispatch will push a job here when there’s one.</div></div>' : '')+
+    '<div style="height:20px"></div>';
+}
+
+/* =============================================================== VARIANT B === */
+/* One screen. The chosen next stop fills it; the rest peek from a strip the driver taps to swap. */
+function renderB(){
+  const r = ranked();
+  if(!r.length) return '<div class="hdr"><h2>Meatworks</h2><button class="btn sm" data-duty>'+(S.onDuty?'Finish work':'Start work')+'</button></div>'+banners()+
+    '<div class="banner info"><div>✓</div><div><b>All done</b>Nothing left to deliver.</div></div>';
+  const f = job(S.focus) && r.includes(job(S.focus)) ? job(S.focus) : r[0];
+  const rest = r.filter(j=>j.id!==f.id);
+  const br = blockReason(f), act = nextAction(f);
+
+  return '<div class="hdr"><div class="duty"><span class="dot '+(S.onDuty?'':'off')+'"></span>'+(S.onDuty?'On duty':'Off duty')+'</div>'+
+      '<h2 style="text-align:right;font-size:13px;color:#9aa3b8">'+r.length+' to go</h2>'+
+      '<button class="btn sm" data-duty>'+(S.onDuty?'Finish':'Start')+'</button></div>'+
+    banners()+
+    '<div style="padding:16px 15px 4px">'+
+      '<div style="color:#9aa3b8;font-size:11.5px;text-transform:uppercase;letter-spacing:.8px">Next stop · '+f.km.toFixed(1)+' km</div>'+
+      '<div style="font-size:25px;font-weight:650;line-height:1.2;margin:6px 0 4px">'+f.cust+'</div>'+
+      '<div style="color:#9aa3b8;font-size:14px">'+f.addr+'</div>'+
+      '<div class="tags" style="margin-top:11px">'+
+        '<span class="tag">#'+f.id+'</span><span class="tag">'+f.items+' items · '+peso(f.total)+'</span>'+
+        (f.courier==='Picked up'?'<span class="tag van">In your van</span>':'')+
+      '</div>'+
+      '<div style="display:flex;gap:8px;margin-top:13px"><button class="btn sm">Call</button><button class="btn sm">Navigate</button><button class="btn sm" data-open="'+f.id+'">Order details</button></div>'+
+    '</div>'+
+    (br ? '<div class="banner warn"><div>⚠</div><div><b>'+(f.hold?'On hold — do not collect':'Not packed yet')+'</b>'+br+'</div></div>' : '')+
+    '<div style="padding:14px 15px 6px">'+ (act ? guardControl(f, act, br, 'slide') : '') +'</div>'+
+    (rest.length ? '<div class="sect">Also on you — tap to make it next</div>'+
+      rest.map(j=>'<div class="card '+(j.hold?'held':(j.courier==='Picked up'?'van':''))+'" data-focus="'+j.id+'" style="padding:10px 12px">'+
+        '<div class="cardtop"><div class="cust" style="font-size:13.5px">'+j.cust+'</div><div class="km">'+j.km.toFixed(1)+' km</div></div>'+
+        '<div class="tags" style="margin-top:6px">'+
+          (j.courier==='Picked up'?'<span class="tag van">In van</span>':'')+
+          (j.hold?'<span class="tag hold">On hold</span>':(j.prep==='Ready'?'<span class="tag ready">Ready</span>':'<span class="tag wait">Packing</span>'))+
+        '</div></div>').join('') : '')+
+    '<div style="height:26px"></div>'+
+    (S.open ? detailSheet(S.open) : '');
+}
+
+/* =============================================================== VARIANT C === */
+/* Map is the home. Stops are pins; the list is a sheet ranked by distance; detail opens over the map. */
+function renderC(){
+  const r = ranked();
+  return '<div class="hdr"><h2>Map</h2>'+
+      '<div class="duty"><span class="dot '+(S.onDuty?'':'off')+'"></span>'+(S.onDuty?'On duty':'Off duty')+'</div>'+
+      '<button class="btn sm" data-duty>'+(S.onDuty?'Finish work':'Start work')+'</button></div>'+
+    '<div class="map"><div class="grid"></div>'+
+      '<div class="me" style="left:46%;top:52%"></div>'+
+      r.map((j,i)=>'<div class="pin '+(j.hold?'held':(j.courier==='Picked up'?'van':''))+' '+(S.open===j.id?'sel':'')+'" data-open="'+j.id+'" style="left:'+j.x+'%;top:'+j.y+'%">'+
+        (j.prio?'<div class="crown">★</div>':'')+
+        '<div class="b">'+(i+1)+'</div><small>'+j.km.toFixed(1)+' km</small></div>').join('')+
+      (S.perm==='whenInUse' ? '<div class="banner bad" style="position:absolute;left:0;right:0;top:0;margin:10px 12px"><div>⚠</div><div><b>Tracking has stopped</b>Dispatch can’t see you. Finish what you’re carrying, then fix Location. <u>Open settings</u></div></div>' : '')+
+    '</div>'+
+    '<div class="sheet"><div class="grab"></div>'+
+      banners().replace(/class="banner bad"[\s\S]*?<\/div><\/div>/,'')+
+      '<div class="sect" style="margin-top:6px">'+r.length+' stops · nearest first</div>'+
+      r.map(card).join('')+
+      '<div style="height:16px"></div>'+
+    '</div>'+
+    (S.open ? detailSheet(S.open) : '');
+}
+
+/* ------------------------------------------------------- detail surfaces --- */
+function detailBody(id){
+  const j = job(id), br = blockReason(j), act = nextAction(j);
+  return '<div class="dhero"><h3>'+j.cust+'</h3><div style="color:#9aa3b8">'+j.addr+'</div>'+
+      '<div style="display:flex;gap:8px;margin-top:12px"><button class="btn sm">Call customer</button><button class="btn sm">Navigate</button></div></div>'+
+    '<div class="rows">'+
+      '<div class="row"><span>Order</span><span>#'+j.id+'</span></div>'+
+      '<div class="row"><span>Items</span><span>'+j.items+'</span></div>'+
+      '<div class="row"><span>Total</span><span>'+peso(j.total)+'</span></div>'+
+      '<div class="row"><span>Packing</span><span>'+j.prep+'</span></div>'+
+      '<div class="row"><span>Status</span><span>'+j.courier+'</span></div>'+
+    '</div>'+
+    (j.prio ? '<div class="banner prio"><div>★</div><div><b>Dispatch asked for this one first</b>'+j.prio.reason+'</div></div>' : '')+
+    (br ? '<div class="banner warn"><div>⚠</div><div><b>'+(j.hold?'On hold — do not collect':'Not packed yet')+'</b>'+br+'</div></div>' : '')+
+    (S.uploads.includes(j.id) ? '<div class="banner info"><div>↑</div><div><b>Proof photo sending</b>Delivered. The photo uploads in the background.</div></div>' : '')+
+    '<div class="act">'+(act ? guardControl(j, act, br, VARIANTS[S.variant].guard.includes('slide')?'slide':(S.variant==='C'?'hold':'confirm')) : '<div class="banner info" style="margin:0 0 14px"><div>✓</div><div><b>Delivered</b>Nothing more to do here.</div></div>')+'</div>';
+}
+function detailScreen(id){
+  return '<div class="hdr"><button class="btn sm" data-back>←</button><h2>#'+id+'</h2></div><div class="detail">'+detailBody(id)+'</div>';
+}
+function detailSheet(id){
+  return '<div class="modal" data-back><div class="mbox" onclick="event.stopPropagation()" style="max-height:88%;overflow-y:auto;padding-top:8px">'+
+    '<div class="grab"></div>'+detailBody(id)+'</div></div>';
+}
+
+/* -------------------------------------------------- mis-tap guard controls --- */
+/* One per variant on purpose: the ticket asks how mis-taps are guarded, so each shell
+   proposes a different answer and they can be judged side by side. */
+function guardControl(j, act, br, kind){
+  if(br) return '<button class="btn wide" disabled>'+act.label+'</button>'+
+    '<div style="color:#ffc97a;font-size:12px;text-align:center;margin-top:9px">'+(j.hold?'Blocked until dispatch clears the price':'Blocked until the shop finishes packing')+'</div>';
+  if(kind==='slide') return '<div class="slide" data-slide="'+j.id+'"><div class="lbl">Slide → '+act.label+'</div><div class="thumb">›</div></div>';
+  if(kind==='hold')  return '<button class="btn wide primary hold" data-hold="'+j.id+'"><span class="fill"></span><span>Hold to confirm · '+act.label+'</span></button>';
+  return '<button class="btn wide primary" data-confirm="'+j.id+'">'+act.label+'</button>';
+}
+
+/* ------------------------------------------------------------- advancing --- */
+function advance(id){
+  const j = job(id);
+  if(blockReason(j)) return;
+  if(j.courier==='Assigned'){ j.courier='Picked up'; S.sheet=null; S.pending=null; render(); return; }
+  if(j.courier==='Picked up'){ S.sheet='pod'; S.pending=id; S.pod={step:'cam',name:'',sig:false}; render(); }
+}
+function completeDelivery(id){
+  const j = job(id);
+  j.courier='Delivered';                       // optimistic close, ticket 11
+  S.uploads.push(id);
+  S.sheet=null; S.pending=null; S.open=null;
+  if(S.focus===id){ const r=ranked(); S.focus = r.length?r[0].id:null; }
+  render();
+  setTimeout(()=>{ S.uploads = S.uploads.filter(u=>u!==id); render(); }, 5000);
+}
+
+/* ------------------------------------------------------------ modal sheets --- */
+function sheetHTML(){
+  if(S.sheet==='confirm'){
+    const j=job(S.pending), act=nextAction(j);
+    return '<div class="modal" data-cancel><div class="mbox" onclick="event.stopPropagation()">'+
+      '<h4>'+act.label+'?</h4><p>#'+j.id+' · '+j.cust+'<br>'+j.addr+'</p>'+
+      '<button class="btn wide primary" data-do="'+j.id+'" style="margin-bottom:8px">Yes, '+(act.to==='Picked up'?'I have it':'I’m here')+'</button>'+
+      '<button class="btn wide ghost" data-cancel>Not yet</button></div></div>';
+  }
+  if(S.sheet==='pod'){
+    const j=job(S.pending);
+    if(S.pod.step==='cam') return '<div class="modal"><div class="mbox">'+
+      '<h4>Photo of the hand-over</h4><p>Required before this can be marked delivered.</p>'+
+      '<div class="cam">viewfinder</div><div class="shot" data-shot></div>'+
+      '<button class="btn wide ghost" data-cancel style="margin-top:14px">Back</button></div></div>';
+    return '<div class="modal"><div class="mbox">'+
+      '<h4>Anything else?</h4><p>#'+j.id+' · '+j.cust+'</p>'+
+      '<div class="thumbimg">✓ photo taken</div>'+
+      '<input class="inp" placeholder="Who received it?" value="'+S.pod.name+'" data-name>'+
+      '<div class="opt">Both optional — the photo is the only thing required.</div>'+
+      '<button class="btn wide '+(S.pod.sig?'':'ghost')+'" data-sig style="margin-bottom:10px">'+(S.pod.sig?'✓ Signed':'Take a signature')+'</button>'+
+      '<button class="btn wide primary" data-complete="'+j.id+'">Mark delivered</button>'+
+      '<button class="btn wide ghost" data-cancel style="margin-top:8px">Back</button></div></div>';
+  }
+  return '';
+}
+
+/* --------------------------------------------------------------- readout --- */
+function readout(){
+  const kv=(k,v,w)=>'<div><span class="k">'+k+'</span> <span class="'+(w?'w':'v')+'">'+v+'</span></div>';
+  const r=ranked();
+  document.getElementById('readout').innerHTML =
+    '<h3>State</h3>'+
+    kv('variant', S.variant+' — '+VARIANTS[S.variant].name.replace('&amp;','&'))+
+    kv('mis-tap guard', VARIANTS[S.variant].guard.replace('&amp;','&'))+
+    kv('scenario', S.scn)+
+    '<hr>'+
+    kv('clock', S.clock)+
+    kv('onDuty', String(S.onDuty), !S.onDuty)+
+    kv('dutyAutoEnded', String(S.dutyAutoEnded), S.dutyAutoEnded)+
+    kv('permission', S.perm, S.perm!=='always')+
+    kv('capturing location', String(tracking())+ (tracking()&&!S.onDuty?'  (because a delivery is held)':''), !tracking())+
+    kv('pod uploads queued', S.uploads.length?('#'+S.uploads.join(', #')):'none', S.uploads.length>0)+
+    kv('dispatch priority flag', (S.jobs.filter(j=>j.prio).map(j=>'#'+j.id).join(', ')||'none')+'  (max 1)', S.jobs.some(j=>j.prio))+
+    '<hr><h3>Jobs — in list order</h3>'+
+    (r.length? r.map((j,i)=>'<div>'+(i+1)+'. <span class="v">#'+j.id+'</span> <span class="k">'+j.km.toFixed(1)+'km</span> '+
+      j.prep+'/'+j.courier+(j.hold?' <span class="w">HOLD</span>':'')+(j.prio?' <span style="color:#c9aaff">★FIRST</span>':'')+'</div>').join('') : '<div class="k">none held</div>')+
+    (S.jobs.filter(j=>j.courier==='Delivered').length ? '<hr><h3>Done</h3>'+S.jobs.filter(j=>j.courier==='Delivered').map(j=>'<div class="k">#'+j.id+' delivered'+(S.uploads.includes(j.id)?' · photo sending':' · photo up')+'</div>').join('') : '')+
+    '<hr><div class="note">'+VARIANT_NOTE[S.variant]+'</div>';
+}
+const VARIANT_NOTE = {
+  A:'<b>A — List-first.</b> Home is every job at once; order is <b>implicit</b> (van → nearest ready → not-yet-packed) and the driver cannot reorder. Detail is a separate screen, so the phone is a two-screen app. Guard: a confirm sheet.',
+  B:'<b>B — Next-stop focus.</b> One screen. The driver <b>picks</b> which stop is next by tapping the strip below — that tap <i>is</i> the reorder answer. Order details are a sheet, not a screen. Guard: slide to confirm, hard to do by accident in a moving van.',
+  C:'<b>C — Map-led.</b> “Eyeball the distance” taken literally: the pins are the ranking. The list is a sheet under the map, detail opens over it. One screen. Guard: press and hold.'
+};
+
+/* ---------------------------------------------------------------- render --- */
+function render(){
+  shade();
+  const body = S.variant==='A'?renderA():S.variant==='B'?renderB():renderC();
+  document.getElementById('screen').innerHTML = body + sheetHTML();
+  document.getElementById('vlab').innerHTML = S.variant+' — '+VARIANTS[S.variant].name;
+  document.getElementById('chips').innerHTML = SCENARIOS.map(([k,l])=>
+    '<button class="'+(S.scn===k?'on':'')+'" data-scn="'+k+'">'+l+'</button>').join('');
+  readout();
+  wireSlide(); wireHold();
+}
+
+/* --------------------------------------------------------------- events --- */
+document.addEventListener('click', e=>{
+  const t = e.target.closest('[data-scn],[data-open],[data-focus],[data-back],[data-cancel],[data-do],[data-confirm],[data-shot],[data-complete],[data-sig],[data-duty]');
+  if(!t) return;
+  if(t.dataset.scn!==undefined) return reset(t.dataset.scn);
+  if(t.dataset.duty!==undefined){ S.onDuty=!S.onDuty; if(S.onDuty) S.dutyAutoEnded=false; return render(); }
+  if(t.dataset.open){ S.open=t.dataset.open; return render(); }
+  if(t.dataset.focus){ S.focus=t.dataset.focus; return render(); }
+  if(t.dataset.back!==undefined){ S.open=null; return render(); }
+  if(t.dataset.cancel!==undefined){ S.sheet=null; S.pending=null; return render(); }
+  if(t.dataset.confirm){ S.sheet='confirm'; S.pending=t.dataset.confirm; return render(); }
+  if(t.dataset.do){ return advance(t.dataset.do); }
+  if(t.dataset.shot!==undefined){ S.pod.step='meta'; return render(); }
+  if(t.dataset.sig!==undefined){ S.pod.sig=!S.pod.sig; return render(); }
+  if(t.dataset.complete){ return completeDelivery(t.dataset.complete); }
+});
+document.addEventListener('input', e=>{ if(e.target.dataset.name!==undefined) S.pod.name=e.target.value; });
+
+function wireSlide(){
+  document.querySelectorAll('[data-slide]').forEach(el=>{
+    const thumb=el.querySelector('.thumb'), id=el.dataset.slide;
+    let sx=0, dragging=false;
+    thumb.addEventListener('pointerdown', ev=>{ dragging=true; sx=ev.clientX; thumb.setPointerCapture(ev.pointerId); });
+    thumb.addEventListener('pointermove', ev=>{
+      if(!dragging) return;
+      const max = el.clientWidth - thumb.clientWidth - 8;
+      const d = Math.max(0, Math.min(max, ev.clientX-sx));
+      thumb.style.left = (4+d)+'px';
+      if(d>=max-2){ dragging=false; advance(id); }
+    });
+    thumb.addEventListener('pointerup', ()=>{ dragging=false; thumb.style.left='4px'; });
+  });
+}
+function wireHold(){
+  document.querySelectorAll('[data-hold]').forEach(el=>{
+    const fill=el.querySelector('.fill'), id=el.dataset.hold;
+    let t0=null, raf=null;
+    const step=()=>{ const p=Math.min(1,(Date.now()-t0)/750); fill.style.width=(p*100)+'%';
+      if(p>=1){ cancelAnimationFrame(raf); advance(id); } else raf=requestAnimationFrame(step); };
+    el.addEventListener('pointerdown',()=>{ t0=Date.now(); raf=requestAnimationFrame(step); });
+    const stop=()=>{ cancelAnimationFrame(raf); fill.style.width='0'; };
+    el.addEventListener('pointerup',stop); el.addEventListener('pointerleave',stop);
+  });
+}
+
+/* ------------------------------------------------------------- switcher --- */
+const keys=Object.keys(VARIANTS);
+function setVariant(v){
+  S.variant=v; S.open=null; S.sheet=null;
+  const u=new URL(location); u.searchParams.set('variant',v); history.replaceState({},'',u);
+  render();
+}
+document.getElementById('prevBtn').onclick=()=>setVariant(keys[(keys.indexOf(S.variant)+keys.length-1)%keys.length]);
+document.getElementById('nextBtn').onclick=()=>setVariant(keys[(keys.indexOf(S.variant)+1)%keys.length]);
+addEventListener('keydown', e=>{
+  if(/INPUT|TEXTAREA/.test(document.activeElement.tagName)||document.activeElement.isContentEditable) return;
+  if(e.key==='ArrowLeft') document.getElementById('prevBtn').click();
+  if(e.key==='ArrowRight') document.getElementById('nextBtn').click();
+});
+
+S.variant = (new URL(location).searchParams.get('variant')||'A').toUpperCase();
+if(!VARIANTS[S.variant]) S.variant='A';
+reset('clean');
+</script>
+</body>
+</html>
