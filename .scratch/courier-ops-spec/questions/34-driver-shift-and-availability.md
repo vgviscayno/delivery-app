@@ -1,6 +1,6 @@
 # Questions for the business owner — how drivers work
 
-For ticket [34 — Driver shift and availability model](../issues/34-driver-shift-and-availability-model.md).
+For ticket [34 — Driver shift and availability model](https://github.com/vgviscayno/delivery-app/issues/34).
 Written to be sent as-is. No technical vocabulary; every option is stated in shop terms.
 
 ---

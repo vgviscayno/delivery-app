@@ -1,6 +1,6 @@
 # ETA feasibility at zero cost
 
-Research for [ticket 24](../issues/24-eta-feasibility-for-free.md).
+Research for [ticket 24](https://github.com/vgviscayno/delivery-app/issues/24).
 
 **Researched 2026-07-29.** Pricing was read from Mapbox's official pricing page on that date. Pricing pages change and often render client-side — re-verify before committing to any number. Items that could not be confirmed from a first-party source are collected in [Unverified and uncertain](#unverified-and-uncertain) and flagged inline with ⚠️.
 

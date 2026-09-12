@@ -1,6 +1,6 @@
 # Map provider for React Native and web
 
-Research for [issue 02](../issues/02-map-provider-for-react-native-and-web.md). Researched 2026-07-27.
+Research for [issue 02](https://github.com/vgviscayno/delivery-app/issues/2). Researched 2026-07-27.
 
 Scope reminder: tile rendering, markers, and a smoothly moving vehicle position across a web
 dispatcher console and two React Native apps. Directions, ETA and routing are out of scope, so

@@ -1,6 +1,6 @@
 # Backend platform options for realtime location
 
-Research for [ticket 04](../issues/04-backend-platform-options-for-realtime-location.md). Feeds the decision in [ticket 05](../issues/05-backend-platform-decision.md), and secondarily tickets 06 (transport and fan-out), 09 (auth) and 10 (location storage).
+Research for [ticket 04](https://github.com/vgviscayno/delivery-app/issues/4). Feeds the decision in [ticket 05](https://github.com/vgviscayno/delivery-app/issues/5), and secondarily tickets 06 (transport and fan-out), 09 (auth) and 10 (location storage).
 
 **Researched 2026-07-27.** All pricing was read from official pricing pages on that date. Pricing changes frequently and several vendors render prices client-side — re-verify before committing to any number. Items that could not be confirmed from a first-party source are collected in [Unverified and uncertain](#unverified-and-uncertain) and flagged inline with ⚠️.
 

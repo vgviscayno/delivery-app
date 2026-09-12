@@ -1,6 +1,6 @@
 # Transistorsoft licensing, and whether CLBackgroundActivitySession is an escape hatch
 
-Follow-up research for [issue 03](../issues/03-background-location-capture-on-the-driver-app.md), resolving the two items its research file flagged as unverified. Cross-reference: [issue 16](../issues/16-driver-location-permission-onboarding.md) (open — Always-permission onboarding flow). Researched 2026-07-29.
+Follow-up research for [issue 03](https://github.com/vgviscayno/delivery-app/issues/3), resolving the two items its research file flagged as unverified. Cross-reference: [issue 16](https://github.com/vgviscayno/delivery-app/issues/16) (open — Always-permission onboarding flow). Researched 2026-07-29.
 
 ---
 

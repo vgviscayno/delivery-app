@@ -1,6 +1,6 @@
 # Background location capture on the driver app
 
-Research for [issue 03](../issues/03-background-location-capture-on-the-driver-app.md). Researched 2026-07-27.
+Research for [issue 03](https://github.com/vgviscayno/delivery-app/issues/3). Researched 2026-07-27.
 Platform baseline at time of writing: **iOS 26**, **Android 16 (API 36)**, Expo SDK 57.
 
 ---
