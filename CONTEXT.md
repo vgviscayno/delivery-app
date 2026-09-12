@@ -33,11 +33,11 @@ The two directions of a per-weight line item's packed weight against the estimat
 _Avoid_: Overage, underage, variance
 
 **Price approval**:
-The customer's answer, obtained by a dispatcher over the phone, to a Weight tolerance breach. The call always goes to the customer's Account phone, never to the Arrival contact — consent to a revised price can only come from the person who placed the Order. Recorded per Order as an outcome — not required, pending, approved, or rejected — with the dispatcher, the time, the exact total approved, and the number actually dialled. While it is pending, the Delivery cannot advance to `Picked up`, whatever its prep status. No money moves; it is consent to a revised price, not a payment.
+The customer's answer, obtained by a dispatcher over the phone, to something about their Order changing after they agreed to it — a Weight tolerance breach found at packing, or, on an Order placed for a future day, a Product whose price the dispatcher raised or whose availability they withdrew before packing began. The trigger is always a **recorded, objective** change to a named line, never a dispatcher's preference. The call always goes to the customer's Account phone, never to the Arrival contact — consent to a revised price can only come from the person who placed the Order. Recorded per Order as an outcome — not required, pending, approved, or rejected — with the dispatcher, the time, the exact total approved, and the number actually dialled. While it is pending, the Delivery cannot advance to `Picked up`, whatever its prep status. No money moves; it is consent to a revised price, not a payment.
 _Avoid_: Confirmation, authorization (authorization means a card hold, which does not exist here), sign-off
 
 **Removed line item**:
-A line item the customer declined during Price approval, because that line breached its Weight tolerance. It stays on the Order, marked removed, and is excluded from every total — it is never deleted, so the Order still records what was originally agreed. Only breaching lines can be removed, and nothing can ever be added to an Order after submission; declining every line is a cancellation.
+A line item the customer declined during Price approval, because something recorded about that line changed after they agreed to it — it breached its Weight tolerance, or its Product was re-priced or made unavailable while the Order waited for a future delivery day. It stays on the Order, marked removed, and is excluded from every total — it is never deleted, so the Order still records what was originally agreed. Only **affected** lines can be removed, and nothing can ever be added to an Order after submission; declining every line is a cancellation.
 _Avoid_: Cancelled item, deleted line, partial cancellation
 
 **Delivery fee**:
@@ -65,8 +65,20 @@ Whether a driver is currently available to be given work — set by the driver a
 _Avoid_: Shift, clock-in, attendance, roster
 
 **Ordering window**:
-The hours during which a customer may submit an Order. Bounded by when drivers are available to deliver, not by when the shop's counter is open to walk-in customers — the two differ.
+The days and hours during which the shop delivers, and therefore the set of Requested delivery times a customer may choose from. Bounded by when drivers are available to deliver, not by when the shop's counter is open to walk-in customers — the two differ. It is deliberately **not** a limit on when an Order may be submitted: a customer may submit at any hour of any day, because an Order may be for a future day. What the window constrains is the choice of *when it arrives*, never the act of ordering.
 _Avoid_: Store hours, opening hours, trading hours
+
+**Same-day cutoff**:
+The last moment at which today may still be chosen as an Order's delivery day. Set against the drivers' finish, not the shop's: past it, today simply stops being offered and the next delivery day becomes the earliest choice. It bounds the delivery day only — an Order placed after it is accepted normally, for a later day.
+_Avoid_: Last call, closing time, order deadline
+
+**Requested delivery time**:
+When the customer asks for their Order to arrive: either **ASAP** (no time asked for — the default, and what most Orders carry) or a **30-minute window** they choose from the Ordering window, e.g. 14:30–15:00. It is a request, never a commitment: nothing is promised until a dispatcher answers it (see Time confirmation). The system makes no promise of its own at submission, and refuses nothing — it has no notion of how much a day can hold.
+_Avoid_: Slot (implies a fixed grid the shop divides its day into, which does not exist), delivery window, time slot, scheduled time
+
+**Time confirmation**:
+The shop's answer, given by a dispatcher over the phone, to a Requested delivery time — the counterpart of Price approval, and recorded the same way: an outcome per Order, with the dispatcher, the time, and both the time requested and the time confirmed, so a request that was met and one that was renegotiated are told apart. Three outcomes: **not required** (the customer chose ASAP — nothing to answer), **pending**, and **confirmed** (whether the shop agreed the original time or the customer accepted an alternative). There is deliberately no "could not do it" outcome: an Order the shop and customer cannot agree a time for is cancelled, and Cancellation cause already records why. While it is pending, the Delivery cannot advance to `Preparing`. The promise is a person's, made once with the whole day in view — the system never makes one.
+_Avoid_: Slot confirmation, booking, scheduling, ETA (an ETA is predicted and continuously wrong; this is asserted once by a human)
 
 **Address**:
 A place a customer has saved to receive Orders at. Its authoritative part is a **pin** — a point on the map the customer placed themselves — not the written address, because a street string here often resolves to the wrong building or to nothing at all. The written address, the unit or floor, and the **landmark note** ("green gate beside the sari-sari store") are there to help a human close the last few metres; the pin is what a driver navigates to. Every Address also carries an **Arrival contact** (see below), who is not necessarily the customer who placed the Order. A customer may keep several, one of which is the default. Deleting one hides it from future Orders but never from past ones.
@@ -117,6 +129,15 @@ There is no terminal status for a Delivery nobody ever completed. A status needs
 
 A dispatcher can assign a driver at any prep status, including `Received` — assignment and prep are independent tracks.
 
-**The one rule that couples them:** a Delivery cannot advance to `Picked up` while its Order's Price approval is pending. The tracks otherwise still run on their own schedules — a driver can be `Assigned` and waiting in the shop for an Order that is packed, priced, and held. See `docs/adr/0005-packed-weight-price-approval-gate.md`.
+**The two rules that couple them**, both of which hold a transition open until a dispatcher has spoken to the customer on the telephone:
+
+1. A Delivery cannot advance to `Picked up` while its Order's Price approval is pending. See `docs/adr/0005-packed-weight-price-approval-gate.md`.
+2. An Order cannot advance to `Preparing` while its Time confirmation is pending. See `docs/adr/0007-time-confirmation-gates-preparation.md`.
+
+They gate opposite ends of the same journey, and for the same reason in each case: the step ahead is hard to undo. Packing is a cancellation away from being reversed — goods that must be packed again are a new Order — so the shop does not cut meat for a delivery time it has not agreed. Picking up puts the goods in a van, so the shop does not send out an Order at a price the customer has not agreed.
+
+The tracks otherwise still run on their own schedules — a driver can be `Assigned` and waiting in the shop for an Order that is packed, priced, and held.
+
+An Order placed for a future delivery day sits at `Received`/`Unassigned` until that day arrives. This is **not** a status: nothing is stored, and no transition happens. Both the dispatcher's queue and the customer's Orders list simply compare the delivery day to today, which is why the two can never disagree about whether an Order is live.
 
 **Customer-facing labels** are derived from both tracks, not a single stored field — e.g. `Picked up` always shows as "on its way to you" regardless of prep status, since being picked up implies it was ready. See `docs/adr/0001-multi-stop-dispatch.md` for how multiple Deliveries interact on one driver.
