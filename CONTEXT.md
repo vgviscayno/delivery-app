@@ -17,7 +17,7 @@ An Order's price as agreed at submission — exact for per-unit line items, an e
 _Avoid_: Estimate, quote, subtotal
 
 **Final price**:
-An Order's price once every per-weight line item has been packed and weighed. Set during `Preparing`, frozen when the Delivery reaches `Picked up`.
+An Order's price once every per-weight line item has been packed and weighed. Set during `Preparing`, frozen when the Delivery first reaches `Picked up` — and never unfrozen, not even by a Handback. An Order has exactly one Final price. Goods that have to be packed again are a cancellation and a new Order, not a re-pricing.
 _Avoid_: Actual price, settled price
 
 **Packed weight**:
@@ -51,6 +51,14 @@ _Avoid_: Job, Consignment, Shipment
 **Driver**:
 An employee of the shop who carries Deliveries, assigned by a dispatcher and never self-selecting work. Holding several Deliveries at once is normal, and there is no cap on how many.
 _Avoid_: Courier, rider, partner
+
+**Handback**:
+A dispatcher's record that a driver no longer holds the goods for a Delivery that was already `Picked up`. It returns the Delivery to `Unassigned` so it can be assigned again — possibly to the same driver. It is a record of something a person did, not an instruction: the meat physically came back to the shop, or passed from one driver to the other at the roadside. Always carries a Cancellation cause. The Order itself is untouched — same line items, same Final price.
+_Avoid_: Return, unassign (unassign is the ordinary act of clearing a driver who never picked up), transfer, reassignment (reassignment is what happens *after* a Handback)
+
+**Cancellation cause**:
+Why a Delivery was handed back or cancelled after a driver was involved: the customer cancelled, the goods were not fit to deliver, the driver could not complete, or something else. Chosen from that fixed list, with free text alongside. Required on every Handback and on every `Cancelled` reached from `Assigned` or `Picked up`. Because no location history is kept, this is usually the only surviving record of what happened.
+_Avoid_: Reason code, cancellation reason (it covers handbacks too, which are not cancellations)
 
 **On duty**:
 Whether a driver is currently available to be given work — set by the driver at the start and end of their working day, and the window during which their live position is visible to the dispatcher. A present-tense fact only: it is deliberately **not** a timekeeping record, no history of it is kept, and hours worked live in the shop's separate HRIS.
@@ -90,6 +98,10 @@ A Delivery tracks two independent statuses that advance on their own schedules:
 
 **Courier status** — where the Delivery sits with a driver:
 `Unassigned` (no driver yet) → `Assigned` (dispatcher picked a driver, who may still be en route to pickup) → `Picked up` (driver has the product) → `Delivered` → optionally `Disputed` (customer flags a product-quality problem within a review window) → `Closed`. `Cancelled` is reachable from `Unassigned` (customer or dispatcher) or `Assigned`/`Picked up` (dispatcher only) — not after `Delivered`.
+
+`Picked up` asserts a physical fact: **exactly one driver is holding the goods in a vehicle.** A Delivery therefore cannot be pointed at a different driver while it sits there — the system cannot move meat, only a person can. The one way back out, short of `Delivered` or `Cancelled`, is a Handback, which returns the Delivery to `Unassigned` once a person has actually moved the goods. Prep status is unaffected: the goods are still packed and still priced, so the Delivery stays at `Ready`.
+
+There is no terminal status for a Delivery nobody ever completed. A status needs a rule for entering it, and "nobody knows what happened" has none — only a dispatcher can declare it, and by then they know something. Those end as `Cancelled` with a Cancellation cause.
 
 A dispatcher can assign a driver at any prep status, including `Received` — assignment and prep are independent tracks.
 
