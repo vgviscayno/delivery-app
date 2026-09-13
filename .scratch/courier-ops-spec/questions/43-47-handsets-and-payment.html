@@ -1,0 +1,490 @@
+<title>Phones, And Getting Paid</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap">
+
+<style>
+  :root {
+    --ground: #F6F8F6;
+    --surface: #FFFFFF;
+    --ink: #16211E;
+    --ink-soft: #57655F;
+    --ink-faint: #85958E;
+    --line: #DCE4DF;
+    --line-strong: #C3CFC8;
+    --accent: #0E6B55;
+    --accent-ink: #0B4E3E;
+    --accent-soft: #E5F1EB;
+    --note: #7A5514;
+    --note-soft: #F6EEDD;
+    --shadow: 0 1px 2px rgba(22, 33, 30, .05), 0 8px 24px -16px rgba(22, 33, 30, .25);
+
+    --display: "Bricolage Grotesque", "Trebuchet MS", sans-serif;
+    --body: "Source Serif 4", Georgia, "Times New Roman", serif;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #0F1513;
+      --surface: #161F1C;
+      --ink: #E9EFEB;
+      --ink-soft: #9DABA4;
+      --ink-faint: #71807A;
+      --line: #26332E;
+      --line-strong: #35453E;
+      --accent: #63CFAC;
+      --accent-ink: #8FE0C4;
+      --accent-soft: #16302A;
+      --note: #DEB775;
+      --note-soft: #2B2317;
+      --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 8px 24px -16px rgba(0, 0, 0, .8);
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --ground: #0F1513;
+    --surface: #161F1C;
+    --ink: #E9EFEB;
+    --ink-soft: #9DABA4;
+    --ink-faint: #71807A;
+    --line: #26332E;
+    --line-strong: #35453E;
+    --accent: #63CFAC;
+    --accent-ink: #8FE0C4;
+    --accent-soft: #16302A;
+    --note: #DEB775;
+    --note-soft: #2B2317;
+    --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 8px 24px -16px rgba(0, 0, 0, .8);
+  }
+
+  body {
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--body);
+    font-size: 19px;
+    line-height: 1.62;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .page {
+    max-width: 41rem;
+    margin: 0 auto;
+    padding: clamp(2rem, 6vw, 4.5rem) clamp(1.1rem, 5vw, 2rem) 5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 2.25rem;
+  }
+
+  /* ---- masthead ---- */
+
+  .eyebrow {
+    font-family: var(--display);
+    font-size: .75rem;
+    font-weight: 600;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin: 0 0 .9rem;
+  }
+
+  h1 {
+    font-family: var(--display);
+    font-weight: 700;
+    font-size: clamp(2.1rem, 7vw, 3rem);
+    line-height: 1.08;
+    letter-spacing: -.02em;
+    text-wrap: balance;
+    margin: 0 0 1rem;
+  }
+
+  .standfirst {
+    font-size: 1.15rem;
+    color: var(--ink-soft);
+    margin: 0;
+    max-width: 34rem;
+  }
+
+  .masthead-rule {
+    margin-top: 1.75rem;
+    border: 0;
+    border-top: 2px solid var(--ink);
+    opacity: .85;
+  }
+
+  /* ---- how to answer ---- */
+
+  .howto {
+    background: var(--accent-soft);
+    border-radius: 4px;
+    padding: 1.1rem 1.3rem;
+    display: flex;
+    flex-direction: column;
+    gap: .5rem;
+  }
+
+  .howto h2 {
+    font-family: var(--display);
+    font-size: .78rem;
+    font-weight: 700;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--accent-ink);
+    margin: 0;
+  }
+
+  .howto p {
+    margin: 0;
+    font-size: 1rem;
+    color: var(--ink);
+  }
+
+  /* ---- question panels ---- */
+
+  .q {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    box-shadow: var(--shadow);
+    padding: clamp(1.3rem, 4vw, 2rem);
+    display: flex;
+    flex-direction: column;
+    gap: 1.15rem;
+  }
+
+  .q-head {
+    display: flex;
+    align-items: baseline;
+    gap: .85rem;
+  }
+
+  .q-num {
+    font-family: var(--display);
+    font-weight: 700;
+    font-size: 1.7rem;
+    line-height: 1;
+    color: var(--accent);
+    font-variant-numeric: tabular-nums;
+    flex: none;
+  }
+
+  .q h2.q-title {
+    font-family: var(--display);
+    font-weight: 600;
+    font-size: clamp(1.3rem, 4.2vw, 1.6rem);
+    line-height: 1.22;
+    letter-spacing: -.01em;
+    text-wrap: balance;
+    margin: 0;
+  }
+
+  .q p {
+    margin: 0;
+  }
+
+  .q-body {
+    display: flex;
+    flex-direction: column;
+    gap: .8rem;
+  }
+
+  /* ---- the three plain asks in Q1 ---- */
+
+  .asks {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: .9rem;
+  }
+
+  .asks li {
+    border-left: 3px solid var(--line-strong);
+    padding: .1rem 0 .1rem 1rem;
+  }
+
+  .asks .hint {
+    display: block;
+    font-size: .95rem;
+    color: var(--ink-faint);
+    margin-top: .15rem;
+  }
+
+  /* ---- option pairs ---- */
+
+  .options {
+    display: flex;
+    flex-direction: column;
+    gap: .7rem;
+  }
+
+  .opt {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: .9rem;
+    align-items: start;
+    border: 1px solid var(--line-strong);
+    border-radius: 5px;
+    padding: .95rem 1.1rem;
+  }
+
+  .opt-letter {
+    font-family: var(--display);
+    font-weight: 700;
+    font-size: .95rem;
+    line-height: 1.6;
+    color: var(--ink-soft);
+    border: 1px solid var(--line-strong);
+    border-radius: 50%;
+    width: 1.85rem;
+    height: 1.85rem;
+    display: grid;
+    place-items: center;
+    flex: none;
+  }
+
+  .opt p {
+    font-size: 1.02rem;
+  }
+
+  .opt strong {
+    font-family: var(--display);
+    font-weight: 600;
+  }
+
+  /* ---- asides: why we're asking / worth knowing ---- */
+
+  .aside {
+    font-size: 1rem;
+    color: var(--ink-soft);
+  }
+
+  .aside .label {
+    font-family: var(--display);
+    font-weight: 600;
+    font-size: .72rem;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    display: block;
+    margin-bottom: .2rem;
+  }
+
+  .worth {
+    background: var(--note-soft);
+    border-radius: 4px;
+    padding: .95rem 1.1rem;
+    font-size: 1rem;
+    color: var(--ink);
+  }
+
+  .worth .label {
+    color: var(--note);
+  }
+
+  /* ---- suggestion strip ---- */
+
+  .suggest {
+    border-top: 1px solid var(--line);
+    padding-top: 1rem;
+    display: flex;
+    gap: .8rem;
+    align-items: baseline;
+  }
+
+  .suggest-tag {
+    font-family: var(--display);
+    font-weight: 700;
+    font-size: .7rem;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--accent-ink);
+    background: var(--accent-soft);
+    padding: .3rem .6rem;
+    border-radius: 3px;
+    white-space: nowrap;
+    flex: none;
+  }
+
+  .suggest p {
+    font-size: 1rem;
+    color: var(--ink-soft);
+  }
+
+  .suggest strong {
+    color: var(--ink);
+  }
+
+  /* ---- close ---- */
+
+  .close {
+    color: var(--ink-soft);
+    font-size: 1.05rem;
+    border-top: 2px solid var(--ink);
+    padding-top: 1.5rem;
+    opacity: .95;
+  }
+
+  @media print {
+    body { background: #fff; color: #000; font-size: 11pt; }
+    .q { break-inside: avoid; box-shadow: none; }
+  }
+</style>
+
+<div class="page">
+
+  <header>
+    <p class="eyebrow">Delivery app · questions for you</p>
+    <h1>Phones, and getting paid</h1>
+    <p class="standfirst">Four more, following on from the last set. The first is a small
+      clarification. The other three are about money — not about the app handling any, which it
+      won't, but about how you already get paid.</p>
+    <hr class="masthead-rule">
+  </header>
+
+  <section class="howto">
+    <h2>How to answer</h2>
+    <p>Same as before — rough answers are fine, and “it depends” is a real answer. Questions 2 to 4
+      describe things your shop already does, so there's nothing to decide; we just need to know
+      how it works today.</p>
+    <p>Question 2 is the one that unblocks the most, so if you only have a minute, answer that one.</p>
+  </section>
+
+  <article class="q">
+    <div class="q-head">
+      <span class="q-num">1</span>
+      <h2 class="q-title">Whose phone is it?</h2>
+    </div>
+    <div class="q-body">
+      <p>Last time you told us the phone “stays at the shop and vehicle.” We want to be sure we've
+        read that the right way, because it can mean two different things.</p>
+      <div class="options">
+        <div class="opt">
+          <span class="opt-letter">A</span>
+          <p><strong>Each driver has their own phone.</strong> It lives in their van during the day
+            and comes back to the shop at night — but nobody else uses it.</p>
+        </div>
+        <div class="opt">
+          <span class="opt-letter">B</span>
+          <p><strong>Each van has a phone.</strong> It lives in the van, and whoever is driving that
+            van today uses it. Tomorrow it might be somebody else.</p>
+        </div>
+      </div>
+      <p class="aside"><span class="label">Why we're asking</span> It changes how a driver starts
+        their day. Under A, the phone knows who the driver is permanently — they never sign in, they
+        just open the app and tap “Start work”. Under B, the phone can't know who's holding it, so
+        the driver signs in as themselves each morning — and then the separate “Start work” tap is
+        redundant. Signing in <em>is</em> starting work. One step instead of two, but a step they
+        can't skip.</p>
+      <div class="worth">
+        <span class="label">There's a second reason it matters</span>
+        Your office sees each driver's position on a map while they're out delivering. Under A that
+        name is always right. Under B it's right only if whoever took the van that morning remembered
+        to sign in as themselves — otherwise the map shows yesterday's driver.
+      </div>
+      <p class="hint">With two drivers and two vans these probably amount to the same thing today.
+        They come apart the first time a driver takes the other van. If the honest answer is “it's A
+        now, but I wouldn't want to promise that”, tell us — that's useful too.</p>
+    </div>
+  </article>
+
+  <article class="q">
+    <div class="q-head">
+      <span class="q-num">2</span>
+      <h2 class="q-title">How does a customer pay you today?</h2>
+    </div>
+    <div class="q-body">
+      <p>Tick whatever actually happens — and if it's a mix, say roughly how often each one comes up.</p>
+      <div class="options">
+        <div class="opt">
+          <span class="opt-letter">A</span>
+          <p><strong>Cash</strong>, handed to the driver at the door.</p>
+        </div>
+        <div class="opt">
+          <span class="opt-letter">B</span>
+          <p><strong>Bank transfer or GCash, before</strong> the driver sets off.</p>
+        </div>
+        <div class="opt">
+          <span class="opt-letter">C</span>
+          <p><strong>Bank transfer or GCash, after</strong> delivery — same day, next day, whenever
+            they get to it.</p>
+        </div>
+        <div class="opt">
+          <span class="opt-letter">D</span>
+          <p><strong>An account.</strong> Regular customers billed weekly or monthly, settled in one
+            go.</p>
+        </div>
+        <div class="opt">
+          <span class="opt-letter">E</span>
+          <p><strong>Something else</strong> — tell us what.</p>
+        </div>
+      </div>
+      <p class="aside"><span class="label">Why we're asking</span> The answer decides what we do with
+        an order that has already been cut and packed when something goes wrong. If the customer has
+        already paid, delivering it anyway is safe — worst case they're mildly annoyed. If they pay
+        cash at the door, the same delivery is a real risk: they can simply refuse the bag, and
+        you're holding meat you cut for them that nobody else ordered.</p>
+      <div class="worth">
+        <span class="label">This has already cost us once</span>
+        We hit exactly this situation and had to take the cautious route — cancelling an order
+        rather than delivering it — purely because we didn't know the answer. That was the right
+        call that time. It won't always be available.
+      </div>
+    </div>
+  </article>
+
+  <article class="q">
+    <div class="q-head">
+      <span class="q-num">3</span>
+      <h2 class="q-title">Does the driver handle money?</h2>
+    </div>
+    <div class="q-body">
+      <div class="options">
+        <div class="opt">
+          <span class="opt-letter">A</span>
+          <p><strong>Yes</strong> — they take cash, and settle up with the shop at the end of the
+            day.</p>
+        </div>
+        <div class="opt">
+          <span class="opt-letter">B</span>
+          <p><strong>No</strong> — money never touches the driver.</p>
+        </div>
+      </div>
+      <p class="aside"><span class="label">Why we're asking</span> If your driver is carrying cash,
+        the phone they're holding is also, in effect, a till. That raises the stakes on a few things
+        we've designed loosely — who's signed into the phone, what gets recorded when goods come
+        back undelivered, and what proof you want taken at the door.</p>
+    </div>
+  </article>
+
+  <article class="q">
+    <div class="q-head">
+      <span class="q-num">4</span>
+      <h2 class="q-title">What happens now when a customer won't take the delivery?</h2>
+    </div>
+    <div class="q-body">
+      <p>The driver is at the door and the customer says no — wrong day, changed their mind, not what
+        they expected, nobody told them the price went up.</p>
+      <ul class="asks">
+        <li>Does this happen? Once a month, twice a year, never?</li>
+        <li>What does the driver do — ring the shop, bring it back, leave it anyway?</li>
+        <li>Does the customer still owe you for it?</li>
+      </ul>
+      <p class="aside"><span class="label">Why we're asking</span> The app currently has no answer
+        for a driver standing at a door with a bag the customer won't take. There's no button for it,
+        because nobody has told us what the right button would do. Whatever you already do is almost
+        certainly the right thing to build.</p>
+    </div>
+  </article>
+
+  <section class="howto">
+    <h2>One thing worth saying plainly</h2>
+    <p>None of this means the app starts handling payments. It won't take card details, it won't
+      charge anyone, and it won't move money. We're asking because the app has to decide when it's
+      safe to deliver an order and when it isn't — and that turns entirely on whether you've already
+      been paid.</p>
+  </section>
+
+  <p class="close">Thank you — question 2 in particular unblocks decisions we've been working around.</p>
+
+</div>
