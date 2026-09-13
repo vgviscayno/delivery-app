@@ -52,6 +52,16 @@ _Avoid_: Job, Consignment, Shipment
 An employee of the shop who carries Deliveries, assigned by a dispatcher and never self-selecting work. Holding several Deliveries at once is normal, and there is no cap on how many.
 _Avoid_: Courier, rider, partner
 
+**Priority delivery**:
+A Delivery the dispatcher has instructed a driver to complete before the others they are holding, carrying a mandatory Priority reason. It is an instruction, not a hint — but the system never enforces it: nothing is disabled, blocked, or reordered against the driver's will, and a driver who cannot comply phones the dispatcher. That call is out-of-band; this system deliberately routes no driver-to-dispatcher contact of its own.
+At most one per driver at a time — scarcity is the whole point, since a driver who sees three of them ignores all three. Making a second one for the same driver moves the priority rather than being refused: a newer instruction from the dispatcher supersedes an older one.
+**Requires a driver.** A Delivery with no driver has no ordering to change, so it cannot be one; priority is set as a driver is assigned, or at any point afterwards while the Delivery is live. It clears when the Delivery reaches a terminal state, and does not survive a reassignment — the situation that justified it belonged to the previous driver. Never shown to a customer: it promises a speed the system does not guarantee, and its absence would tell every other customer they were deprioritised.
+_Avoid_: Priority order (Order is a distinct term), urgent, rush, priority rank (it is never a number — a rank would be route optimisation, which is out of scope)
+
+**Priority reason**:
+The dispatcher's free-text explanation of why a Delivery is a Priority delivery, written for the driver who reads it — "restaurant opens at 17:00", not "VIP". Mandatory: a bare priority is noise. Length-capped so it cannot overflow the driver's job card. The console offers a few tappable presets that prefill the field and stay editable; those are a typing shortcut, never a fixed set of causes.
+_Avoid_: Priority note, urgency code, reason (ambiguous — a Delivery also has a Cancellation cause)
+
 **Handback**:
 A dispatcher's record that a driver no longer holds the goods for a Delivery that was already `Picked up`. It returns the Delivery to `Unassigned` so it can be assigned again — possibly to the same driver. It is a record of something a person did, not an instruction: the meat physically came back to the shop, or passed from one driver to the other at the roadside. Always carries a Cancellation cause. The Order itself is untouched — same line items, same Final price.
 _Avoid_: Return, unassign (unassign is the ordinary act of clearing a driver who never picked up), transfer, reassignment (reassignment is what happens *after* a Handback)
