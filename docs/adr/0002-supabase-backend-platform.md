@@ -27,3 +27,7 @@ Team familiarity leaned toward Firebase, not Supabase, but Firebase was ruled ou
 - Supabase's own docs recommend **Broadcast**, not Postgres Changes, for the realtime layer — Postgres Changes authorizes per-subscriber and doesn't scale with subscriber count. Left to ticket 06 (realtime transport) to apply.
 - An 8-hour driver shift outlives a short-lived JWT; the Realtime channel needs token refresh wired in while backgrounded, or the connection drops mid-shift. Left to ticket 09 (auth) to design.
 - Lock-in is accepted deliberately, not designed around: Supabase is Postgres underneath, so a future exit (e.g. to Neon + a custom server) stays possible via standard `pg_dump`/restore if a concrete reason to leave ever arises. No migration plan is written now.
+
+## Reopened and upheld — 2026-09-23
+
+Reopened in ticket 50 on new evidence: the dev had since used Convex hands-on, which moved the familiarity axis this ADR admits can decide things. Research ticket 49 found that neither gate had moved. Convex geospatial is still beta, and its authorization framework is still listed as a future feature. `convex-helpers` deny-by-default RLS closes the forgotten-rule hole but not the forgotten-wrapper one. Convex file URLs also can't be signed or expired, so ticket 11's photos would need a second vendor. The dev decided that familiarity alone doesn't justify the switching cost. **This ADR stands unchanged.**
