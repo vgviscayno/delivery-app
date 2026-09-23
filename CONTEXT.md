@@ -49,7 +49,7 @@ The courier-side unit of work: a driver assigned to physically carry one Order f
 _Avoid_: Job, Consignment, Shipment
 
 **Driver**:
-An employee of the shop who carries Deliveries, assigned by a dispatcher and never self-selecting work. Holding several Deliveries at once is normal, and there is no cap on how many.
+An employee of the shop who carries Deliveries, assigned by a dispatcher and never self-selecting work. Holding several Deliveries at once is normal, and there is no cap on how many. A Driver is a person, never a phone or a vehicle: the phones belong to the vans and bikes, a driver signs in on whichever one they take, and their Deliveries follow them from one phone to another.
 _Avoid_: Courier, rider, partner
 
 **Priority delivery**:
@@ -71,7 +71,7 @@ Why a Delivery was handed back or cancelled after a driver was involved: the cus
 _Avoid_: Reason code, cancellation reason (it covers handbacks too, which are not cancellations)
 
 **On duty**:
-Whether a driver is currently available to be given work — set by the driver at the start and end of their working day, and the window during which their live position is visible to the dispatcher. A present-tense fact only: it is deliberately **not** a timekeeping record, no history of it is kept, and hours worked live in the shop's separate HRIS.
+Whether a driver is currently available to be given work — set by signing in to the driver app and cleared by signing out, ending by itself at end of day unless the driver is still holding a Delivery, and the window during which their live position is visible to the dispatcher. A present-tense fact only: it is deliberately **not** a timekeeping record, no history of it is kept, and hours worked live in the shop's separate HRIS.
 _Avoid_: Shift, clock-in, attendance, roster
 
 **Ordering window**:
