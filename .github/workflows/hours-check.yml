@@ -1,0 +1,50 @@
+# Every closed ticket in a milestone needs an "Hours: X" comment so the
+# timeline can be recomputed from real pace. Missing hours → needs-hours label
+# and a reminder; logging them later removes the label.
+name: Hours check
+
+on:
+  issues:
+    types: [closed]
+  issue_comment:
+    types: [created, edited]
+
+permissions:
+  issues: write
+
+jobs:
+  check:
+    if: github.event.issue.milestone && !github.event.issue.pull_request
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      NUMBER: ${{ github.event.issue.number }}
+    steps:
+      - name: Look for an Hours comment
+        id: hours
+        run: |
+          if gh issue view "$NUMBER" --json body,comments \
+               --jq '[.body] + [.comments[].body] | .[]' \
+             | grep -Eiq '^\s*hours:\s*[0-9]+(\.[0-9]+)?'; then
+            echo "found=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "found=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Flag a closed ticket with no hours
+        if: >-
+          github.event_name == 'issues'
+          && github.event.issue.state_reason != 'not_planned'
+          && steps.hours.outputs.found == 'false'
+        run: |
+          gh issue edit "$NUMBER" --add-label needs-hours
+          gh issue comment "$NUMBER" --body "Closed without hours logged. Add a comment like \`Hours: 6.5\` so the timeline checkpoint can use it."
+
+      - name: Clear the flag once hours are logged
+        if: >-
+          github.event_name == 'issue_comment'
+          && github.event.issue.state == 'closed'
+          && contains(github.event.issue.labels.*.name, 'needs-hours')
+          && steps.hours.outputs.found == 'true'
+        run: gh issue edit "$NUMBER" --remove-label needs-hours

@@ -1,0 +1,22 @@
+# Opens the weekly client-update draft every Friday, 17:00 Manila time.
+name: Weekly update
+
+on:
+  schedule:
+    - cron: "0 9 * * 5"
+  workflow_dispatch:
+
+permissions:
+  issues: write
+
+jobs:
+  draft:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Open the weekly update issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          ASSIGNEE: ${{ github.repository_owner }}
+        run: python3 .github/scripts/weekly_update.py
