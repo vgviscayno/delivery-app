@@ -1,0 +1,590 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>PROTOTYPE — Priority delivery: console control placement (ticket 48)</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<!--
+  THROWAWAY PROTOTYPE — ticket 48. Not production code.
+  Three variants of where the dispatcher sets, moves and clears a Priority delivery,
+  mounted on ticket 15's winning console (Variant A: map-dominant, floating drawer).
+  Switch with ?variant=A|B|C, the bottom bar, or ← / →. Everything is in memory.
+-->
+<style>
+  :root {
+    --ink: #0b1420; --panel: #12202f; --panel-2: #16283a;
+    --line: rgba(236, 231, 219, 0.10);
+    --paper: #ece7db; --paper-dim: #97a1ad;
+    --rust: #c1502f; --amber: #e2a53a; --moss: #587a5b; --slate: #6b7280; --danger: #d1495b;
+    /* ticket 32's violet, borrowed verbatim so the console and the phone speak one language */
+    --vio-line: #6d4fb0; --vio-bg: #2c2145; --vio-card: #1e1a2b; --vio-ink: #d7c2ff; --vio-dim: #ad9bd4; --vio-crown: #c9aaff;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--ink); color: var(--paper);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; overflow: hidden; }
+  body { display: flex; flex-direction: column; }
+  button { font-family: inherit; cursor: pointer; }
+
+  .intro { padding: 12px 20px 9px; border-bottom: 1px solid var(--line); flex: 0 0 auto; display: flex; gap: 24px; align-items: flex-end; }
+  .intro .txt { flex: 1; }
+  .eyebrow { font-size: 10.5px; letter-spacing: .14em; text-transform: uppercase; color: var(--rust); font-weight: 700; }
+  .intro h1 { font-size: 16px; margin: 4px 0; }
+  .intro p { margin: 0; color: var(--paper-dim); font-size: 12.5px; line-height: 1.5; max-width: 980px; }
+  .knobs { font-size: 11.5px; color: var(--paper-dim); display: flex; gap: 12px; align-items: center; white-space: nowrap; }
+  .knobs select, .knobs button { background: var(--panel-2); color: var(--paper); border: 1px solid var(--line); border-radius: 6px; padding: 3px 6px; font-size: 11.5px; }
+
+  .stage { position: relative; flex: 1; min-height: 0; }
+  .screen { position: absolute; inset: 0; display: flex; }
+  .hidden { display: none !important; }
+
+  /* ---------- map (ticket 15) ---------- */
+  .fake-map { position: relative; overflow: hidden; flex: 1;
+    background:
+      radial-gradient(circle at 30% 20%, rgba(226,165,58,0.05), transparent 45%),
+      repeating-linear-gradient(0deg, rgba(255,255,255,0.03) 0 1px, transparent 1px 46px),
+      repeating-linear-gradient(90deg, rgba(255,255,255,0.03) 0 1px, transparent 1px 46px),
+      linear-gradient(160deg, #12202f, #0b1420 70%); }
+  .fake-map::before { content: ""; position: absolute; top: -10%; left: 58%; width: 30%; height: 130%;
+    background: rgba(58, 90, 122, 0.30); transform: rotate(10deg); border-radius: 40%; }
+  .pin { position: absolute; transform: translate(-50%, -100%); display: flex; flex-direction: column; align-items: center;
+    font-size: 9.5px; font-weight: 700; color: var(--paper); cursor: pointer; user-select: none; z-index: 2; }
+  .pin .dot { width: 13px; height: 13px; border-radius: 50% 50% 50% 0; transform: rotate(-45deg);
+    border: 2px solid var(--ink); box-shadow: 0 0 0 1px rgba(0,0,0,0.3); }
+  .pin.job .dot { background: var(--amber); }
+  .pin.job.overdue .dot { background: var(--danger); animation: pulse 1.4s infinite; }
+  .pin.driver .dot { background: var(--moss); border-radius: 50%; transform: none; }
+  .pin.driver.busy .dot { background: var(--rust); }
+  .pin.driver.stale .dot { background: var(--slate); }
+  .pin.ajob .dot { width: 9px; height: 9px; border-radius: 2px; transform: none; background: #7f93b3; }
+  .pin.ajob.dim { opacity: .35; }
+  .pin.ajob.prio .dot { background: var(--vio-line); box-shadow: 0 0 0 2px var(--vio-crown); }
+  .pin.selected .dot { outline: 2px solid var(--paper); outline-offset: 2px; }
+  .pin .crown { color: var(--vio-crown); font-size: 13px; line-height: 1; margin-bottom: -1px; text-shadow: 0 0 4px #000; }
+  .pin .lbl { margin-top: 2px; background: rgba(11,20,32,0.85); padding: 1px 5px; border-radius: 4px; white-space: nowrap; }
+  .pin .lbl .star { color: var(--vio-crown); }
+  @keyframes pulse { 0%,100% { box-shadow: 0 0 0 0 rgba(209,73,91,.6); } 50% { box-shadow: 0 0 0 6px rgba(209,73,91,0); } }
+
+  .badge { font-size: 9.5px; font-weight: 700; padding: 1px 6px; border-radius: 8px; text-transform: uppercase; letter-spacing: .04em; white-space: nowrap; }
+  .badge.age-ok { background: rgba(88,122,91,.2); color: var(--moss); }
+  .badge.age-warn { background: rgba(226,165,58,.2); color: var(--amber); }
+  .badge.age-bad { background: rgba(209,73,91,.22); color: var(--danger); }
+  .badge.state { background: rgba(127,147,179,.18); color: #a9b8d0; }
+  .badge.van { background: #1d3a2e; color: #7fd8ae; }
+  .badge.stale { background: rgba(107,114,128,.25); color: #aab0ba; }
+  .badge.prio { background: var(--vio-bg); color: var(--vio-ink); border: 1px solid var(--vio-line); }
+
+  /* floating panels */
+  .float { position: absolute; background: rgba(18,32,47,0.94); backdrop-filter: blur(6px); border: 1px solid var(--line);
+    border-radius: 12px; box-shadow: 0 12px 32px rgba(0,0,0,.4); z-index: 5; }
+  .drawer { top: 14px; left: 14px; width: 290px; max-height: calc(100% - 210px); display: flex; flex-direction: column; overflow: hidden; }
+  .drawer-head, .phead { padding: 10px 12px; border-bottom: 1px solid var(--line); display: flex; align-items: center; justify-content: space-between; font-size: 12px; font-weight: 700; }
+  .phead .x { background: none; border: none; color: var(--paper-dim); font-size: 14px; }
+  .drawer-list { overflow-y: auto; }
+  .job-row { padding: 9px 12px; border-bottom: 1px solid var(--line); display: flex; flex-direction: column; gap: 3px; cursor: pointer; }
+  .job-row:hover { background: rgba(255,255,255,.03); }
+  .job-row.selected { background: rgba(226,165,58,.10); border-left: 2px solid var(--amber); }
+  .top { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 12.5px; font-weight: 600; }
+  .sub { font-size: 10.5px; color: var(--paper-dim); }
+
+  .right { top: 14px; right: 14px; width: 360px; max-height: calc(100% - 90px); overflow-y: auto; }
+  .pbody { padding: 10px 12px; }
+  .sect { font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--paper-dim); margin: 10px 0 6px; font-weight: 700; }
+  .sect:first-child { margin-top: 0; }
+  .empty-hint { padding: 12px; font-size: 11.5px; color: var(--paper-dim); line-height: 1.5; }
+  .row { display: flex; justify-content: space-between; align-items: center; gap: 6px; padding: 6px 8px; border-radius: 6px; font-size: 12px; margin-bottom: 4px; background: rgba(255,255,255,.03); }
+  .row.click { cursor: pointer; }
+  .row.click:hover { background: rgba(255,255,255,.06); }
+  .row.prio { background: var(--vio-card); border: 1px solid var(--vio-line); }
+  .row.hl, .slot.hl { outline: 1px solid var(--amber); }
+  .btn { background: var(--amber); color: #1c1400; border: none; border-radius: 6px; padding: 3px 9px; font-size: 11px; font-weight: 700; white-space: nowrap; }
+  .btn.ghost { background: rgba(255,255,255,.06); color: var(--paper); }
+  .btn.vio { background: var(--vio-bg); color: var(--vio-ink); border: 1px solid var(--vio-line); }
+  .btn.vio-solid { background: var(--vio-line); color: #fff; }
+  .btn:disabled { opacity: .4; cursor: not-allowed; }
+  .btns { display: flex; gap: 6px; flex-wrap: wrap; }
+  .kv { display: grid; grid-template-columns: 78px 1fr; gap: 4px 8px; font-size: 12px; }
+  .kv span:nth-child(odd) { color: var(--paper-dim); }
+  .reasonline { font-size: 12px; color: var(--vio-ink); margin: 4px 0 8px; line-height: 1.4; }
+  .reasonline small { display: block; color: var(--vio-dim); font-size: 10.5px; }
+
+  /* reason editor */
+  .editor { background: #151326; border: 1px solid var(--vio-line); border-radius: 10px; padding: 10px; margin: 6px 0 8px; }
+  .editor h4 { margin: 0 0 7px; font-size: 11.5px; color: var(--vio-ink); }
+  .presets { display: flex; flex-wrap: wrap; gap: 5px; margin: 6px 0; }
+  .presets.list { flex-direction: column; flex-wrap: nowrap; }
+  .preset { background: rgba(255,255,255,.05); border: 1px solid var(--line); color: var(--paper); border-radius: 999px; padding: 3px 9px; font-size: 11px; text-align: left; }
+  .presets.list .preset { border-radius: 6px; padding: 5px 8px; }
+  .preset:hover { border-color: var(--vio-line); }
+  .field { position: relative; }
+  .field input { width: 100%; background: var(--ink); color: var(--paper); border: 1px solid var(--line); border-radius: 7px; padding: 7px 52px 7px 9px; font-size: 12.5px; }
+  .field input:focus { outline: 1px solid var(--vio-line); }
+  .count { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); font-size: 10.5px; color: var(--paper-dim); font-variant-numeric: tabular-nums; }
+  .count.near { color: var(--amber); } .count.full { color: var(--danger); }
+  .movewarn { margin: 8px 0; padding: 7px 9px; border-radius: 7px; background: rgba(226,165,58,.10); border: 1px solid rgba(226,165,58,.4); font-size: 11.5px; line-height: 1.45; }
+  .movewarn b { color: var(--amber); }
+  .editor .btns { margin-top: 8px; justify-content: flex-end; }
+
+  /* driver-card preview — ticket 32's card at its real 366px width, scaled, so line-wrap is honest */
+  .dc-label { font-size: 10px; text-transform: uppercase; letter-spacing: .06em; color: var(--paper-dim); margin: 9px 0 4px; }
+  .dc-wrap { width: calc(366px * .82); height: auto; overflow: hidden; }
+  .dcard { width: 366px; transform: scale(.82); transform-origin: top left; background: var(--vio-card); border: 1px solid var(--vio-line);
+    border-radius: 13px; padding: 12px; font: 14px/1.45 -apple-system, Segoe UI, Roboto, sans-serif; color: #e8eaf0; }
+  .priobar { margin: -12px -12px 10px; padding: 7px 11px; background: var(--vio-bg); border-radius: 12px 12px 0 0;
+    color: var(--vio-ink); font-size: 11.5px; font-weight: 600; border-bottom: 1px solid var(--vio-line); }
+  .priobar span { display: block; font-weight: 400; color: var(--vio-dim); margin-top: 1px; }
+  .dcard .cust { font-weight: 600; font-size: 14.5px; }
+  .dcard .addr { color: #9aa3b8; font-size: 12.5px; margin-top: 3px; }
+  .dcard .tag { display: inline-block; margin-top: 9px; font-size: 11px; padding: 3px 8px; border-radius: 6px; background: #262b37; color: #9aa3b8; }
+  .dcard .tag.van { background: #1d3a2e; color: #7fd8ae; }
+
+  /* modal (variant A's move confirm) */
+  .scrim { position: absolute; inset: 0; background: rgba(0,0,0,.45); z-index: 50; display: flex; align-items: center; justify-content: center; }
+  .modal { width: 420px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 12px; padding: 16px; box-shadow: 0 20px 50px rgba(0,0,0,.6); }
+  .modal h3 { margin: 0 0 8px; font-size: 14px; }
+  .modal p { margin: 0 0 8px; font-size: 12.5px; color: var(--paper-dim); line-height: 1.5; }
+  .modal p b { color: var(--paper); }
+  .modal .btns { justify-content: flex-end; margin-top: 12px; }
+
+  /* variant B: undo strip */
+  .undo { margin: 0 0 8px; padding: 7px 9px; border-radius: 7px; background: var(--vio-card); border: 1px dashed var(--vio-line); font-size: 11.5px; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  .slot { border: 1px dashed var(--vio-line); border-radius: 10px; padding: 9px 10px; margin-bottom: 10px; background: rgba(44,33,69,.35); }
+  .slot.filled { border-style: solid; background: var(--vio-card); }
+  .slot .slot-h { font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--vio-dim); font-weight: 700; margin-bottom: 5px; }
+  .swap { font-size: 12px; line-height: 1.5; }
+  .swap s { color: var(--paper-dim); }
+  .row .mk { opacity: 0; }
+  .row:hover .mk, .row .mk:focus { opacity: 1; }
+
+  /* variant C: popover */
+  .pop { position: absolute; top: 60px; left: 50%; transform: translateX(-50%); width: 400px; z-index: 40; }
+  .pop .editor { margin: 0; border-radius: 12px; padding: 14px; box-shadow: 0 20px 50px rgba(0,0,0,.6); }
+  .pop .cols { display: flex; gap: 10px; }
+  .pop .cols > div:first-child { flex: 1; }
+  .aspri { display: flex; align-items: center; gap: 6px; font-size: 11.5px; padding: 6px 8px; border-radius: 6px; margin-bottom: 8px; background: rgba(255,255,255,.03); cursor: pointer; }
+  .aspri.on { background: var(--vio-card); border: 1px solid var(--vio-line); color: var(--vio-ink); }
+
+  /* surfaced state */
+  .livestate { position: absolute; left: 14px; bottom: 14px; width: 440px; font: 11px/1.55 ui-monospace, SFMono-Regular, Menlo, monospace; color: #c3cade; padding: 9px 11px; z-index: 6; }
+  .livestate .h { font-family: -apple-system, Segoe UI, sans-serif; font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: var(--paper-dim); font-weight: 700; margin-bottom: 3px; }
+  .livestate .v { color: var(--vio-crown); }
+  .livestate .log { color: var(--paper-dim); margin-top: 5px; border-top: 1px solid var(--line); padding-top: 4px; max-height: 64px; overflow: hidden; }
+
+  .toast { position: fixed; bottom: 76px; left: 50%; transform: translateX(-50%) translateY(8px); background: var(--panel-2); border: 1px solid var(--line);
+    border-radius: 10px; padding: 8px 14px; font-size: 12.5px; opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s; z-index: 200; box-shadow: 0 8px 24px rgba(0,0,0,.4); }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); pointer-events: auto; }
+  .toast a { color: var(--vio-crown); cursor: pointer; margin-left: 8px; font-weight: 600; }
+
+  .switcher { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 10px;
+    background: #f4efe3; color: #111; border-radius: 999px; padding: 6px 8px; box-shadow: 0 10px 30px rgba(0,0,0,.6); z-index: 300; }
+  .switcher button { width: 28px; height: 28px; border-radius: 50%; border: none; background: rgba(0,0,0,.08); color: #111; font-size: 14px; }
+  .switcher .label { min-width: 280px; text-align: center; font-weight: 700; font-size: 12.5px; }
+  .switcher .label small { display: block; color: #555; font-weight: 400; font-size: 10px; margin-top: 1px; }
+</style>
+</head>
+<body>
+
+<div class="intro">
+  <div class="txt">
+    <div class="eyebrow">Prototype — ticket 48 · throwaway</div>
+    <h1>Priority delivery: where the dispatcher sets, moves and clears it</h1>
+    <p>Three placements on ticket 15's console. The <b>move</b> is the one to try: Liza already holds a Priority delivery (Kusina ni Lola), so try making another of her jobs priority, or assign an unassigned job to her as priority. Click driver pins, job pins (small squares are assigned jobs), and queue rows. Box at the bottom left: live state and event log.</p>
+  </div>
+  <div class="knobs">
+    <label>Reason cap <select id="capSel"><option>40</option><option selected>60</option><option>80</option></select></label>
+    <button id="resetBtn">Reset seed</button>
+  </div>
+</div>
+
+<div class="stage">
+  <div id="variantA" class="screen"></div>
+  <div id="variantB" class="screen hidden"></div>
+  <div id="variantC" class="screen hidden"></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<div class="switcher">
+  <button id="prevBtn" aria-label="Previous variant">←</button>
+  <div class="label" id="variantLabel"></div>
+  <button id="nextBtn" aria-label="Next variant">→</button>
+</div>
+
+<script>
+/* ============================== data ============================== */
+const PRESETS = [
+  { label: 'Restaurant opens at …', text: 'Restaurant opens at ' },
+  { label: 'Customer phoned, waiting at the door', text: 'Customer phoned, waiting at the door' },
+  { label: 'Customer leaves at …', text: 'Customer leaves at ' },
+  { label: 'Event starts at …', text: 'Event starts at ' },
+];
+let JOBS, DRIVERS;
+function seed() {
+  DRIVERS = [
+    { id: 'D1', name: 'Ramon',   x: 55, y: 42 },
+    { id: 'D2', name: 'Liza',    x: 38, y: 64 },
+    { id: 'D3', name: 'Jun',     x: 70, y: 22, stale: true },
+    { id: 'D4', name: 'Marites', x: 47, y: 24 },
+    { id: 'D5', name: 'Paolo',   x: 64, y: 70 },
+  ];
+  JOBS = [
+    { id: 'J1', customer: 'Dela Cruz household', addr: '14 Sampaguita St, Pinyahan', x: 52, y: 30, ageMin: 4 },
+    { id: 'J2', customer: 'Carinderia ni Aling Nena', addr: '203 Kamuning Rd', x: 33, y: 50, ageMin: 22 },
+    { id: 'J3', customer: 'Villanueva family pack', addr: '77 Maginhawa St', x: 60, y: 56, ageMin: 9 },
+    { id: 'J4', customer: 'Santos catering', addr: '5 Mother Ignacia Ave', x: 44, y: 40, ageMin: 31 },
+    { id: 'J5',  customer: 'Kusina ni Lola', addr: '9 Scout Tuason St', x: 31, y: 74, driver: 'D2', state: 'Picked up', prio: 'Restaurant opens at 17:00' },
+    { id: 'J6',  customer: 'Reyes weekly box', addr: '41 Kalayaan Ave', x: 44, y: 78, driver: 'D2', state: 'Picked up' },
+    { id: 'J7',  customer: 'Bautista order', addr: '12 Matalino St', x: 27, y: 58, driver: 'D2', state: 'Assigned' },
+    { id: 'J8',  customer: 'Mendoza household', addr: '60 Anonas St', x: 62, y: 36, driver: 'D1', state: 'Assigned' },
+    { id: 'J9',  customer: 'Garcia deli order', addr: '3 Esteban Abada St', x: 72, y: 78, driver: 'D5', state: 'Picked up', prio: 'Customer phoned, waiting at the door' },
+    { id: 'J10', customer: 'Aquino household', addr: '28 Katipunan Ave', x: 58, y: 82, driver: 'D5', state: 'Picked up' },
+    { id: 'J11', customer: 'Tan grocery', addr: '101 Aurora Blvd', x: 76, y: 30, driver: 'D3', state: 'Picked up' },
+  ].map(j => ({ driver: null, state: 'Unassigned', prio: null, ...j }));
+}
+seed();
+
+const S = { variant: 'A', sel: null, editor: null, modal: null, undo: null, cAsPrio: false, cap: 60, log: [], flashJob: null };
+
+const J = id => JOBS.find(j => j.id === id);
+const D = id => DRIVERS.find(d => d.id === id);
+const jobsOf = did => JOBS.filter(j => j.driver === did);
+const prioOf = did => JOBS.find(j => j.driver === did && j.prio);
+const unassigned = () => JOBS.filter(j => j.state === 'Unassigned').sort((a, b) => b.ageMin - a.ageMin);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const dist = (a, b) => (Math.round(Math.hypot(a.x - b.x, a.y - b.y) * 8) / 100).toFixed(1);
+function ageBadge(m) { const c = m >= 25 ? 'age-bad' : m >= 12 ? 'age-warn' : 'age-ok'; return `<span class="badge ${c}">${m}m</span>`; }
+function stateBadge(j) { return j.state === 'Picked up' ? '<span class="badge van">In van</span>' : `<span class="badge state">${j.state}</span>`; }
+function log(msg) { const t = new Date().toTimeString().slice(0, 8); S.log.unshift(`${t} ${msg}`); S.log = S.log.slice(0, 6); }
+
+let toastTimer;
+function toast(html, ms = 2200) {
+  const t = document.getElementById('toast'); t.innerHTML = html; t.classList.add('show');
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), ms);
+  t.querySelectorAll('[data-act]').forEach(a => a.onclick = () => { t.classList.remove('show'); ACT[a.dataset.act](a.dataset); });
+}
+
+/* ============================== the one write ==============================
+   Everything funnels here: assign-with-priority, set, move, edit. The one-per-driver
+   check reads the driver's live set, never interface state (ticket 44 / ticket 37). */
+function writePriority(jobId, driverId, reason) {
+  const job = J(jobId);
+  if (job.state === 'Unassigned') { job.driver = driverId; job.state = 'Assigned'; log(`assign ${job.id} → ${D(driverId).name}`); }
+  const old = JOBS.find(j => j.driver === driverId && j.prio && j.id !== jobId) || null;
+  const prev = old ? { id: old.id, reason: old.prio } : null;
+  const was = job.prio;
+  if (old) { old.prio = null; log(`clear ${old.id} (moved)`); }
+  job.prio = reason;
+  log(`${was ? 'edit' : 'set'} ${job.id} ★ "${reason}"`);
+  return { prev, was };
+}
+function clearPriority(jobId) { const j = J(jobId); j.prio = null; log(`clear ${j.id}`); }
+function assignPlain(jobId, driverId) {
+  const j = J(jobId); j.driver = driverId; j.state = 'Assigned'; log(`assign ${j.id} → ${D(driverId).name}`);
+}
+
+/* ============================== shared renderers ============================== */
+function mapPins(focusDriver) {
+  const un = unassigned().map(j => `
+    <div class="pin job ${j.ageMin >= 25 ? 'overdue' : ''} ${isSel('job', j.id) ? 'selected' : ''}" style="left:${j.x}%;top:${j.y}%" data-pick="job:${j.id}">
+      <div class="dot"></div><div class="lbl">${j.id}</div></div>`).join('');
+  const as = JOBS.filter(j => j.driver).map(j => {
+    const dim = !j.prio && focusDriver && j.driver !== focusDriver;
+    return `<div class="pin ajob ${j.prio ? 'prio' : ''} ${dim || (!focusDriver && !j.prio) ? 'dim' : ''} ${isSel('job', j.id) ? 'selected' : ''}" style="left:${j.x}%;top:${j.y}%" data-pick="job:${j.id}" title="${esc(j.customer)} · ${D(j.driver).name}">
+      ${j.prio ? '<div class="crown">★</div>' : ''}<div class="dot"></div>${j.prio || j.driver === focusDriver ? `<div class="lbl">${j.id}</div>` : ''}</div>`;
+  }).join('');
+  const dr = DRIVERS.map(d => {
+    const n = jobsOf(d.id).length;
+    return `<div class="pin driver ${d.stale ? 'stale' : n ? 'busy' : ''} ${isSel('driver', d.id) ? 'selected' : ''}" style="left:${d.x}%;top:${d.y}%" data-pick="driver:${d.id}">
+      <div class="dot"></div><div class="lbl">${d.name}${n ? ' (' + n + ')' : ''}${prioOf(d.id) ? ' <span class="star">★</span>' : ''}</div></div>`;
+  }).join('');
+  return un + as + dr;
+}
+function isSel(kind, id) { return S.sel && S.sel.kind === kind && S.sel.id === id; }
+function focusDriver() {
+  if (!S.sel) return null;
+  if (S.sel.kind === 'driver') return S.sel.id;
+  const j = J(S.sel.id); return j && j.driver;
+}
+function drawer() {
+  const rows = unassigned().map(j => `
+    <div class="job-row ${isSel('job', j.id) ? 'selected' : ''}" data-pick="job:${j.id}">
+      <div class="top"><span>${esc(j.customer)}</span>${ageBadge(j.ageMin)}</div><div class="sub">${esc(j.addr)}</div></div>`).join('')
+    || '<div class="empty-hint">Nothing unassigned.</div>';
+  return `<div class="float drawer"><div class="drawer-head"><span>Unassigned (${unassigned().length})</span><span style="color:var(--paper-dim);font-weight:400">oldest first</span></div><div class="drawer-list">${rows}</div></div>`;
+}
+function statePanel() {
+  const lines = DRIVERS.map(d => {
+    const p = prioOf(d.id);
+    return `${d.name.padEnd(8, ' ')}${p ? `<span class="v">★ ${p.id} ${esc(p.customer)} — "${esc(p.prio)}"</span>` : '—'}`;
+  }).join('<br>');
+  return `<div class="float livestate"><div class="h">Live state · Priority delivery per driver</div><div style="white-space:pre">${lines}</div><div class="log">${S.log.map(esc).join('<br>') || 'no events yet'}</div></div>`;
+}
+function driverCard(job, reason) {
+  return `<div class="dc-wrap"><div class="dcard"><div class="priobar">★ Dispatch asked for this one first<span>${reason ? esc(reason) : '<i style="opacity:.5">reason appears here</i>'}</span></div>
+    <div class="cust">${esc(job.customer)}</div><div class="addr">${esc(job.addr)}</div>
+    ${job.state === 'Picked up' ? '<span class="tag van">In van</span>' : ''}</div></div>`;
+}
+function fixPreviewHeight(root) {
+  root.querySelectorAll('.dc-wrap').forEach(w => { const c = w.firstElementChild; w.style.height = (c.offsetHeight * .82) + 'px'; });
+}
+
+/* The reason editor: same parts in every variant, arranged differently.
+   style: 'chips-above' | 'chips-below' | 'list-side' */
+function editorHtml(style, title, goLabel, extra = '') {
+  const e = S.editor, job = J(e.jobId), drv = D(e.driverId);
+  const presets = `<div class="presets ${style === 'list-side' ? 'list' : ''}">${PRESETS.map((p, i) => `<button class="preset" data-preset="${i}">${esc(p.label)}</button>`).join('')}</div>`;
+  const field = `<div class="field"><input id="reasonInput" maxlength="${S.cap}" value="${esc(e.text)}" placeholder="Why first? ${drv.name} reads this" autocomplete="off"><span id="reasonCount" class="count">${e.text.length}/${S.cap}</span></div>`;
+  let body;
+  if (style === 'chips-above') body = presets + field;
+  else if (style === 'chips-below') body = field + presets;
+  else body = `<div class="cols"><div>${field}<div class="dc-label">${drv.name} sees</div><div id="reasonPreview">${driverCard(job, e.text)}</div></div></div><div class="sect" style="margin-top:8px">Presets — prefill, then edit</div>${presets}`;
+  const preview = style === 'list-side' ? '' : `<div class="dc-label">${drv.name} sees</div><div id="reasonPreview">${driverCard(job, e.text)}</div>`;
+  return `<div class="editor"><h4>${title}</h4>${body}${preview}${extra}
+    <div class="btns"><button class="btn ghost" data-act="cancelEdit">Cancel</button><button class="btn vio-solid" id="reasonGo" data-act="goEdit" ${e.text.trim() ? '' : 'disabled'}>${goLabel}</button></div></div>`;
+}
+function bindEditor(root) {
+  const inp = root.querySelector('#reasonInput'); if (!inp) return;
+  const upd = () => {
+    S.editor.text = inp.value;
+    const c = root.querySelector('#reasonCount'); c.textContent = `${inp.value.length}/${S.cap}`;
+    c.className = 'count' + (inp.value.length >= S.cap ? ' full' : inp.value.length >= S.cap - 10 ? ' near' : '');
+    root.querySelector('#reasonPreview').innerHTML = driverCard(J(S.editor.jobId), inp.value);
+    fixPreviewHeight(root);
+    root.querySelector('#reasonGo').disabled = !inp.value.trim();
+  };
+  inp.oninput = upd;
+  inp.onkeydown = e => { if (e.key === 'Enter' && inp.value.trim()) ACT.goEdit(); if (e.key === 'Escape') ACT.cancelEdit(); };
+  root.querySelectorAll('[data-preset]').forEach(b => b.onclick = () => {
+    inp.value = PRESETS[+b.dataset.preset].text.slice(0, S.cap); upd(); inp.focus(); inp.setSelectionRange(inp.value.length, inp.value.length);
+  });
+  if (S.editor.focus) { inp.focus(); inp.setSelectionRange(inp.value.length, inp.value.length); S.editor.focus = false; }
+}
+function openEditor(jobId, driverId, mode) {
+  const j = J(jobId);
+  S.editor = { jobId, driverId, mode, text: mode === 'edit' ? j.prio : '', focus: true };
+}
+function moveTarget() { const e = S.editor; if (!e) return null; const p = prioOf(e.driverId); return p && p.id !== e.jobId ? p : null; }
+
+/* ============================== actions ============================== */
+const ACT = {
+  pick(kind, id) { S.sel = { kind, id }; S.editor = null; S.undo = null; render(); },
+  close() { S.sel = null; S.editor = null; render(); },
+  assign(d) { const job = J(S.sel.id); assignPlain(job.id, d.driver);
+    if (S.variant === 'B') {
+      toast(`${esc(job.customer)} assigned to ${D(d.driver).name}.<a data-act="bFollow" data-job="${job.id}" data-driver="${d.driver}">★ Make it priority</a>`, 5000);
+    } else toast(`${esc(job.customer)} assigned to ${D(d.driver).name}.`);
+    S.sel = null; render(); },
+  assignPrio(d) { openEditor(S.sel.id, d.driver, 'assign'); render(); },
+  makePrio(d) { const j = J(d.job); openEditor(j.id, j.driver, 'set'); render(); },
+  editPrio(d) { const j = J(d.job); openEditor(j.id, j.driver, 'edit'); render(); },
+  clearPrio(d) { const j = J(d.job); clearPriority(j.id); toast(`Priority cleared — ${esc(j.customer)}. ${D(j.driver).name}'s crown is gone.`); render(); },
+  cancelEdit() { S.editor = null; render(); },
+  goEdit() {
+    const e = S.editor; if (!e || !e.text.trim()) return;
+    const old = moveTarget();
+    if (S.variant === 'A' && old && !S.modal) { S.modal = { old: old.id }; render(); return; }
+    commit();
+  },
+  modalNo() { S.modal = null; render(); },
+  modalYes() { S.modal = null; commit(); },
+  undo() {
+    const u = S.undo; if (!u) return;
+    const nj = J(u.newJob); nj.prio = u.newWas; J(u.prev.id).prio = u.prev.reason;
+    log(`undo → ★ back on ${u.prev.id}`); S.undo = null; toast('Priority moved back.'); render();
+  },
+  bFollow(d) { S.sel = { kind: 'driver', id: d.driver }; openEditor(d.job, d.driver, 'set'); render(); },
+  toggleAsPrio() { S.cAsPrio = !S.cAsPrio; render(); },
+  cAssign(d) { if (S.cAsPrio) { openEditor(S.sel.id, d.driver, 'assign'); render(); } else ACT.assign(d); },
+};
+function commit() {
+  const e = S.editor, job = J(e.jobId), drv = D(e.driverId);
+  const { prev, was } = writePriority(e.jobId, e.driverId, e.text.trim());
+  S.editor = null;
+  if (S.variant === 'B' && prev) {
+    S.undo = { prev, newJob: job.id, newWas: was };
+    clearTimeout(S.undoTimer); S.undoTimer = setTimeout(() => { S.undo = null; render(); }, 10000);
+  } else if (prev) toast(`★ moved to ${esc(job.customer)}. ${esc(J(prev.id).customer)} is no longer ${drv.name}'s priority.`, 3500);
+  else toast(`★ ${esc(job.customer)} is ${drv.name}'s Priority delivery.`);
+  if (S.variant !== 'B' && e.mode === 'assign') S.sel = { kind: 'job', id: job.id };
+  if (S.variant === 'B' && e.mode === 'assign') S.sel = { kind: 'driver', id: drv.id };
+  render();
+}
+
+/* ======================================================================
+   Variant A — "On the job": the assignment panel and the job detail panel
+   carry the control. The driver panel only shows it. Move = modal confirm.
+   ====================================================================== */
+function renderA() {
+  const el = document.getElementById('variantA');
+  let right = '';
+  const sel = S.sel;
+  if (!sel) right = `<div class="float right"><div class="empty-hint">Select an unassigned job to assign it (with or without priority), an assigned job to set priority on it, or a driver to see what they hold.</div></div>`;
+  else if (sel.kind === 'job' && J(sel.id).state === 'Unassigned') {
+    const job = J(sel.id);
+    const ranked = [...DRIVERS].sort((a, b) => dist(job, a) - dist(job, b)).slice(0, 4);
+    right = `<div class="float right"><div class="phead"><span>Suggested drivers · ${esc(job.customer)}</span><button class="x" data-act="close">✕</button></div><div class="pbody">` +
+      ranked.map(d => {
+        const n = jobsOf(d.id).length, p = prioOf(d.id);
+        const ed = S.editor && S.editor.driverId === d.id ? editorHtml('chips-above', `Assign to ${d.name} as Priority delivery`, p ? 'Assign + move ★' : 'Assign as priority') : '';
+        return `<div class="row"><span>${d.name} · ${dist(job, d)}km${d.stale ? ' · stale' : ''}${n ? ' · ' + n + ' active' : ''}${p ? ' · <span style="color:var(--vio-crown)">★ held</span>' : ''}</span>
+          <span class="btns"><button class="btn" data-act="assign" data-driver="${d.id}">Assign</button><button class="btn vio" data-act="assignPrio" data-driver="${d.id}" title="Assign as Priority delivery">★</button></span></div>${ed}`;
+      }).join('') + `<div class="sub" style="margin-top:6px">★ = assign as priority (optional third step). Plain Assign stays two clicks.</div></div></div>`;
+  } else if (sel.kind === 'job') {
+    const job = J(sel.id), drv = D(job.driver), p = prioOf(drv.id);
+    let prioSect;
+    if (S.editor && S.editor.jobId === job.id) prioSect = editorHtml('chips-above', S.editor.mode === 'edit' ? 'Edit Priority reason' : `Make this ${drv.name}'s Priority delivery`, S.editor.mode === 'edit' ? 'Save reason' : p && p.id !== job.id ? 'Move ★ here' : 'Make priority');
+    else if (job.prio) prioSect = `<div class="reasonline">★ ${esc(job.prio)}<small>${drv.name} sees this on the card, top of the list</small></div><div class="btns"><button class="btn vio" data-act="editPrio" data-job="${job.id}">Edit reason</button><button class="btn ghost" data-act="clearPrio" data-job="${job.id}">Clear priority</button></div>`;
+    else prioSect = `<div class="btns"><button class="btn vio" data-act="makePrio" data-job="${job.id}">★ Make priority</button></div>${p ? `<div class="sub" style="margin-top:6px">${drv.name}'s current priority: ${esc(p.customer)} — it would move.</div>` : ''}`;
+    right = `<div class="float right"><div class="phead"><span>${esc(job.customer)}</span><button class="x" data-act="close">✕</button></div><div class="pbody">
+      <div class="kv"><span>Address</span><span>${esc(job.addr)}</span><span>Driver</span><span><a style="color:var(--paper);cursor:pointer;text-decoration:underline" data-pick="driver:${drv.id}">${drv.name}</a></span><span>State</span><span>${stateBadge(job)}</span></div>
+      <div class="sect" style="margin-top:12px">Priority</div>${prioSect}</div></div>`;
+  } else {
+    const drv = D(sel.id), js = jobsOf(drv.id).sort((a, b) => !!b.prio - !!a.prio);
+    right = `<div class="float right"><div class="phead"><span>${drv.name}${drv.stale ? ' <span class="badge stale">stale</span>' : ''}</span><button class="x" data-act="close">✕</button></div><div class="pbody">
+      <div class="sect">Holding ${js.length}</div>` +
+      (js.map(j => `<div class="row click ${j.prio ? 'prio' : ''}" data-pick="job:${j.id}"><span>${j.prio ? '<span style="color:var(--vio-crown)">★</span> ' : ''}${esc(j.customer)}${j.prio ? `<div class="sub" style="color:var(--vio-dim)">${esc(j.prio)}</div>` : ''}</span>${stateBadge(j)}</div>`).join('') || '<div class="sub">Nothing held.</div>') +
+      `<div class="sub" style="margin-top:6px">Read-only here. Open a job to set, move or clear its priority.</div></div></div>`;
+  }
+  let modal = '';
+  if (S.modal) {
+    const old = J(S.modal.old), e = S.editor, nj = J(e.jobId), drv = D(e.driverId);
+    modal = `<div class="scrim"><div class="modal"><h3>Move ${drv.name}'s priority?</h3>
+      <p><b>${esc(old.customer)}</b> stops being the priority. ${drv.name} was told: <i>"${esc(old.prio)}"</i></p>
+      <p><b>${esc(nj.customer)}</b> becomes it: <i>"${esc(e.text)}"</i></p>
+      <p>${drv.name}'s crown moves when you confirm. Nothing tells them it moved, so phone them if it matters.</p>
+      <div class="btns"><button class="btn ghost" data-act="modalNo">Keep ${esc(old.customer)}</button><button class="btn vio-solid" data-act="modalYes">Move priority</button></div></div></div>`;
+  }
+  el.innerHTML = `<div class="fake-map">${mapPins(focusDriver())}${drawer()}${right}${statePanel()}${modal}</div>`;
+  wire(el);
+}
+
+/* ======================================================================
+   Variant B — "On the driver": one Priority slot per driver, in the driver
+   panel. Assignment stays two clicks with a follow-up in the toast. Job
+   pins open the driver's panel. Move = inline swap, then undo for 10 s.
+   ====================================================================== */
+function renderB() {
+  const el = document.getElementById('variantB');
+  let right = '';
+  const sel = S.sel;
+  if (!sel) right = `<div class="float right"><div class="empty-hint">Select a driver (or any of their jobs) to see their Priority slot. Unassigned jobs assign in two clicks, as ticket 15 has it.</div></div>`;
+  else if (sel.kind === 'job' && J(sel.id).state === 'Unassigned') {
+    const job = J(sel.id);
+    const ranked = [...DRIVERS].sort((a, b) => dist(job, a) - dist(job, b)).slice(0, 4);
+    right = `<div class="float right"><div class="phead"><span>Suggested drivers · ${esc(job.customer)}</span><button class="x" data-act="close">✕</button></div><div class="pbody">` +
+      ranked.map(d => { const n = jobsOf(d.id).length;
+        return `<div class="row"><span>${d.name} · ${dist(job, d)}km${d.stale ? ' · stale' : ''}${n ? ' · ' + n + ' active' : ''}${prioOf(d.id) ? ' · <span style="color:var(--vio-crown)">★</span>' : ''}</span><button class="btn" data-act="assign" data-driver="${d.id}">Assign</button></div>`; }).join('') +
+      `</div></div>`;
+  } else {
+    const drv = D(sel.kind === 'driver' ? sel.id : J(sel.id).driver);
+    const hl = sel.kind === 'job' ? sel.id : null;
+    const p = prioOf(drv.id);
+    const js = jobsOf(drv.id).filter(j => !j.prio);
+    let slot;
+    if (S.editor && S.editor.driverId === drv.id) {
+      const nj = J(S.editor.jobId), old = moveTarget();
+      const swap = old ? `<div class="swap"><s>★ ${esc(old.customer)}</s> → <b>★ ${esc(nj.customer)}</b></div>` : `<div class="swap"><b>★ ${esc(nj.customer)}</b></div>`;
+      slot = `<div class="slot filled"><div class="slot-h">Priority slot</div>${swap}${editorHtml('chips-below', S.editor.mode === 'edit' ? 'Edit Priority reason' : 'Priority reason', S.editor.mode === 'edit' ? 'Save' : old ? 'Swap' : 'Set')}</div>`;
+    } else if (p) {
+      slot = `<div class="slot filled ${hl === p.id ? 'hl' : ''}"><div class="slot-h">Priority slot</div><div class="top"><span>★ ${esc(p.customer)}</span>${stateBadge(p)}</div>
+        <div class="reasonline">${esc(p.prio)}</div><div class="btns"><button class="btn vio" data-act="editPrio" data-job="${p.id}">Edit reason</button><button class="btn ghost" data-act="clearPrio" data-job="${p.id}">Empty slot</button></div></div>`;
+    } else slot = `<div class="slot"><div class="slot-h">Priority slot · empty</div><div class="sub">Hover a job below and press ★ to put it here.</div></div>`;
+    const undo = S.undo ? `<div class="undo"><span>★ moved off <b>${esc(J(S.undo.prev.id).customer)}</b></span><button class="btn ghost" data-act="undo">Undo</button></div>` : '';
+    right = `<div class="float right"><div class="phead"><span>${drv.name}${drv.stale ? ' <span class="badge stale">stale</span>' : ''} · holding ${jobsOf(drv.id).length}</span><button class="x" data-act="close">✕</button></div><div class="pbody">
+      ${undo}${slot}<div class="sect">Other jobs</div>` +
+      (js.map(j => `<div class="row ${hl === j.id ? 'hl' : ''}"><span>${esc(j.customer)} <span class="sub">${esc(j.addr)}</span></span><span class="btns">${stateBadge(j)}<button class="btn vio mk" data-act="makePrio" data-job="${j.id}" title="Put in Priority slot">★</button></span></div>`).join('') || '<div class="sub">None.</div>') +
+      `</div></div>`;
+  }
+  el.innerHTML = `<div class="fake-map">${mapPins(focusDriver())}${drawer()}${right}${statePanel()}</div>`;
+  wire(el);
+}
+
+/* ======================================================================
+   Variant C — "One control, three doors": the same priority popover opens
+   from the assignment panel (as-priority toggle), the job detail and the
+   driver panel, stacked together on the right. Move = warned inside the
+   popover; the button names it.
+   ====================================================================== */
+function renderC() {
+  const el = document.getElementById('variantC');
+  let right = '';
+  const sel = S.sel;
+  if (!sel) right = `<div class="float right"><div class="empty-hint">Select anything. Every ★ opens the same priority popover.</div></div>`;
+  else if (sel.kind === 'job' && J(sel.id).state === 'Unassigned') {
+    const job = J(sel.id);
+    const ranked = [...DRIVERS].sort((a, b) => dist(job, a) - dist(job, b)).slice(0, 4);
+    right = `<div class="float right"><div class="phead"><span>Suggested drivers · ${esc(job.customer)}</span><button class="x" data-act="close">✕</button></div><div class="pbody">
+      <div class="aspri ${S.cAsPrio ? 'on' : ''}" data-act="toggleAsPrio">${S.cAsPrio ? '☑' : '☐'} ★ Assign as Priority delivery</div>` +
+      ranked.map(d => { const n = jobsOf(d.id).length;
+        return `<div class="row"><span>${d.name} · ${dist(job, d)}km${d.stale ? ' · stale' : ''}${n ? ' · ' + n + ' active' : ''}${prioOf(d.id) ? ' · <span style="color:var(--vio-crown)">★ held</span>' : ''}</span><button class="btn ${S.cAsPrio ? 'vio-solid' : ''}" data-act="cAssign" data-driver="${d.id}">${S.cAsPrio ? '★ Assign…' : 'Assign'}</button></div>`; }).join('') +
+      `</div></div>`;
+  } else {
+    const job = sel.kind === 'job' ? J(sel.id) : null;
+    const drv = D(job ? job.driver : sel.id);
+    const jobPanel = job ? `<div class="phead"><span>${esc(job.customer)}</span><button class="x" data-act="close">✕</button></div><div class="pbody">
+        <div class="kv"><span>Address</span><span>${esc(job.addr)}</span><span>State</span><span>${stateBadge(job)}</span></div>
+        <div class="btns" style="margin-top:8px">${job.prio ? `<button class="btn vio" data-act="editPrio" data-job="${job.id}">★ Priority: edit…</button><button class="btn ghost" data-act="clearPrio" data-job="${job.id}">Clear</button>` : `<button class="btn vio" data-act="makePrio" data-job="${job.id}">★ Make priority…</button>`}</div></div>` : '';
+    const js = jobsOf(drv.id).sort((a, b) => !!b.prio - !!a.prio);
+    const drvPanel = `<div class="phead" ${job ? 'style="border-top:1px solid var(--line)"' : ''}><span>${drv.name}${drv.stale ? ' <span class="badge stale">stale</span>' : ''} · holding ${js.length}</span>${job ? '' : '<button class="x" data-act="close">✕</button>'}</div><div class="pbody">` +
+      js.map(j => `<div class="row ${j.prio ? 'prio' : ''} ${job && job.id === j.id ? 'hl' : ''}"><span class="click" data-pick="job:${j.id}" style="cursor:pointer">${esc(j.customer)}${j.prio ? `<div class="sub" style="color:var(--vio-dim)">${esc(j.prio)}</div>` : ''}</span>
+        <span class="btns">${stateBadge(j)}<button class="btn ${j.prio ? 'vio-solid' : 'vio'}" data-act="${j.prio ? 'editPrio' : 'makePrio'}" data-job="${j.id}" title="${j.prio ? 'Edit or clear' : 'Make priority'}">★</button></span></div>`).join('') + `</div>`;
+    right = `<div class="float right">${jobPanel}${drvPanel}</div>`;
+  }
+  let pop = '';
+  if (S.editor) {
+    const e = S.editor, drv = D(e.driverId), nj = J(e.jobId), old = moveTarget();
+    const warn = old ? `<div class="movewarn"><b>This moves ${drv.name}'s priority.</b> ${esc(old.customer)} (<i>"${esc(old.prio)}"</i>) loses its crown on ${drv.name}'s phone.</div>` : '';
+    const title = e.mode === 'assign' ? `Assign ${esc(nj.customer)} to ${drv.name} as priority` : e.mode === 'edit' ? `Priority reason · ${esc(nj.customer)}` : `Make ${esc(nj.customer)} ${drv.name}'s priority`;
+    const go = e.mode === 'edit' ? 'Save reason' : old ? `Move priority here` : e.mode === 'assign' ? 'Assign as priority' : 'Make priority';
+    const clr = e.mode === 'edit' ? `<div class="btns" style="justify-content:flex-start;margin-top:6px"><button class="btn ghost" data-act="clearPrio" data-job="${nj.id}">Clear priority instead</button></div>` : '';
+    pop = `<div class="pop">${editorHtml('list-side', title, go, warn + clr)}</div>`;
+  }
+  el.innerHTML = `<div class="fake-map">${mapPins(focusDriver())}${drawer()}${right}${statePanel()}${pop}</div>`;
+  wire(el);
+}
+
+/* ============================== plumbing ============================== */
+function wire(el) {
+  el.querySelectorAll('[data-pick]').forEach(n => n.onclick = ev => { ev.stopPropagation(); const [k, id] = n.dataset.pick.split(':'); ACT.pick(k, id); });
+  el.querySelectorAll('[data-act]').forEach(n => n.onclick = ev => {
+    ev.stopPropagation();
+    if (n.dataset.act === 'clearPrio' && S.editor) S.editor = null;
+    ACT[n.dataset.act](n.dataset);
+  });
+  bindEditor(el); fixPreviewHeight(el);
+}
+function render() {
+  const fn = { A: renderA, B: renderB, C: renderC }[S.variant];
+  ['A', 'B', 'C'].forEach(v => { const n = document.getElementById('variant' + v); if (v !== S.variant) n.innerHTML = ''; n.classList.toggle('hidden', v !== S.variant); });
+  fn();
+}
+
+const order = ['A', 'B', 'C'];
+const names = {
+  A: 'On the job · modal confirm on move',
+  B: 'On the driver · one slot, swap + undo',
+  C: 'One popover, three doors · warn inside',
+};
+function paint() {
+  document.getElementById('variantLabel').innerHTML = `${S.variant} — ${names[S.variant]}<small>${order.indexOf(S.variant) + 1} / ${order.length} · ← / → to cycle</small>`;
+  const u = new URL(location); u.searchParams.set('variant', S.variant); history.replaceState(null, '', u);
+}
+function setVariant(v) { S.variant = v; S.sel = null; S.editor = null; S.modal = null; S.undo = null; render(); paint(); }
+function cycle(dir) { setVariant(order[(order.indexOf(S.variant) + dir + order.length) % order.length]); }
+document.getElementById('prevBtn').onclick = () => cycle(-1);
+document.getElementById('nextBtn').onclick = () => cycle(1);
+document.addEventListener('keydown', e => {
+  const a = document.activeElement;
+  if (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA' || a.tagName === 'SELECT' || a.isContentEditable) return;
+  if (e.key === 'ArrowLeft') cycle(-1);
+  if (e.key === 'ArrowRight') cycle(1);
+  if (e.key === 'Escape') { if (S.modal) ACT.modalNo(); else if (S.editor) ACT.cancelEdit(); else ACT.close(); }
+});
+document.getElementById('capSel').onchange = e => { S.cap = +e.target.value; if (S.editor) S.editor.text = S.editor.text.slice(0, S.cap); render(); };
+document.getElementById('resetBtn').onclick = () => { seed(); S.log = []; setVariant(S.variant); };
+
+const qv = new URLSearchParams(location.search).get('variant');
+S.variant = order.includes(qv) ? qv : 'A';
+render(); paint();
+</script>
+</body>
+</html>
