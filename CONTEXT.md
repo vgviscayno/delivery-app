@@ -90,6 +90,10 @@ _Avoid_: Slot (implies a fixed grid the shop divides its day into, which does no
 The shop's answer, given by a dispatcher over the phone, to a Requested delivery time — the counterpart of Price approval, and recorded the same way: an outcome per Order, with the dispatcher, the time, and both the time requested and the time confirmed, so a request that was met and one that was renegotiated are told apart. Three outcomes: **not required** (the customer chose ASAP — nothing to answer), **pending**, and **confirmed** (whether the shop agreed the original time or the customer accepted an alternative). There is deliberately no "could not do it" outcome: an Order the shop and customer cannot agree a time for is cancelled, and Cancellation cause already records why. While it is pending, the Delivery cannot advance to `Preparing`. The promise is a person's, made once with the whole day in view — the system never makes one.
 _Avoid_: Slot confirmation, booking, scheduling, ETA (an ETA is predicted and continuously wrong; this is asserted once by a human)
 
+**Payment confirmation**:
+A dispatcher's record that the customer has paid an Order in full: the amount received, the payer's reference number, who confirmed it, and when. The shop takes no cash and the driver never handles money, so the customer pays by bank transfer or e-wallet once the Order is packed and priced, and the dispatcher confirms it after seeing the money arrive in the shop's account. While there is none, the Delivery cannot advance to `Picked up`. It records that money moved elsewhere; no money moves through this system. A later correction to the Order's price voids it. Once it exists, the customer can no longer cancel in the app, and a paid Order that is then cancelled is a refund the shop owes.
+_Avoid_: Payment (unqualified), paid flag, receipt, authorization (a card hold, which does not exist here)
+
 **Address**:
 A place a customer has saved to receive Orders at. Its authoritative part is a **pin** — a point on the map the customer placed themselves — not the written address, because a street string here often resolves to the wrong building or to nothing at all. The written address, the unit or floor, and the **landmark note** ("green gate beside the sari-sari store") are there to help a human close the last few metres; the pin is what a driver navigates to. Every Address also carries an **Arrival contact** (see below), who is not necessarily the customer who placed the Order. A customer may keep several, one of which is the default. Deleting one hides it from future Orders but never from past ones.
 _Avoid_: Location (means a driver's live position elsewhere in this system), destination, drop-off point
@@ -131,7 +135,7 @@ A Delivery tracks two independent statuses that advance on their own schedules:
 `Ready` means packed *and* priced: an Order cannot reach it until every per-weight line item has a packed weight, so an Order at `Ready` always has a final price.
 
 **Courier status** — where the Delivery sits with a driver:
-`Unassigned` (no driver yet) → `Assigned` (dispatcher picked a driver, who may still be en route to pickup) → `Picked up` (driver has the product) → `Delivered` → optionally `Disputed` (customer flags a product-quality problem within a review window) → `Closed`. `Cancelled` is reachable from `Unassigned` (customer or dispatcher) or `Assigned`/`Picked up` (dispatcher only) — not after `Delivered`.
+`Unassigned` (no driver yet) → `Assigned` (dispatcher picked a driver, who may still be en route to pickup) → `Picked up` (driver has the product) → `Delivered` → optionally `Disputed` (customer flags a product-quality problem within a review window) → `Closed`. `Cancelled` is reachable from `Unassigned` (customer or dispatcher, though only the dispatcher once the Order is paid) or `Assigned`/`Picked up` (dispatcher only) — not after `Delivered`.
 
 `Picked up` asserts a physical fact: **exactly one driver is holding the goods in a vehicle.** A Delivery therefore cannot be pointed at a different driver while it sits there — the system cannot move meat, only a person can. The one way back out, short of `Delivered` or `Cancelled`, is a Handback, which returns the Delivery to `Unassigned` once a person has actually moved the goods. Prep status is unaffected: the goods are still packed and still priced, so the Delivery stays at `Ready`.
 
@@ -139,12 +143,13 @@ There is no terminal status for a Delivery nobody ever completed. A status needs
 
 A dispatcher can assign a driver at any prep status, including `Received` — assignment and prep are independent tracks.
 
-**The two rules that couple them**, both of which hold a transition open until a dispatcher has spoken to the customer on the telephone:
+**The three rules that couple them**, each of which holds a transition open until a dispatcher has either spoken to the customer on the telephone or seen their money arrive:
 
 1. A Delivery cannot advance to `Picked up` while its Order's Price approval is pending. See `docs/adr/0005-packed-weight-price-approval-gate.md`.
 2. An Order cannot advance to `Preparing` while its Time confirmation is pending. See `docs/adr/0007-time-confirmation-gates-preparation.md`.
+3. A Delivery cannot advance to `Picked up` until its Order has a Payment confirmation. See `docs/adr/0010-payment-confirmation-gates-pickup.md`.
 
-They gate opposite ends of the same journey, and for the same reason in each case: the step ahead is hard to undo. Packing is a cancellation away from being reversed — goods that must be packed again are a new Order — so the shop does not cut meat for a delivery time it has not agreed. Picking up puts the goods in a van, so the shop does not send out an Order at a price the customer has not agreed.
+They gate opposite ends of the same journey, and for the same reason in each case: the step ahead is hard to undo. Payment is held at the same end as Price approval, because only a packed Order has a final price to pay. Packing is a cancellation away from being reversed — goods that must be packed again are a new Order — so the shop does not cut meat for a delivery time it has not agreed. Picking up puts the goods in a van, so the shop does not send out an Order at a price the customer has not agreed.
 
 The tracks otherwise still run on their own schedules — a driver can be `Assigned` and waiting in the shop for an Order that is packed, priced, and held.
 
