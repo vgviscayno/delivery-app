@@ -12,40 +12,35 @@ export const LOADING_CLOCK: ClockView = {
 };
 
 /**
- * Turns a clock read — or whatever was thrown trying — into what the console shows.
+ * Turns a clock read into what the console shows.
  *
  * The console never formats the Manila day itself; it repeats what the server said.
- * A dispatcher looking at this is checking the clock every time rule is judged by,
- * so "the browser's idea of now" would be worse than useless — and a failed read has
- * to read as a failure rather than as a time that has quietly stopped moving.
+ * A dispatcher looking at this is checking the clock every time rule is judged by, so
+ * "the browser's idea of now" would be worse than useless.
  */
-export function describeClock(result: ServerClock | unknown): ClockView {
-  if (!isServerClock(result)) {
-    return {
-      state: "error",
-      label: "Could not reach the shop clock",
-      detail: result instanceof Error ? result.message : String(result),
-    };
-  }
-
+export function describeClock(clock: ServerClock): ClockView {
   return {
     state: "ready",
-    label: timeOfDay(result.localTime),
-    detail: `${result.localDate} · ${result.timeZone}`,
+    label: timeOfDay(clock.localTime),
+    detail: `${clock.localDate} · ${clock.timeZone}`,
   };
 }
 
-function isServerClock(result: unknown): result is ServerClock {
-  return (
-    typeof result === "object" &&
-    result !== null &&
-    "localTime" in result &&
-    "localDate" in result &&
-    "timeZone" in result
-  );
+/**
+ * Turns whatever was thrown trying to read the clock into what the console shows.
+ *
+ * A failed read has to read as a failure rather than as a time that has quietly
+ * stopped moving.
+ */
+export function describeClockFailure(error: unknown): ClockView {
+  return {
+    state: "error",
+    label: "Could not reach the shop clock",
+    detail: error instanceof Error ? error.message : String(error),
+  };
 }
 
 /** `2026-09-26T15:30:00` → `15:30:00`. The date is shown separately. */
 function timeOfDay(localTime: string): string {
-  return localTime.replace("T", " ").split(" ")[1] ?? localTime;
+  return localTime.split("T")[1] ?? localTime;
 }

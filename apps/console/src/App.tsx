@@ -1,6 +1,11 @@
 import { fetchServerClock, type CourierClient } from "@courier/api-client";
 import { useEffect, useState } from "react";
-import { describeClock, LOADING_CLOCK, type ClockView } from "./clock-view.js";
+import {
+  describeClock,
+  describeClockFailure,
+  LOADING_CLOCK,
+  type ClockView,
+} from "./clock-view.js";
 
 export function App({ client }: { client: CourierClient }) {
   const [view, setView] = useState<ClockView>(LOADING_CLOCK);
@@ -16,7 +21,7 @@ export function App({ client }: { client: CourierClient }) {
         const clock = await fetchServerClock(client);
         if (live) setView(describeClock(clock));
       } catch (error) {
-        if (live) setView(describeClock(error));
+        if (live) setView(describeClockFailure(error));
       }
     })();
 
