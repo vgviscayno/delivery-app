@@ -13,34 +13,35 @@
 //
 //   * the CI run for this commit must exist, and its `database` job must have passed
 //     -- that is the RLS lint and the completeness check;
-//   * its `preview-rehearsal` job must have passed, OR have been skipped because this
-//     commit's migrations are identical to those of the last production migration,
-//     in which case there is nothing to rehearse.
-
-import { execFileSync } from "node:child_process";
+//   * the migrations at this commit must have been rehearsed. The rehearsal happened
+//     on a PR, against the PR's head commit, which is never this commit: main gets a
+//     merge or a squash. So the migrations are matched by content, not by sha -- a
+//     rehearsal counts when it ran on a commit whose `supabase/migrations` is
+//     file-for-file identical to this one's. The same comparison against the last
+//     successful production migration is what lets a migration-free commit through:
+//     identical migrations means there is nothing to rehearse.
 
 const repository = env("GITHUB_REPOSITORY");
 const sha = env("GITHUB_SHA");
 const token = env("GITHUB_TOKEN");
 
-const CI_WORKFLOW = "CI";
-const THIS_WORKFLOW = "Migrate production";
+const CI_WORKFLOW = "ci.yml";
+const THIS_WORKFLOW = "migrate-production.yml";
+
+// How far back to look for the rehearsal. A migration that has been sitting on main
+// for a hundred CI runs is not one this check should quietly wave through.
+const RUNS_SEARCHED = 30;
 
 const ciRun = await latestRun(CI_WORKFLOW, { head_sha: sha });
 
 if (!ciRun) {
   fail(
-    `No "${CI_WORKFLOW}" run found for ${sha.slice(0, 8)}.\n` +
+    `No CI run found for ${sha.slice(0, 8)}.\n` +
       `Production migrations run only on a commit CI has already checked.`,
   );
 }
 
-const jobs = await api(`/actions/runs/${ciRun.id}/jobs?per_page=100`).then(
-  (page) => page.jobs,
-);
-const jobConclusion = (name) => jobs.find((job) => job.name === name)?.conclusion;
-
-const gates = jobConclusion("database");
+const gates = await jobConclusion(ciRun.id, "database");
 if (gates !== "success") {
   fail(
     `The "database" job of CI run ${ciRun.id} concluded "${gates ?? "not run"}".\n` +
@@ -48,78 +49,113 @@ if (gates !== "success") {
   );
 }
 
-const rehearsal = jobConclusion("preview-rehearsal");
+const migrations = await migrationsAt(sha);
 
-if (rehearsal === "success") {
-  console.log(`Migrations were rehearsed on a preview branch in CI run ${ciRun.id}.`);
+if (migrations.length === 0) {
+  fail(
+    `There are no migrations at ${sha.slice(0, 8)}. Nothing to push, and an empty\n` +
+      `supabase/migrations is more likely a bad checkout than an intention.`,
+  );
+}
+
+const lastProduction = await latestRun(THIS_WORKFLOW, { status: "success" });
+
+if (lastProduction && (await sameMigrations(lastProduction.head_sha))) {
+  console.log(
+    `The migrations at ${sha.slice(0, 8)} are the ones production already has ` +
+      `(${lastProduction.head_sha.slice(0, 8)}); nothing to rehearse.`,
+  );
   process.exit(0);
 }
 
-if (rehearsal !== "skipped" && rehearsal !== undefined) {
+const rehearsal = await findRehearsal();
+
+if (!rehearsal) {
   fail(
-    `The "preview-rehearsal" job of CI run ${ciRun.id} concluded "${rehearsal}".\n` +
-      `A migration reaches production only after a rehearsal on a preview branch.`,
-  );
-}
-
-// Skipped means the PR did not touch supabase/migrations. That is only safe if this
-// commit's migrations are the ones production already has.
-const lastProduction = await latestRun(THIS_WORKFLOW, { status: "success" });
-
-if (!lastProduction) {
-  fail(
-    `"preview-rehearsal" did not run for ${sha.slice(0, 8)} and there is no previous\n` +
-      `successful production migration to compare against. The first production\n` +
-      `migration has to come from a PR that was rehearsed.`,
-  );
-}
-
-const changed = migrationsChangedSince(lastProduction.head_sha);
-
-if (changed.length > 0) {
-  fail(
-    `Migrations changed since the last production migration ` +
-      `(${lastProduction.head_sha.slice(0, 8)}) but "preview-rehearsal" did not run for\n` +
-      `${sha.slice(0, 8)}:\n` +
-      changed.map((file) => `  - ${file}`).join("\n"),
+    `No successful preview-branch rehearsal found for the migrations at ` +
+      `${sha.slice(0, 8)}\n` +
+      `in the last ${RUNS_SEARCHED} pull-request CI runs:\n` +
+      migrations.map((file) => `  - ${file.name}`).join("\n") +
+      `\n\nA migration reaches production only after it has been rehearsed on a PR's\n` +
+      `preview branch. Open a PR with these migrations and let the rehearsal run.`,
   );
 }
 
 console.log(
-  `No migration changes since the last production migration ` +
-    `(${lastProduction.head_sha.slice(0, 8)}); nothing to rehearse.`,
+  `The migrations at ${sha.slice(0, 8)} were rehearsed on a preview branch in CI run ` +
+    `${rehearsal.id} (${rehearsal.head_sha.slice(0, 8)}).`,
 );
 
-function migrationsChangedSince(baseSha) {
-  try {
-    return execFileSync(
-      "git",
-      ["diff", "--name-only", `${baseSha}..${sha}`, "--", "supabase/migrations"],
-      { encoding: "utf8" },
-    )
-      .split("\n")
-      .filter(Boolean);
-  } catch (error) {
-    fail(
-      `Could not compare migrations against ${baseSha}: ${error.message}\n` +
-        `The workflow needs a checkout deep enough to contain it (fetch-depth: 0).`,
-    );
+// Newest first, one candidate per head commit: the same commit can have several CI
+// runs behind it (a re-run, a push that raced), and only the migrations decide
+// whether a run is worth opening.
+async function findRehearsal() {
+  const runs = await workflowRuns(CI_WORKFLOW, {
+    event: "pull_request",
+    status: "completed",
+  });
+  const seen = new Set();
+
+  for (const run of runs) {
+    if (seen.has(run.head_sha)) continue;
+    seen.add(run.head_sha);
+    if (seen.size > RUNS_SEARCHED) return undefined;
+
+    if (!(await sameMigrations(run.head_sha))) continue;
+    if ((await jobConclusion(run.id, "preview-rehearsal")) === "success") return run;
   }
+  return undefined;
 }
 
-async function latestRun(workflowName, query) {
+// Two commits carry the same migrations when the directory holds the same files with
+// the same content. `sha` on a contents entry is the blob's, so it moves when a file
+// is edited in place -- which a rehearsal has to see again.
+async function sameMigrations(otherSha) {
+  const other = await migrationsAt(otherSha);
+  return fingerprint(other) === fingerprint(migrations);
+}
+
+function fingerprint(files) {
+  return files.map((file) => `${file.name}:${file.sha}`).join("\n");
+}
+
+async function migrationsAt(ref) {
+  const entries = await api(
+    `/contents/supabase/migrations?ref=${encodeURIComponent(ref)}`,
+    { emptyOn404: true },
+  );
+  return entries
+    .filter((entry) => entry.type === "file")
+    .map((entry) => ({ name: entry.name, sha: entry.sha }))
+    .sort((left, right) => left.name.localeCompare(right.name));
+}
+
+async function jobConclusion(runId, name) {
+  const page = await api(`/actions/runs/${runId}/jobs?per_page=100`);
+  return page.jobs.find((job) => job.name === name)?.conclusion;
+}
+
+async function latestRun(workflowFile, query) {
+  return (await workflowRuns(workflowFile, query))[0];
+}
+
+// Asking the workflow for its own runs, rather than filtering every run in the repo
+// by name: the unfiltered list is paginated, and the run being looked for can sit off
+// the first page.
+async function workflowRuns(workflowFile, query) {
   const params = new URLSearchParams({ per_page: "100", ...query });
-  const page = await api(`/actions/runs?${params}`);
-  return page.workflow_runs.find((run) => run.name === workflowName);
+  const page = await api(`/actions/workflows/${workflowFile}/runs?${params}`);
+  return page.workflow_runs;
 }
 
-async function api(path) {
+async function api(path, { emptyOn404 = false } = {}) {
   const response = await fetch(`https://api.github.com/repos/${repository}${path}`, {
     headers: {
       Authorization: `Bearer ${token}`,
       Accept: "application/vnd.github+json",
     },
   });
+  if (response.status === 404 && emptyOn404) return [];
   if (!response.ok) {
     fail(`GitHub API ${path} returned ${response.status}: ${await response.text()}`);
   }

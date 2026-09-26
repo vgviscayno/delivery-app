@@ -86,10 +86,12 @@ production. Migrations reach production only through CI:
 3. **A manual trigger** — the `Migrate production` workflow, from `main`, with the
    project ref typed out by hand.
 
-Step 3 checks step 2 rather than trusting it: `scripts/check-rehearsed.mjs` reads the CI
-run for the commit being pushed and refuses a migration whose rehearsal failed or never
-ran. A commit whose PR touched no migrations passes only if its migrations match those
-of the last successful production migration.
+Step 3 checks step 2 rather than trusting it: `scripts/check-rehearsed.mjs` refuses a
+migration whose rehearsal failed or never ran. The rehearsal ran on the PR's head commit
+and step 3 runs on main's merge or squash of it, so the two are matched by content: a
+rehearsal counts when it ran on a commit whose `supabase/migrations` is file-for-file
+identical. A commit that changed no migrations passes the same way — its migrations are
+the ones the last successful production migration already pushed.
 
 Merging a PR does not migrate anything.
 
