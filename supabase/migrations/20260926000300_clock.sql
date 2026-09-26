@@ -1,9 +1,9 @@
 -- The one server clock.
 --
--- Every later time rule -- Same-day cutoff, the Ordering window, the 7-day horizon,
--- the morning cut-off, duty auto-end, the dark threshold -- reads time through
--- `app.now()` and nothing else. No migration, RPC, view or trigger may call `now()`,
--- `current_timestamp` or `clock_timestamp()` directly.
+-- Every later time rule -- the Ordering window, the Same-day cutoff, the 7-day horizon,
+-- the Time confirmation morning cut-off, duty auto-end, fix staleness -- reads time
+-- through `app.now()` and nothing else. No migration, RPC, view or trigger may call
+-- `now()`, `current_timestamp` or `clock_timestamp()` directly.
 --
 -- It is overridable so tests can stand at the exact boundary of a rule instead of
 -- waiting for one. The override is a transaction-local GUC, so it cannot leak out of
