@@ -15,7 +15,7 @@ type ServerClockRow = Database["public"]["Functions"]["server_clock"]["Returns"]
 export interface ServerClock {
   /** The instant, as an absolute point in time. */
   readonly instant: Date;
-  /** The Asia/Manila wall clock, ready to display: `2026-09-26 15:30:00`. */
+  /** The Asia/Manila wall clock, ISO-8601 with no zone: `2026-09-26T15:30:00`. */
   readonly localTime: string;
   /** The current delivery day in Asia/Manila: `2026-09-26`. */
   readonly localDate: string;

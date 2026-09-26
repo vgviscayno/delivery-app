@@ -9,10 +9,6 @@
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
-    },
-    "./database": {
-      "types": "./dist/generated/database.types.d.ts",
-      "default": "./dist/generated/database.types.js"
     }
   },
   "scripts": {

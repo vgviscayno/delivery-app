@@ -25,15 +25,16 @@ export class ApiError extends Error {
   }
 }
 
+const SERVER_CLOCK = "server_clock";
+
 /** Reads the shop clock. The one call the walking skeleton makes end to end. */
 export async function fetchServerClock(client: CourierClient): Promise<ServerClock> {
-  const { data, error } = await client.rpc("server_clock");
+  const { data, error } = await client.rpc(SERVER_CLOCK);
 
-  if (error) throw new ApiError("server_clock", error);
+  if (error) throw new ApiError(SERVER_CLOCK, error);
 
   const row = data?.[0];
-  if (!row)
-    throw new ApiError("server_clock", { message: "the server returned no clock" });
+  if (!row) throw new ApiError(SERVER_CLOCK, { message: "the server returned no clock" });
 
   return toServerClock(row);
 }
