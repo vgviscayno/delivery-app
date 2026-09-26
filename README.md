@@ -97,8 +97,11 @@ Merging a PR does not migrate anything.
 
 The console deploys to Cloudflare Pages on every push. A PR's build is pointed at that
 PR's Supabase preview branch; `main` is pointed at production. A PR with no preview
-branch fails the deploy rather than falling back to production: a preview that can
-write to the shop's real data is worse than no preview.
+branch deploys no preview rather than falling back to production: a preview that can
+write to the shop's real data is worse than no preview. The integration only creates a
+branch for a PR that touches `supabase/`, so a TypeScript-only PR has none and simply
+gets no preview URL; a PR that touches migrations and has none fails, since there is
+nowhere to rehearse them.
 
 ### Repository secrets CI needs
 

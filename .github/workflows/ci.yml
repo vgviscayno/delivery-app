@@ -121,7 +121,7 @@ jobs:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
           SUPABASE_PREVIEW_DB_PASSWORD: ${{ secrets.SUPABASE_PREVIEW_DB_PASSWORD }}
-        run: node scripts/resolve-preview-branch.mjs --git-branch "${{ github.head_ref }}"
+        run: node scripts/resolve-preview-branch.mjs --git-branch "${{ github.head_ref }}" --for rehearsal
 
       - name: Rehearse the migrations
         env:
@@ -143,8 +143,10 @@ jobs:
 
   # The console. A PR build is pointed at that PR's preview branch; main is pointed at
   # production. A PR preview is never pointed at production as a fallback — a preview
-  # that can write to the shop's real data is worse than no preview — so a missing
-  # preview branch fails this job rather than quietly widening its reach.
+  # that can write to the shop's real data is worse than no preview — so a PR with no
+  # preview branch deploys nothing rather than quietly widening its reach. The
+  # integration only creates a branch for a PR that touches the Supabase directory, so a
+  # TypeScript-only PR having none is normal; a migration PR having none is not.
   console:
     needs: [changes, typescript]
     if: needs.changes.outputs.typescript == 'true'
@@ -163,21 +165,31 @@ jobs:
           SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
         run: |
           if [ "${{ github.event_name }}" = "pull_request" ]; then
-            node scripts/resolve-preview-branch.mjs --git-branch "${{ github.head_ref }}"
+            node scripts/resolve-preview-branch.mjs --git-branch "${{ github.head_ref }}" --for build --allow-missing
           else
             {
+              echo "found=true"
               echo "api_url=${{ secrets.SUPABASE_URL }}"
               echo "anon_key=${{ secrets.SUPABASE_ANON_KEY }}"
             } >> "$GITHUB_OUTPUT"
           fi
 
+      - name: A PR that touches migrations must have a preview branch
+        if: steps.backend.outputs.found != 'true' && needs.changes.outputs.migrations == 'true'
+        run: |
+          echo "This PR changes supabase/migrations but has no Supabase preview branch;" >&2
+          echo "there is nowhere to rehearse them. Check the GitHub integration." >&2
+          exit 1
+
       - name: Build the console
+        if: steps.backend.outputs.found == 'true'
         env:
           VITE_SUPABASE_URL: ${{ steps.backend.outputs.api_url }}
           VITE_SUPABASE_ANON_KEY: ${{ steps.backend.outputs.anon_key }}
         run: pnpm --filter @courier/console... build
 
       - name: Deploy to Cloudflare Pages
+        if: steps.backend.outputs.found == 'true'
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
