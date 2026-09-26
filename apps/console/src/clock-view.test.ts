@@ -23,4 +23,8 @@ describe("describeClock", () => {
     expect(view.state).toBe("error");
     expect(view.detail).toContain("network error");
   });
+
+  it("shows something thrown that is not an Error as a failure too", () => {
+    expect(describeClock("boom").state).toBe("error");
+  });
 });

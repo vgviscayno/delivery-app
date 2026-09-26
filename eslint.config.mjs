@@ -1,5 +1,6 @@
 // @ts-check
 import eslint from "@eslint/js";
+import globals from "globals";
 import tseslint from "typescript-eslint";
 
 export default tseslint.config(
@@ -21,6 +22,14 @@ export default tseslint.config(
         "error",
         { argsIgnorePattern: "^_", varsIgnorePattern: "^_" },
       ],
+    },
+  },
+  // The Node scripts that run the release path. Plain ESM, not TypeScript, so they get
+  // the globals the runtime gives them.
+  {
+    files: ["**/*.mjs"],
+    languageOptions: {
+      globals: globals.node,
     },
   },
 );

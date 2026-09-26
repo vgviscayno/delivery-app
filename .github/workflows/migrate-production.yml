@@ -2,10 +2,10 @@ name: Migrate production
 
 # The only path by which a migration reaches production (ADR 0009).
 #
-# It is manual on purpose: merging a PR does not migrate anything. By the time this
-# can run, CI has already passed the RLS lint and rehearsed the same migrations on the
-# PR's Supabase preview branch. This workflow refuses to run from anywhere but `main`,
-# and refuses to run without someone typing the project ref by hand.
+# It is manual on purpose: merging a PR does not migrate anything. The ordering the ADR
+# asks for -- RLS lint, then a rehearsal on the PR's preview branch, then this -- is
+# checked rather than assumed: `scripts/check-rehearsed.mjs` reads the CI run for this
+# commit and refuses a push whose migrations were never rehearsed.
 #
 # Expand/contract binds the customer app: a migration ships before the binaries that
 # depend on it, never with them.
@@ -26,6 +26,9 @@ jobs:
   migrate:
     runs-on: ubuntu-latest
     environment: production
+    permissions:
+      contents: read
+      actions: read
     steps:
       - name: Refuse to migrate from anything but main
         if: github.ref != 'refs/heads/main'
@@ -33,13 +36,11 @@ jobs:
           echo "Production migrations run from main only; this ref is ${{ github.ref }}." >&2
           exit 1
 
-      - uses: actions/checkout@v5
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v5
+      # fetch-depth 0: the rehearsal check compares this commit's migrations against
+      # those of the last successful production migration.
+      - uses: ./.github/actions/setup
         with:
-          node-version: 22
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
+          fetch-depth: "0"
 
       - name: Check the typed confirmation
         env:
@@ -51,11 +52,19 @@ jobs:
             exit 1
           fi
 
-      # The same lint CI ran on the PR, re-run here against a local database built
+      - name: These migrations were rehearsed on a preview branch
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node scripts/check-rehearsed.mjs
+
+      # The same gates CI ran on the PR, re-run here against a local database built
       # from exactly the migrations about to be pushed. A migration that reached main
       # by some other route still cannot get past this.
       - name: Start local Supabase
         run: pnpm db:start
+
+      - name: Exposed schemas agree
+        run: pnpm db:lint:schemas
 
       - name: RLS lint
         run: pnpm db:lint:rls
@@ -68,6 +77,5 @@ jobs:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
         run: |
-          pnpm --filter @courier/db exec supabase --workdir ../.. link \
-            --project-ref "${{ secrets.SUPABASE_PROJECT_ID }}"
-          pnpm --filter @courier/db exec supabase --workdir ../.. db push
+          pnpm --filter @courier/db link --project-ref "${{ secrets.SUPABASE_PROJECT_ID }}"
+          pnpm --filter @courier/db push

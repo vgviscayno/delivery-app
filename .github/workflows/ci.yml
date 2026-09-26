@@ -32,18 +32,20 @@ jobs:
               - 'apps/**'
               - 'packages/**'
               - 'fixtures/**'
+              - 'scripts/**'
               - 'package.json'
               - 'pnpm-lock.yaml'
               - 'pnpm-workspace.yaml'
               - 'turbo.json'
               - 'tsconfig.base.json'
               - 'eslint.config.mjs'
-              - 'scripts/**'
               - '.github/workflows/ci.yml'
+              - '.github/actions/**'
             database:
               - 'supabase/**'
               - 'packages/db/**'
               - '.github/workflows/ci.yml'
+              - '.github/actions/**'
             migrations:
               - 'supabase/migrations/**'
 
@@ -54,39 +56,31 @@ jobs:
     if: needs.changes.outputs.typescript == 'true'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v5
-        with:
-          node-version: 22
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
+      - uses: ./.github/actions/setup
       - run: pnpm format:check
       - run: pnpm build
       - run: pnpm typecheck
       - run: pnpm lint
       - run: pnpm test
 
-  # The server-contract seam, plus the two gates. Runs against a local Supabase
-  # started in CI, never against a preview branch.
+  # The server-contract seam, plus the gates. Runs against a local Supabase started in
+  # CI, never against a preview branch.
   database:
     needs: changes
     if: needs.changes.outputs.database == 'true'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v5
-        with:
-          node-version: 22
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
+      - uses: ./.github/actions/setup
 
       - name: Start local Supabase
         run: pnpm db:start
 
-      # Gate 1 of the release path: no table in an exposed schema may ship with row
-      # security off.
+      # The RLS lint and the completeness check only look at the schemas
+      # app.exposed_schemas() names, so that list has to match config.toml first --
+      # otherwise a pass means nothing.
+      - name: Exposed schemas agree
+        run: pnpm db:lint:schemas
+
       - name: RLS lint
         run: pnpm db:lint:rls
 
@@ -109,21 +103,17 @@ jobs:
       - name: Seed script runs
         run: pnpm db:seed
 
-  # Gate 2: every migration is rehearsed on this PR's Supabase preview branch before
-  # anyone can trigger production (ADR 0009 — no staging, preview branches instead).
+  # Every migration is rehearsed on this PR's Supabase preview branch before anyone can
+  # trigger production (ADR 0009 — no staging, preview branches instead). The production
+  # workflow reads this job's conclusion for the commit it is asked to push, so the
+  # ordering is enforced rather than merely conventional.
   preview-rehearsal:
     needs: [changes, database]
     if: github.event_name == 'pull_request' && needs.changes.outputs.migrations == 'true'
     runs-on: ubuntu-latest
     environment: preview
     steps:
-      - uses: actions/checkout@v5
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v5
-        with:
-          node-version: 22
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
+      - uses: ./.github/actions/setup
 
       - name: Resolve this PR's preview branch
         id: preview
@@ -136,12 +126,13 @@ jobs:
       - name: Rehearse the migrations
         env:
           SUPABASE_DB_URL: ${{ steps.preview.outputs.db_url }}
-        run: pnpm --filter @courier/db exec supabase --workdir ../.. db push --db-url "$SUPABASE_DB_URL"
+        run: pnpm --filter @courier/db push --db-url "$SUPABASE_DB_URL"
 
       - name: Re-run the gates against the rehearsed branch
         env:
           SUPABASE_DB_URL: ${{ steps.preview.outputs.db_url }}
         run: |
+          pnpm db:lint:schemas
           pnpm db:lint:rls
           pnpm db:lint:matrix
 
@@ -151,24 +142,19 @@ jobs:
         run: pnpm db:seed
 
   # The console. A PR build is pointed at that PR's preview branch; main is pointed at
-  # production. Production migrations are a separate, manual trigger — deploying the
-  # console never migrates anything.
+  # production. A PR preview is never pointed at production as a fallback — a preview
+  # that can write to the shop's real data is worse than no preview — so a missing
+  # preview branch fails this job rather than quietly widening its reach.
   console:
     needs: [changes, typescript]
-    if: always() && needs.changes.outputs.typescript == 'true' && needs.typescript.result == 'success'
+    if: needs.changes.outputs.typescript == 'true'
     runs-on: ubuntu-latest
     environment: ${{ github.event_name == 'pull_request' && 'preview' || 'production' }}
     permissions:
       contents: read
       deployments: write
     steps:
-      - uses: actions/checkout@v5
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v5
-        with:
-          node-version: 22
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
+      - uses: ./.github/actions/setup
 
       - name: Resolve the backend for this build
         id: backend

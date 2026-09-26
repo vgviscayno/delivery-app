@@ -7,23 +7,25 @@
   },
   "scripts": {
     "build": "turbo run build",
-    "lint": "turbo run lint",
+    "lint": "turbo run lint && eslint scripts",
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
     "test:db": "turbo run test:db",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "db:start": "pnpm --filter @courier/db start",
-    "db:stop": "pnpm --filter @courier/db stop",
     "db:reset": "pnpm --filter @courier/db reset",
     "db:seed": "pnpm --filter @courier/db seed",
     "db:types": "pnpm --filter @courier/db types",
     "db:lint:rls": "pnpm --filter @courier/db lint:rls",
-    "db:lint:matrix": "pnpm --filter @courier/db lint:matrix"
+    "db:lint:matrix": "pnpm --filter @courier/db lint:matrix",
+    "db:lint:schemas": "pnpm --filter @courier/db lint:schemas",
+    "db:stop": "pnpm --filter @courier/db stop"
   },
   "devDependencies": {
     "@eslint/js": "^9.37.0",
     "eslint": "^9.37.0",
+    "globals": "^17.12.0",
     "prettier": "^3.6.2",
     "turbo": "^2.5.8",
     "typescript": "^5.9.3",

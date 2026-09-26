@@ -74,6 +74,10 @@ _Avoid_: Reason code, cancellation reason (it covers handbacks too, which are no
 Whether a driver is currently available to be given work — set by signing in to the driver app and cleared by signing out, ending by itself at end of day unless the driver is still holding a Delivery, and the window during which their live position is visible to the dispatcher. A present-tense fact only: it is deliberately **not** a timekeeping record, no history of it is kept, and hours worked live in the shop's separate HRIS.
 _Avoid_: Shift, clock-in, attendance, roster
 
+**Shop clock**:
+The one time the whole system agrees on: an instant, and the `Asia/Manila` wall clock and delivery day it falls in. Every rule that turns on time — the Ordering window, the Same-day cutoff, the 7-day horizon, the Time confirmation morning cut-off, duty auto-end, fix staleness — is judged against it and against nothing else, so each of those rules can be stood at its exact boundary on demand rather than waited for. A client never works out the current delivery day for itself; it asks for the Shop clock and displays what it is told, because a handset whose own clock has drifted would otherwise contradict the rule it is trying to explain. It is deliberately **not** a record of when anything happened — it only ever answers "what time is it now".
+_Avoid_: Server time, system time, now (unqualified), timestamp
+
 **Ordering window**:
 The days and hours during which the shop delivers, and therefore the set of Requested delivery times a customer may choose from. Bounded by when drivers are available to deliver, not by when the shop's counter is open to walk-in customers — the two differ. It is deliberately **not** a limit on when an Order may be submitted: a customer may submit at any hour of any day, because an Order may be for a future day. What the window constrains is the choice of *when it arrives*, never the act of ordering.
 _Avoid_: Store hours, opening hours, trading hours

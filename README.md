@@ -36,21 +36,23 @@ The console shows the shop clock, read from the server through `public.server_cl
 
 ## The commands that matter
 
-| Command               | What it does                                                  |
-| --------------------- | ------------------------------------------------------------- |
-| `pnpm build`          | Builds every package and the console                          |
-| `pnpm typecheck`      | Typechecks sources and test files                             |
-| `pnpm lint`           | ESLint across the workspace                                   |
-| `pnpm test`           | Vitest. Never needs Docker                                    |
-| `pnpm test:db`        | pgTAP against local Supabase, after an unseeded reset         |
-| `pnpm db:lint:rls`    | Fails if any table in an exposed schema has row security off  |
-| `pnpm db:lint:matrix` | Fails if the role × resource matrix misses a reachable object |
-| `pnpm db:types`       | Regenerates `packages/domain/src/generated/database.types.ts` |
-| `pnpm db:seed`        | Runs `supabase/seed.sql` against `SUPABASE_DB_URL`            |
+| Command                | What it does                                                  |
+| ---------------------- | ------------------------------------------------------------- |
+| `pnpm build`           | Builds every package and the console                          |
+| `pnpm typecheck`       | Typechecks sources and test files                             |
+| `pnpm lint`            | ESLint across the workspace                                   |
+| `pnpm test`            | Vitest. Never needs Docker                                    |
+| `pnpm test:db`         | pgTAP against local Supabase, after an unseeded reset         |
+| `pnpm db:lint:rls`     | Fails if any table in an exposed schema has row security off  |
+| `pnpm db:lint:matrix`  | Fails if the role × resource matrix misses a reachable object |
+| `pnpm db:lint:schemas` | Fails if `config.toml` and `app.exposed_schemas()` disagree   |
+| `pnpm db:types`        | Regenerates `packages/domain/src/generated/database.types.ts` |
+| `pnpm db:seed`         | Runs `supabase/seed.sql` against `SUPABASE_DB_URL`            |
 
-## Time
+## The Shop clock
 
-There is one server clock, `app.now()`, and one time zone, `Asia/Manila`. No
+There is one clock, `app.now()`, and one time zone, `Asia/Manila` — the Shop clock in
+`CONTEXT.md`. No
 migration, RPC, view or trigger may call `now()`, `current_timestamp` or
 `clock_timestamp()` directly — every time rule reads the clock, so every time rule can
 be tested at its exact boundary by pinning it with `app.pin_clock()`.
@@ -84,10 +86,17 @@ production. Migrations reach production only through CI:
 3. **A manual trigger** — the `Migrate production` workflow, from `main`, with the
    project ref typed out by hand.
 
+Step 3 checks step 2 rather than trusting it: `scripts/check-rehearsed.mjs` reads the CI
+run for the commit being pushed and refuses a migration whose rehearsal failed or never
+ran. A commit whose PR touched no migrations passes only if its migrations match those
+of the last successful production migration.
+
 Merging a PR does not migrate anything.
 
 The console deploys to Cloudflare Pages on every push. A PR's build is pointed at that
-PR's Supabase preview branch; `main` is pointed at production.
+PR's Supabase preview branch; `main` is pointed at production. A PR with no preview
+branch fails the deploy rather than falling back to production: a preview that can
+write to the shop's real data is worse than no preview.
 
 ### Repository secrets CI needs
 

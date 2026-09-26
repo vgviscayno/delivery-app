@@ -4,19 +4,23 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "start": "supabase --workdir ../.. start",
-    "stop": "supabase --workdir ../.. stop",
-    "status": "supabase --workdir ../.. status",
-    "reset": "supabase --workdir ../.. db reset",
-    "reset:clean": "supabase --workdir ../.. db reset --no-seed",
+    "start": "node scripts/cli.mjs start",
+    "stop": "node scripts/cli.mjs stop",
+    "status": "node scripts/cli.mjs status",
+    "reset": "node scripts/cli.mjs db reset",
+    "link": "node scripts/cli.mjs link",
+    "push": "node scripts/cli.mjs db push",
     "seed": "node scripts/seed.mjs",
     "types": "node scripts/gen-types.mjs",
+    "lint": "eslint scripts",
     "lint:rls": "node scripts/check.mjs rls",
     "lint:matrix": "node scripts/check.mjs matrix",
+    "lint:schemas": "node scripts/check.mjs schemas",
     "test:db": "node scripts/test-db.mjs"
   },
   "devDependencies": {
-    "pg": "^8.23.0",
+    "eslint": "^9.37.0",
+    "pg": "^8.16.3",
     "supabase": "^2.48.3"
   }
 }

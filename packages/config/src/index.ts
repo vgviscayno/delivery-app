@@ -7,16 +7,6 @@ import { z } from "zod";
  */
 export const TIME_ZONE = "Asia/Manila";
 
-/**
- * Money is whole centavos, everywhere, in integers. Per-kg rates are never converted
- * to per-gram and nothing is ever a decimal fraction of a peso.
- */
-export const CURRENCY = {
-  code: "PHP",
-  symbol: "₱",
-  centavosPerPeso: 100,
-} as const;
-
 const backendEnvSchema = z.object({
   supabaseUrl: z.url("must be the Supabase project URL, e.g. http://127.0.0.1:54321"),
   supabaseAnonKey: z.string().min(1, "must be the project's anon key"),
@@ -60,7 +50,7 @@ export function readBackendEnv(source: Record<string, string | undefined>): Back
   throw new BackendEnvError(
     result.error.issues.map((issue) => {
       const key = issue.path[0] as keyof typeof VARIABLE_NAMES;
-      return `${VARIABLE_NAMES[key] ?? String(issue.path[0])}: ${issue.message}`;
+      return `${VARIABLE_NAMES[key]}: ${issue.message}`;
     }),
   );
 }
