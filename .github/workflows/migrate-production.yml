@@ -4,8 +4,9 @@ name: Migrate production
 #
 # It is manual on purpose: merging a PR does not migrate anything. The ordering the ADR
 # asks for -- RLS lint, then a rehearsal on the PR's preview branch, then this -- is
-# checked rather than assumed: `scripts/check-rehearsed.mjs` reads the CI run for this
-# commit and refuses a push whose migrations were never rehearsed.
+# checked rather than assumed: `scripts/check-rehearsed.mjs` refuses a push whose
+# migrations were never rehearsed, matching them by content because the rehearsal ran on
+# the PR's head commit and this one is main's merge or squash of it.
 #
 # Expand/contract binds the customer app: a migration ships before the binaries that
 # depend on it, never with them.
@@ -36,11 +37,7 @@ jobs:
           echo "Production migrations run from main only; this ref is ${{ github.ref }}." >&2
           exit 1
 
-      # fetch-depth 0: the rehearsal check compares this commit's migrations against
-      # those of the last successful production migration.
       - uses: ./.github/actions/setup
-        with:
-          fetch-depth: "0"
 
       - name: Check the typed confirmation
         env:
@@ -63,14 +60,8 @@ jobs:
       - name: Start local Supabase
         run: pnpm db:start
 
-      - name: Exposed schemas agree
-        run: pnpm db:lint:schemas
-
-      - name: RLS lint
-        run: pnpm db:lint:rls
-
-      - name: Access matrix completeness check
-        run: pnpm db:lint:matrix
+      - name: The gates
+        run: pnpm db:lint
 
       - name: Push migrations to production
         env:

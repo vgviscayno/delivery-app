@@ -20,6 +20,7 @@
     "db:lint:rls": "pnpm --filter @courier/db lint:rls",
     "db:lint:matrix": "pnpm --filter @courier/db lint:matrix",
     "db:lint:schemas": "pnpm --filter @courier/db lint:schemas",
+    "db:lint": "pnpm --filter @courier/db lint:gates",
     "db:stop": "pnpm --filter @courier/db stop"
   },
   "devDependencies": {

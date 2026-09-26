@@ -55,7 +55,7 @@ export async function withClient(fn) {
   }
 }
 
-export function printRows(rows) {
+export function printProblemRows(rows) {
   for (const row of rows) {
     console.error(`  - ${Object.values(row).join("  ")}`);
   }

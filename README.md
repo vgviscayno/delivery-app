@@ -36,18 +36,19 @@ The console shows the shop clock, read from the server through `public.server_cl
 
 ## The commands that matter
 
-| Command                | What it does                                                  |
-| ---------------------- | ------------------------------------------------------------- |
-| `pnpm build`           | Builds every package and the console                          |
-| `pnpm typecheck`       | Typechecks sources and test files                             |
-| `pnpm lint`            | ESLint across the workspace                                   |
-| `pnpm test`            | Vitest. Never needs Docker                                    |
-| `pnpm test:db`         | pgTAP against local Supabase, after an unseeded reset         |
-| `pnpm db:lint:rls`     | Fails if any table in an exposed schema has row security off  |
-| `pnpm db:lint:matrix`  | Fails if the role × resource matrix misses a reachable object |
-| `pnpm db:lint:schemas` | Fails if `config.toml` and `app.exposed_schemas()` disagree   |
-| `pnpm db:types`        | Regenerates `packages/domain/src/generated/database.types.ts` |
-| `pnpm db:seed`         | Runs `supabase/seed.sql` against `SUPABASE_DB_URL`            |
+| Command                | What it does                                                   |
+| ---------------------- | -------------------------------------------------------------- |
+| `pnpm build`           | Builds every package and the console                           |
+| `pnpm typecheck`       | Typechecks sources and test files                              |
+| `pnpm lint`            | ESLint across the workspace                                    |
+| `pnpm test`            | Vitest. Never needs Docker                                     |
+| `pnpm test:db`         | pgTAP against local Supabase, after an unseeded reset          |
+| `pnpm db:lint`         | All three gates: schemas first, since it decides what they see |
+| `pnpm db:lint:rls`     | Fails if any table in an exposed schema has row security off   |
+| `pnpm db:lint:matrix`  | Fails if the role × resource matrix misses a reachable object  |
+| `pnpm db:lint:schemas` | Fails if `config.toml` and `app.exposed_schemas()` disagree    |
+| `pnpm db:types`        | Regenerates `packages/domain/src/generated/database.types.ts`  |
+| `pnpm db:seed`         | Runs `supabase/seed.sql` against `SUPABASE_DB_URL`             |
 
 ## The Shop clock
 
@@ -60,10 +61,10 @@ be tested at its exact boundary by pinning it with `app.pin_clock()`.
 Clients never work out a Manila date for themselves. They call
 `public.server_clock()` and display what it says.
 
-## The two gates
+## The three gates
 
-Both live in the database (see the security harness migration), so CI and pgTAP can
-never drift apart.
+The first two live in the database (see the security harness migration), so CI and pgTAP
+can never drift apart. `pnpm db:lint` runs all three.
 
 **The RLS lint.** Any table in a PostgREST-exposed schema with row security off is
 readable by anyone holding the anon key. `app.tables_without_rls()` finds them, and
@@ -76,12 +77,18 @@ check: it fails on an object nobody has ruled on, on a row left behind after an 
 goes away, and on an `anon` row that contradicts the actual grants. Later tickets add
 rows in a migration; they never edit the harness.
 
+**Exposed schemas agree.** `app.exposed_schemas()` decides what the other two gates look
+at, so a schema PostgREST serves but the harness does not know about leaves everything
+inside it unguarded while both gates still pass. This one compares `api.schemas` in
+`config.toml` against the harness and fails on a disagreement either way — the one
+thing the database cannot check on its own.
+
 ## Environments and the release path
 
 Three backends, no staging (ADR 0009): local, one Supabase preview branch per PR, and
 production. Migrations reach production only through CI:
 
-1. **RLS lint and completeness check**, on a local Supabase started in CI;
+1. **The three gates**, on a local Supabase started in CI;
 2. **Rehearsal** of the same migrations on that PR's preview branch;
 3. **A manual trigger** — the `Migrate production` workflow, from `main`, with the
    project ref typed out by hand.

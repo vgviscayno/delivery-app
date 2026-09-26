@@ -75,17 +75,11 @@ jobs:
       - name: Start local Supabase
         run: pnpm db:start
 
-      # The RLS lint and the completeness check only look at the schemas
-      # app.exposed_schemas() names, so that list has to match config.toml first --
-      # otherwise a pass means nothing.
-      - name: Exposed schemas agree
-        run: pnpm db:lint:schemas
-
-      - name: RLS lint
-        run: pnpm db:lint:rls
-
-      - name: Access matrix completeness check
-        run: pnpm db:lint:matrix
+      # All three gates, in the one order that means anything: the RLS lint and the
+      # completeness check only look at the schemas app.exposed_schemas() names, so that
+      # list has to match config.toml first -- otherwise a pass from them means nothing.
+      - name: The gates
+        run: pnpm db:lint
 
       - name: pgTAP
         run: pnpm test:db
@@ -131,10 +125,7 @@ jobs:
       - name: Re-run the gates against the rehearsed branch
         env:
           SUPABASE_DB_URL: ${{ steps.preview.outputs.db_url }}
-        run: |
-          pnpm db:lint:schemas
-          pnpm db:lint:rls
-          pnpm db:lint:matrix
+        run: pnpm db:lint
 
       - name: Seed the preview branch
         env:

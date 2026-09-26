@@ -3,6 +3,7 @@
 //   node scripts/check.mjs rls      -- no table in an exposed schema has row security off
 //   node scripts/check.mjs matrix   -- the role x resource matrix covers every reachable object
 //   node scripts/check.mjs schemas  -- the harness and PostgREST agree on what is exposed
+//   node scripts/check.mjs schemas rls matrix  -- all three, stopping at the first failure
 //
 // The first two read the checks out of the database itself (see the security harness
 // migration), so CI and `supabase test db` can never drift apart. The third is the one
@@ -10,7 +11,7 @@
 
 import { readFile } from "node:fs/promises";
 import path from "node:path";
-import { printRows, repoRoot, withClient } from "./db.mjs";
+import { printProblemRows, repoRoot, withClient } from "./db.mjs";
 
 // Supabase's own GraphQL entrypoint. It holds none of our objects, so neither gate has
 // anything to say about it.
@@ -64,25 +65,35 @@ const checks = {
   },
 };
 
-const name = process.argv[2];
-const check = checks[name];
+// Several at once, in the order given: `node scripts/check.mjs schemas rls matrix` is
+// the whole set, which is how CI and the production workflow run them.
+const names = process.argv.slice(2);
+const unknown = names.filter((name) => !checks[name]);
 
-if (!check) {
+if (names.length === 0 || unknown.length > 0) {
   console.error(
-    `Unknown check "${name}". Expected one of: ${Object.keys(checks).join(", ")}`,
+    `${unknown.length > 0 ? `Unknown check(s): ${unknown.join(", ")}` : "No check named"}. ` +
+      `Expected one or more of: ${Object.keys(checks).join(", ")}`,
   );
   process.exit(2);
 }
 
-const findings = await withClient(check.run);
+await withClient(async (client) => {
+  // Stopped at the first failure: `schemas` decides what the other two look at, so a
+  // pass from them after it has failed would mean nothing.
+  for (const name of names) {
+    const check = checks[name];
+    const findings = await check.run(client);
 
-if (findings.length > 0) {
-  console.error(check.failure(findings.length));
-  printRows(findings);
-  process.exit(1);
-}
+    if (findings.length > 0) {
+      console.error(check.failure(findings.length));
+      printProblemRows(findings);
+      process.exit(1);
+    }
 
-console.log(check.success);
+    console.log(check.success);
+  }
+});
 
 async function rowsOf(client, query) {
   return (await client.query(query)).rows;
