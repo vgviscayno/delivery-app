@@ -17,6 +17,7 @@ returns text[]
 language sql
 immutable
 parallel safe
+set search_path = ''
 as $$ select array['public']::text[] $$;
 
 comment on function app.exposed_schemas() is
@@ -31,6 +32,7 @@ returns text[]
 language sql
 immutable
 parallel safe
+set search_path = ''
 as $$ select array['anon', 'customer', 'driver', 'dispatcher']::text[] $$;
 
 create or replace function app.has_any_table_privilege(role_name text, rel oid)

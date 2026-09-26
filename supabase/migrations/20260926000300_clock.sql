@@ -15,6 +15,7 @@ returns text
 language sql
 immutable
 parallel safe
+set search_path = ''
 as $$ select 'Asia/Manila'::text $$;
 
 comment on function app.time_zone() is
