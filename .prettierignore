@@ -1,0 +1,20 @@
+pnpm-lock.yaml
+**/dist/**
+**/generated/**
+supabase/.temp/**
+
+# Vendored agent skills. They belong to skills-lock.json, not to this repo's style.
+.agents/
+.claude/
+
+# Hand-written prose. Line breaks in the glossary and the ADRs are deliberate, and
+# reflowing them would bury the next real edit in whitespace churn.
+CONTEXT.md
+CLAUDE.md
+docs/
+.scratch/
+
+# Predates the TypeScript workspace.
+.github/scripts/
+.github/workflows/hours-check.yml
+.github/workflows/weekly-update.yml

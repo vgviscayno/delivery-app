@@ -1,0 +1,202 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Everything blocks the merge; nothing here is advisory.
+  TURBO_TELEMETRY_DISABLED: 1
+
+jobs:
+  # What changed decides what runs. Fixtures deliberately trigger both sides once the
+  # mobile project lands (ticket 56).
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      typescript: ${{ steps.filter.outputs.typescript }}
+      database: ${{ steps.filter.outputs.database }}
+      migrations: ${{ steps.filter.outputs.migrations }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            typescript:
+              - 'apps/**'
+              - 'packages/**'
+              - 'fixtures/**'
+              - 'package.json'
+              - 'pnpm-lock.yaml'
+              - 'pnpm-workspace.yaml'
+              - 'turbo.json'
+              - 'tsconfig.base.json'
+              - 'eslint.config.mjs'
+              - 'scripts/**'
+              - '.github/workflows/ci.yml'
+            database:
+              - 'supabase/**'
+              - 'packages/db/**'
+              - '.github/workflows/ci.yml'
+            migrations:
+              - 'supabase/migrations/**'
+
+  # Package unit tests never need Docker: the database work lives in its own
+  # workspace with its own task.
+  typescript:
+    needs: changes
+    if: needs.changes.outputs.typescript == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm format:check
+      - run: pnpm build
+      - run: pnpm typecheck
+      - run: pnpm lint
+      - run: pnpm test
+
+  # The server-contract seam, plus the two gates. Runs against a local Supabase
+  # started in CI, never against a preview branch.
+  database:
+    needs: changes
+    if: needs.changes.outputs.database == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+
+      - name: Start local Supabase
+        run: pnpm db:start
+
+      # Gate 1 of the release path: no table in an exposed schema may ship with row
+      # security off.
+      - name: RLS lint
+        run: pnpm db:lint:rls
+
+      - name: Access matrix completeness check
+        run: pnpm db:lint:matrix
+
+      - name: pgTAP
+        run: pnpm test:db
+
+      # The generated types are committed, so a schema change and the TypeScript it
+      # breaks land in the same PR.
+      - name: Generated types are up to date
+        run: |
+          pnpm db:reset
+          pnpm db:types
+          git diff --exit-code -- packages/domain/src/generated/database.types.ts
+
+      # The seed has to keep working against a real schema; it is demo data for local
+      # and preview only, and is never a test input.
+      - name: Seed script runs
+        run: pnpm db:seed
+
+  # Gate 2: every migration is rehearsed on this PR's Supabase preview branch before
+  # anyone can trigger production (ADR 0009 — no staging, preview branches instead).
+  preview-rehearsal:
+    needs: [changes, database]
+    if: github.event_name == 'pull_request' && needs.changes.outputs.migrations == 'true'
+    runs-on: ubuntu-latest
+    environment: preview
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+
+      - name: Resolve this PR's preview branch
+        id: preview
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
+          SUPABASE_PREVIEW_DB_PASSWORD: ${{ secrets.SUPABASE_PREVIEW_DB_PASSWORD }}
+        run: node scripts/resolve-preview-branch.mjs --git-branch "${{ github.head_ref }}"
+
+      - name: Rehearse the migrations
+        env:
+          SUPABASE_DB_URL: ${{ steps.preview.outputs.db_url }}
+        run: pnpm --filter @courier/db exec supabase --workdir ../.. db push --db-url "$SUPABASE_DB_URL"
+
+      - name: Re-run the gates against the rehearsed branch
+        env:
+          SUPABASE_DB_URL: ${{ steps.preview.outputs.db_url }}
+        run: |
+          pnpm db:lint:rls
+          pnpm db:lint:matrix
+
+      - name: Seed the preview branch
+        env:
+          SUPABASE_DB_URL: ${{ steps.preview.outputs.db_url }}
+        run: pnpm db:seed
+
+  # The console. A PR build is pointed at that PR's preview branch; main is pointed at
+  # production. Production migrations are a separate, manual trigger — deploying the
+  # console never migrates anything.
+  console:
+    needs: [changes, typescript]
+    if: always() && needs.changes.outputs.typescript == 'true' && needs.typescript.result == 'success'
+    runs-on: ubuntu-latest
+    environment: ${{ github.event_name == 'pull_request' && 'preview' || 'production' }}
+    permissions:
+      contents: read
+      deployments: write
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+
+      - name: Resolve the backend for this build
+        id: backend
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            node scripts/resolve-preview-branch.mjs --git-branch "${{ github.head_ref }}"
+          else
+            {
+              echo "api_url=${{ secrets.SUPABASE_URL }}"
+              echo "anon_key=${{ secrets.SUPABASE_ANON_KEY }}"
+            } >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build the console
+        env:
+          VITE_SUPABASE_URL: ${{ steps.backend.outputs.api_url }}
+          VITE_SUPABASE_ANON_KEY: ${{ steps.backend.outputs.anon_key }}
+        run: pnpm --filter @courier/console... build
+
+      - name: Deploy to Cloudflare Pages
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: >-
+            pages deploy apps/console/dist
+            --project-name=${{ vars.CLOUDFLARE_PAGES_PROJECT }}
+            --branch=${{ github.event_name == 'pull_request' && github.head_ref || 'main' }}

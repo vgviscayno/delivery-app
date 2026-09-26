@@ -1,0 +1,73 @@
+name: Migrate production
+
+# The only path by which a migration reaches production (ADR 0009).
+#
+# It is manual on purpose: merging a PR does not migrate anything. By the time this
+# can run, CI has already passed the RLS lint and rehearsed the same migrations on the
+# PR's Supabase preview branch. This workflow refuses to run from anywhere but `main`,
+# and refuses to run without someone typing the project ref by hand.
+#
+# Expand/contract binds the customer app: a migration ships before the binaries that
+# depend on it, never with them.
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_project_ref:
+        description: "Type the production Supabase project ref to confirm"
+        required: true
+        type: string
+
+concurrency:
+  group: migrate-production
+  cancel-in-progress: false
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Refuse to migrate from anything but main
+        if: github.ref != 'refs/heads/main'
+        run: |
+          echo "Production migrations run from main only; this ref is ${{ github.ref }}." >&2
+          exit 1
+
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+
+      - name: Check the typed confirmation
+        env:
+          TYPED: ${{ inputs.confirm_project_ref }}
+          EXPECTED: ${{ secrets.SUPABASE_PROJECT_ID }}
+        run: |
+          if [ "$TYPED" != "$EXPECTED" ]; then
+            echo "The project ref typed does not match the production project." >&2
+            exit 1
+          fi
+
+      # The same lint CI ran on the PR, re-run here against a local database built
+      # from exactly the migrations about to be pushed. A migration that reached main
+      # by some other route still cannot get past this.
+      - name: Start local Supabase
+        run: pnpm db:start
+
+      - name: RLS lint
+        run: pnpm db:lint:rls
+
+      - name: Access matrix completeness check
+        run: pnpm db:lint:matrix
+
+      - name: Push migrations to production
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: |
+          pnpm --filter @courier/db exec supabase --workdir ../.. link \
+            --project-ref "${{ secrets.SUPABASE_PROJECT_ID }}"
+          pnpm --filter @courier/db exec supabase --workdir ../.. db push

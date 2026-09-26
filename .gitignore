@@ -3,3 +3,18 @@
 
 # Claude Code local overrides (per-machine permission grants, not shared config)
 .claude/settings.local.json
+
+# Node / pnpm
+node_modules/
+dist/
+.turbo/
+*.tsbuildinfo
+
+# Supabase CLI
+supabase/.temp/
+supabase/.branches/
+
+# Local env
+.env
+.env.local
+*.local.env

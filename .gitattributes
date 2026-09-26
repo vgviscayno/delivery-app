@@ -1,0 +1,4 @@
+# LF everywhere, in the index and in the working tree. Prettier checks for LF, so a
+# Windows checkout that converted to CRLF would fail `pnpm format:check` on files
+# nobody had touched.
+* text=auto eol=lf

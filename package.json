@@ -1,0 +1,33 @@
+{
+  "name": "courier-ops",
+  "private": true,
+  "packageManager": "pnpm@10.18.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "test:db": "turbo run test:db",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "db:start": "pnpm --filter @courier/db start",
+    "db:stop": "pnpm --filter @courier/db stop",
+    "db:reset": "pnpm --filter @courier/db reset",
+    "db:seed": "pnpm --filter @courier/db seed",
+    "db:types": "pnpm --filter @courier/db types",
+    "db:lint:rls": "pnpm --filter @courier/db lint:rls",
+    "db:lint:matrix": "pnpm --filter @courier/db lint:matrix"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.37.0",
+    "eslint": "^9.37.0",
+    "prettier": "^3.6.2",
+    "turbo": "^2.5.8",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.46.0",
+    "vitest": "^3.2.4"
+  }
+}

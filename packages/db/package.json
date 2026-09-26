@@ -1,0 +1,22 @@
+{
+  "name": "@courier/db",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "supabase --workdir ../.. start",
+    "stop": "supabase --workdir ../.. stop",
+    "status": "supabase --workdir ../.. status",
+    "reset": "supabase --workdir ../.. db reset",
+    "reset:clean": "supabase --workdir ../.. db reset --no-seed",
+    "seed": "node scripts/seed.mjs",
+    "types": "node scripts/gen-types.mjs",
+    "lint:rls": "node scripts/check.mjs rls",
+    "lint:matrix": "node scripts/check.mjs matrix",
+    "test:db": "node scripts/test-db.mjs"
+  },
+  "devDependencies": {
+    "pg": "^8.23.0",
+    "supabase": "^2.48.3"
+  }
+}
