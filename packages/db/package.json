@@ -19,7 +19,6 @@
     "test:db": "node scripts/test-db.mjs"
   },
   "devDependencies": {
-    "eslint": "^9.37.0",
     "pg": "^8.16.3",
     "supabase": "^2.48.3"
   }
