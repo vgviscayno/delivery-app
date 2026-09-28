@@ -1,0 +1,74 @@
+{
+  "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
+  "vcs": { "enabled": true, "clientKind": "git", "useIgnoreFile": true },
+  "files": {
+    "includes": [
+      // dist, .turbo and supabase/.temp are already out through .gitignore (vcs above).
+      "**",
+      "!**/generated",
+      // Vendored agent skills. They belong to skills-lock.json, not to this repo's style.
+      "!.agents",
+      "!.claude",
+      // Hand-written prose. Line breaks in the glossary and the ADRs are deliberate, and
+      // reflowing them would bury the next real edit in whitespace churn. (Biome doesn't
+      // format Markdown yet; this keeps it that way when it does.)
+      "!CONTEXT.md",
+      "!CLAUDE.md",
+      "!docs",
+      "!.scratch",
+      // Predates the TypeScript workspace.
+      "!.github/scripts",
+      "!.github/workflows/hours-check.yml",
+      "!.github/workflows/weekly-update.yml"
+    ]
+  },
+  "formatter": {
+    "indentStyle": "space",
+    "indentWidth": 2,
+    "lineEnding": "lf",
+    "lineWidth": 90
+  },
+  "javascript": {
+    "formatter": {
+      "quoteStyle": "double",
+      "jsxQuoteStyle": "double",
+      "semicolons": "always",
+      "trailingCommas": "all",
+      "arrowParentheses": "always"
+    }
+  },
+  "linter": {
+    "rules": {
+      "preset": "recommended",
+      "complexity": {
+        "noExcessiveCognitiveComplexity": {
+          "level": "error",
+          "options": { "maxAllowedComplexity": 15 }
+        }
+      },
+      // Biome defaults these to warn, and `biome ci` passes on warnings. They were errors
+      // under ESLint. Names starting with `_` are still ignored.
+      "correctness": {
+        "noUnusedVariables": "error",
+        "noUnusedFunctionParameters": "error",
+        "noUnusedImports": "error"
+      },
+      "style": {
+        "useImportType": "error"
+      }
+    }
+  },
+  "overrides": [
+    {
+      // The release-path Node scripts are plain ESM with no typechecker behind them, so a
+      // mistyped global would otherwise first fail in CI. TypeScript covers the rest.
+      "includes": ["**/*.mjs"],
+      "linter": {
+        "rules": { "correctness": { "noUndeclaredVariables": "error" } }
+      }
+    }
+  ],
+  "assist": {
+    "actions": { "source": { "organizeImports": "on" } }
+  }
+}

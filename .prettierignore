@@ -18,3 +18,6 @@ docs/
 .github/scripts/
 .github/workflows/hours-check.yml
 .github/workflows/weekly-update.yml
+
+# Biome formats its own config; Prettier leaves with the switch.
+biome.jsonc
