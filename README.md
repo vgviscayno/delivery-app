@@ -40,7 +40,8 @@ The console shows the shop clock, read from the server through `public.server_cl
 | ---------------------- | -------------------------------------------------------------- |
 | `pnpm build`           | Builds every package and the console                           |
 | `pnpm typecheck`       | Typechecks sources and test files                              |
-| `pnpm lint`            | ESLint across the workspace                                    |
+| `pnpm check`           | Biome lint and format check. Changes nothing                   |
+| `pnpm fix`             | Applies Biome's safe fixes and formatting                      |
 | `pnpm test`            | Vitest. Never needs Docker                                     |
 | `pnpm test:db`         | pgTAP against local Supabase, after an unseeded reset          |
 | `pnpm db:lint`         | All three gates: schemas first, since it decides what they see |

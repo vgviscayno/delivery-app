@@ -38,7 +38,7 @@ jobs:
               - 'pnpm-workspace.yaml'
               - 'turbo.json'
               - 'tsconfig.base.json'
-              - 'eslint.config.mjs'
+              - 'biome.jsonc'
               - '.github/workflows/ci.yml'
               - '.github/actions/**'
             database:
@@ -57,10 +57,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: ./.github/actions/setup
-      - run: pnpm format:check
+      - run: pnpm check:ci
       - run: pnpm build
       - run: pnpm typecheck
-      - run: pnpm lint
       - run: pnpm test
 
   # The server-contract seam, plus the gates. Runs against a local Supabase started in

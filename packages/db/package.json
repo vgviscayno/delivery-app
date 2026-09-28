@@ -12,7 +12,6 @@
     "push": "node scripts/cli.mjs db push",
     "seed": "node scripts/seed.mjs",
     "types": "node scripts/gen-types.mjs",
-    "lint": "eslint scripts",
     "lint:rls": "node scripts/check.mjs rls",
     "lint:matrix": "node scripts/check.mjs matrix",
     "lint:schemas": "node scripts/check.mjs schemas",
