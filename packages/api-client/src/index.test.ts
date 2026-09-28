@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { ApiError, fetchServerClock, type CourierClient } from "./index.js";
+import { ApiError, type CourierClient, fetchServerClock } from "./index.js";
 
 function clientReturning(response: { data: unknown; error: unknown }): CourierClient {
   return { rpc: vi.fn().mockResolvedValue(response) } as unknown as CourierClient;

@@ -23,6 +23,8 @@
 // missing branch fails -- a PR that touches migrations has to have somewhere to
 // rehearse them.
 
+// biome-ignore-all lint/suspicious/noUndeclaredEnvVars: CI runs this script directly, not as a turbo task, so turbo.json's env lists don't apply
+
 import { appendFile } from "node:fs/promises";
 import { parseArgs } from "node:util";
 

@@ -1,10 +1,10 @@
-import { fetchServerClock, type CourierClient } from "@courier/api-client";
+import { type CourierClient, fetchServerClock } from "@courier/api-client";
 import { useEffect, useState } from "react";
 import {
+  type ClockView,
   describeClock,
   describeClockFailure,
   LOADING_CLOCK,
-  type ClockView,
 } from "./clock-view.js";
 
 export function App({ client }: { client: CourierClient }) {

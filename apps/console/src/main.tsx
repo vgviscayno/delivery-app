@@ -1,5 +1,5 @@
-import { readBackendEnv } from "@courier/config";
 import { createCourierClient } from "@courier/api-client";
+import { readBackendEnv } from "@courier/config";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "./App.js";
