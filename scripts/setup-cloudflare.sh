@@ -288,15 +288,19 @@ step "Token name: delivery-app CI."
 step "Permissions: Account → Cloudflare Pages → Edit. Add nothing else."
 step "Account Resources: Include → your account."
 step "Continue to summary → Create Token, and copy it: it's shown only once."
-ask_secret CLOUDFLARE_API_TOKEN "Paste the token:"
-if [[ -n "$CLOUDFLARE_API_TOKEN" ]]; then
+note "Input is hidden. In Git Bash, paste with Shift+Insert or right-click, not Ctrl+V."
+# A token Cloudflare doesn't accept is asked for again, not written to GitHub, where it
+# would only surface as a failed deploy. A blank answer skips it.
+while :; do
+  ask_secret CLOUDFLARE_API_TOKEN "Paste the token:"
+  [[ -z "$CLOUDFLARE_API_TOKEN" ]] && break
   if curl -fsS -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
     https://api.cloudflare.com/client/v4/user/tokens/verify 2>/dev/null | grep -q '"status":"active"'; then
     printf '  %s✓ token is active%s\n' "$GREEN" "$RESET"
-  else
-    warn "Cloudflare didn't confirm the token as active; check you copied all of it"
+    break
   fi
-fi
+  warn "Cloudflare doesn't accept that token; paste it again (blank to skip)"
+done
 pause
 
 stage "Write the GitHub environment values"
