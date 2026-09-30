@@ -118,12 +118,16 @@ jobs:
           VITE_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
         run: pnpm --filter @courier/console... build
 
+      # Wrangler is a console dev dependency, run from the console's directory. Left to
+      # itself the action runs `pnpm add wrangler` at the workspace root, which pnpm
+      # refuses.
       - name: Deploy to Cloudflare Pages
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: apps/console
           command: >-
-            pages deploy apps/console/dist
+            pages deploy dist
             --project-name=${{ vars.CLOUDFLARE_PAGES_PROJECT }}
             --branch=main
