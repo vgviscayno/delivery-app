@@ -1,13 +1,12 @@
 name: Migrate production
 run-name: Migrate production (${{ inputs.push && 'push' || 'dry run' }})
 
-# The only path by which a migration reaches production (ADR 0009).
+# The only path by which a migration reaches production (ADR 0009, amended by 0012).
 #
-# It is manual on purpose: merging a PR does not migrate anything. The ordering the ADR
-# asks for -- RLS lint, then a rehearsal on the PR's preview branch, then this -- is
-# checked rather than assumed: `scripts/check-rehearsed.mjs` refuses a push whose
-# migrations were never rehearsed, matching them by content because the rehearsal ran on
-# the PR's head commit and this one is main's merge or squash of it.
+# It is manual on purpose: merging a PR does not migrate anything. On Supabase Free there
+# are no preview branches, so the rehearsal is CI's `database` job on a local Supabase,
+# and that ordering is checked rather than assumed: `scripts/check-rehearsed.mjs`
+# refuses a commit whose `database` job did not pass.
 #
 # It takes two runs (ADR 0012). With `push` off it dry-runs against production and lists
 # the migrations it would apply in the job summary. With `push` on it refuses unless a
@@ -61,7 +60,7 @@ jobs:
             exit 1
           fi
 
-      - name: These migrations were rehearsed on a preview branch
+      - name: These migrations passed the gates in CI
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: node scripts/check-rehearsed.mjs

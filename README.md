@@ -86,46 +86,43 @@ thing the database cannot check on its own.
 
 ## Environments and the release path
 
-Three backends, no staging (ADR 0009): local, one Supabase preview branch per PR, and
-production. Migrations reach production only through CI:
+Two backends while on Supabase Free (ADR 0012): local and production. Free has no
+branching, so ADR 0009's preview branch per PR waits for the move to Pro (#92).
+Migrations reach production only through CI:
 
-1. **The three gates**, on a local Supabase started in CI;
-2. **Rehearsal** of the same migrations on that PR's preview branch;
-3. **A manual trigger** — the `Migrate production` workflow, from `main`, with the
-   project ref typed out by hand. Run it twice: first with `push` off, a dry run that
-   lists the migrations production is missing in the job summary, then with `push` on,
-   which refuses unless a dry run succeeded on the same commit (ADR 0012).
+1. **The three gates and pgTAP**, in CI's `database` job on a local Supabase. This is
+   the rehearsal;
+2. **A dry run** — the `Migrate production` workflow, from `main`, with `push` off and
+   the project ref typed out by hand. It lists the migrations production is missing in
+   the job summary and applies none of them;
+3. **The push** — the same workflow again with `push` on. It refuses unless a dry run
+   succeeded on the same commit, then dry-runs again and pushes.
 
-Step 3 checks step 2 rather than trusting it: `scripts/check-rehearsed.mjs` refuses a
-migration whose rehearsal failed or never ran. The rehearsal ran on the PR's head commit
-and step 3 runs on main's merge or squash of it, so the two are matched by content: a
-rehearsal counts when it ran on a commit whose `supabase/migrations` is file-for-file
-identical. A commit that changed no migrations passes the same way — its migrations are
-the ones the last successful production migration already pushed.
+Each step checks the one before rather than trusting it. `scripts/check-rehearsed.mjs`
+refuses a commit whose `database` job did not pass, and `scripts/check-dry-run.mjs`
+refuses a push with no dry run behind it on that commit.
 
 Merging a PR does not migrate anything.
 
-The console deploys to Cloudflare Pages on every push. A PR's build is pointed at that
-PR's Supabase preview branch; `main` is pointed at production. A PR with no preview
-branch deploys no preview rather than falling back to production: a preview that can
-write to the shop's real data is worse than no preview. The integration only creates a
-branch for a PR that touches `supabase/`, so a TypeScript-only PR has none and simply
-gets no preview URL; a PR that touches migrations and has none fails, since there is
-nowhere to rehearse them.
+The console deploys to Cloudflare Pages from `main` only, pointed at production. There
+are no PR previews: with no preview branch to point one at, a preview would need
+production, and a preview that can write to the shop's real data is worse than no
+preview.
 
-### Repository secrets CI needs
+### Secrets CI needs
 
-| Secret                                          | Used by                                  |
-| ----------------------------------------------- | ---------------------------------------- |
-| `SUPABASE_ACCESS_TOKEN`                         | preview rehearsal, production migration  |
-| `SUPABASE_PROJECT_ID`                           | the production project ref               |
-| `SUPABASE_DB_PASSWORD`                          | production migration                     |
-| `SUPABASE_PREVIEW_DB_PASSWORD`                  | preview rehearsal, if branches share one |
-| `SUPABASE_URL`, `SUPABASE_ANON_KEY`             | production console build                 |
-| `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID` | Pages deploy                             |
+Secrets live on the `production` GitHub environment, not the repository, so production
+credentials only reach jobs that run in `production`.
 
-Plus the `CLOUDFLARE_PAGES_PROJECT` repository variable, and the Supabase GitHub
-integration installed so each PR gets a preview branch.
+| Secret                                          | Used by                                   |
+| ----------------------------------------------- | ----------------------------------------- |
+| `SUPABASE_ACCESS_TOKEN`                         | production migration                      |
+| `SUPABASE_PROJECT_ID`                           | production migration, typed confirmation  |
+| `SUPABASE_DB_PASSWORD`                          | production migration                      |
+| `SUPABASE_URL`, `SUPABASE_ANON_KEY`             | console build (the publishable key)       |
+| `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID` | Pages deploy                              |
+
+Plus the `CLOUDFLARE_PAGES_PROJECT` variable on the same environment.
 
 ## Testing
 
