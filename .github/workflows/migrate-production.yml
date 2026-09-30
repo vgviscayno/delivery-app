@@ -37,6 +37,7 @@ jobs:
           echo "Production migrations run from main only; this ref is ${{ github.ref }}." >&2
           exit 1
 
+      - uses: actions/checkout@v5
       - uses: ./.github/actions/setup
 
       - name: Check the typed confirmation
