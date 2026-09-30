@@ -80,11 +80,12 @@ jobs:
       - name: The gates
         run: pnpm db:lint
 
+      # `run`, here and below: `link` is also a pnpm built-in, which wins over the script.
       - name: Link the production project
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
-        run: pnpm --filter @courier/db link --project-ref "${{ secrets.SUPABASE_PROJECT_ID }}"
+        run: pnpm --filter @courier/db run link --project-ref "${{ secrets.SUPABASE_PROJECT_ID }}"
 
       # Lists what production is missing and applies none of it. Runs on the push too,
       # so the log of the run that pushed shows what it pushed.
@@ -96,7 +97,7 @@ jobs:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
         run: |
-          pnpm --filter @courier/db push --dry-run 2>&1 | tee dry-run.txt
+          pnpm --filter @courier/db run push --dry-run 2>&1 | tee dry-run.txt
           {
             echo "### Dry run against production"
             echo
@@ -110,4 +111,4 @@ jobs:
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
-        run: pnpm --filter @courier/db push
+        run: pnpm --filter @courier/db run push

@@ -44,6 +44,7 @@ jobs:
               - 'supabase/**'
               - 'packages/db/**'
               - '.github/workflows/ci.yml'
+              - '.github/workflows/migrate-production.yml'
               - '.github/actions/**'
 
   # Package unit tests never need Docker: the database work lives in its own
