@@ -33,7 +33,9 @@ if (!dryRun) {
   fail(
     `No successful dry run of this workflow found for ${sha.slice(0, 8)}.\n` +
       `Run "Migrate production" with push off first, read the migrations it lists in\n` +
-      `the job summary, then run it again with push on.`,
+      `the job summary, then run it again with push on.\n\n` +
+      `Dry runs are found by the title "${DRY_RUN_TITLE}", which the workflow's\n` +
+      `run-name sets. If the workflow was renamed, update DRY_RUN_TITLE to match.`,
   );
 }
 
