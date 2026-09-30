@@ -1,5 +1,5 @@
 ---
-status: accepted
+status: partly superseded by ADR-0012
 ---
 
 # No staging environment, and the pilot runs on production
