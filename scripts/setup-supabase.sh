@@ -188,8 +188,11 @@ finish() {
 # Sets up the production Supabase project and the GitHub environment secrets CI reads
 # from it (issue #90). Run from anywhere in the repo: bash scripts/setup-supabase.sh
 #
-# Secrets go to the `preview` and `production` GitHub environments, never the repo, so
-# the production database password only reaches jobs that run in `production`. Only
+# The project is on Supabase Free (ADR 0012): no preview branches, so no GitHub
+# integration and no `preview` environment until the move to Pro (#92).
+#
+# Secrets go to the `production` GitHub environment, never the repo, so the production
+# database password only reaches jobs that run in `production`. Only
 # non-secret values are saved to .env; a re-run asks for the secrets again, and a blank
 # answer leaves what GitHub already has.
 
@@ -217,28 +220,21 @@ expect_prefix() {
   [[ -z "$1" || "$1" == "$2"* ]] || warn "that doesn't start with $2; check it's the $3"
 }
 
-TOTAL_STAGES=7
+TOTAL_STAGES=5
 
 banner "Supabase setup for CI (issue #90)"
 
-stage "Check the organisation's plan"
-say "Preview branches need the Pro plan or above; Free doesn't include branching."
-say "Without them CI can't rehearse migrations or build PR previews (ADR 0009)."
-open_url "https://supabase.com/dashboard"
-step "Open the organisation the project will live in."
-step "Check its plan under Billing, and upgrade to Pro if it's on Free."
-note "Each preview branch is billed by the hour while it exists."
-pause "Press Enter once the organisation is on Pro or above."
-
 stage "Create the project"
+say "The Free plan is enough until the pilot takes real orders (ADR 0012)."
 open_url "https://supabase.com/dashboard/new/_"
-step "Pick the organisation from the last stage."
+step "Pick the organisation the project will live in."
 step "Name the project, e.g. delivery-app."
 step "Generate a strong database password and copy it before moving on."
 step "Region: choose Southeast Asia (Singapore) itself, not the general APAC option,"
 say "  which can land anywhere in Asia-Pacific."
 step "Create the project and wait until the dashboard says it's ready."
 note "Lost the password? Reset it later under Database → Settings."
+note "Free pauses a project after a week idle; resume it from the dashboard."
 ask_secret SUPABASE_DB_PASSWORD "Paste the database password:"
 
 stage "Note the project ref"
@@ -262,7 +258,7 @@ ask SUPABASE_ANON_KEY "Paste the publishable key:"
 expect_prefix "$SUPABASE_ANON_KEY" sb_publishable_ "publishable key"
 
 stage "Create an access token for CI"
-say "CI uses it to find each PR's preview branch and to link the production migration."
+say "Migrate production uses it to link the production project."
 open_url "https://supabase.com/dashboard/account/tokens"
 step "Generate a new classic token named e.g. delivery-app CI."
 step "Give it an expiry (a year at most) and note the date: CI breaks when it lapses."
@@ -271,19 +267,14 @@ ask_secret SUPABASE_ACCESS_TOKEN "Paste the token:"
 expect_prefix "$SUPABASE_ACCESS_TOKEN" sbp_ "access token"
 
 stage "Write the GitHub environment secrets"
-say "preview:    SUPABASE_ACCESS_TOKEN, SUPABASE_PROJECT_ID"
 say "production: SUPABASE_ACCESS_TOKEN, SUPABASE_PROJECT_ID, SUPABASE_DB_PASSWORD,"
 say "            SUPABASE_URL, SUPABASE_ANON_KEY"
-note "Preview branches have their own database password, which CI reads from the"
-note "Supabase API, so SUPABASE_PREVIEW_DB_PASSWORD is left unset."
 if ! gh auth status >/dev/null 2>&1; then
   warn "gh isn't logged in; run gh auth login, then re-run this wizard."
   SKIPPED+=("all GitHub secrets (gh not logged in)")
 elif confirm "Write these, replacing any values already there?"; then
-  for env in preview production; do
-    set_env_secret "$env" SUPABASE_ACCESS_TOKEN "$SUPABASE_ACCESS_TOKEN"
-    set_env_secret "$env" SUPABASE_PROJECT_ID "$SUPABASE_PROJECT_ID"
-  done
+  set_env_secret production SUPABASE_ACCESS_TOKEN "$SUPABASE_ACCESS_TOKEN"
+  set_env_secret production SUPABASE_PROJECT_ID "$SUPABASE_PROJECT_ID"
   set_env_secret production SUPABASE_DB_PASSWORD "$SUPABASE_DB_PASSWORD"
   set_env_secret production SUPABASE_URL "$SUPABASE_URL"
   set_env_secret production SUPABASE_ANON_KEY "$SUPABASE_ANON_KEY"
@@ -292,17 +283,6 @@ else
 fi
 pause
 
-stage "Connect the GitHub integration"
-say "This is what creates a preview branch for each PR."
-open_url "https://supabase.com/dashboard/project/$SUPABASE_PROJECT_ID/settings/integrations"
-step "Under GitHub Integration, Authorize GitHub, then pick vgviscayno/delivery-app."
-step "Working directory: .   (the folder that contains supabase/)"
-step "Automatic branching: on."
-step "Supabase changes only: on."
-warn "Deploy to production: OFF. Migrations reach production only through the"
-warn "Migrate production workflow (ADR 0009); on, a merge would migrate it."
-step "Enable the integration."
-pause "Press Enter once it's enabled."
-
 finish
-say "Next: add the Cloudflare secrets (#90), then re-run CI on a PR."
+say "Next: run Migrate production from main with push off. A dry run that lists the"
+say "migrations proves these secrets work. Then add the Cloudflare secrets (#90)."
