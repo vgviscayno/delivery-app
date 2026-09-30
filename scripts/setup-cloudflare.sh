@@ -196,6 +196,15 @@ finish() {
 
 cd "$(git rev-parse --show-toplevel)"
 
+# On Windows, `bash` from PowerShell is WSL's, which finds the Windows pnpm but not the
+# Node it needs. Git Bash sees both.
+if ! command -v node >/dev/null 2>&1; then
+  warn "node isn't on this shell's PATH, so wrangler can't run."
+  note "On Windows, run it with Git Bash, not WSL:"
+  note '  & "C:\Program Files\Git\bin\bash.exe" scripts/setup-cloudflare.sh'
+  exit 1
+fi
+
 # wrangler runs the console's own copy, the one CI deploys with.
 wrangler() { pnpm --filter @courier/console exec wrangler "$@"; }
 
