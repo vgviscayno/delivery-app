@@ -92,7 +92,9 @@ production. Migrations reach production only through CI:
 1. **The three gates**, on a local Supabase started in CI;
 2. **Rehearsal** of the same migrations on that PR's preview branch;
 3. **A manual trigger** — the `Migrate production` workflow, from `main`, with the
-   project ref typed out by hand.
+   project ref typed out by hand. Run it twice: first with `push` off, a dry run that
+   lists the migrations production is missing in the job summary, then with `push` on,
+   which refuses unless a dry run succeeded on the same commit (ADR 0012).
 
 Step 3 checks step 2 rather than trusting it: `scripts/check-rehearsed.mjs` refuses a
 migration whose rehearsal failed or never ran. The rehearsal ran on the PR's head commit

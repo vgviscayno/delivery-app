@@ -1,4 +1,5 @@
 name: Migrate production
+run-name: Migrate production (${{ inputs.push && 'push' || 'dry run' }})
 
 # The only path by which a migration reaches production (ADR 0009).
 #
@@ -7,6 +8,11 @@ name: Migrate production
 # checked rather than assumed: `scripts/check-rehearsed.mjs` refuses a push whose
 # migrations were never rehearsed, matching them by content because the rehearsal ran on
 # the PR's head commit and this one is main's merge or squash of it.
+#
+# It takes two runs (ADR 0012). With `push` off it dry-runs against production and lists
+# the migrations it would apply in the job summary. With `push` on it refuses unless a
+# dry run succeeded on this same commit, then dry-runs again and pushes. The `run-name`
+# is how `scripts/check-dry-run.mjs` tells the two apart: the API does not report inputs.
 #
 # Expand/contract binds the customer app: a migration ships before the binaries that
 # depend on it, never with them.
@@ -18,6 +24,11 @@ on:
         description: "Type the production Supabase project ref to confirm"
         required: true
         type: string
+      push:
+        description: "Push the migrations. Leave off for a dry run, which has to come first"
+        required: false
+        default: false
+        type: boolean
 
 concurrency:
   group: migrate-production
@@ -55,6 +66,12 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: node scripts/check-rehearsed.mjs
 
+      - name: These migrations were dry-run against production first
+        if: inputs.push
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node scripts/check-dry-run.mjs
+
       # The same gates CI ran on the PR, re-run here against a local database built
       # from exactly the migrations about to be pushed. A migration that reached main
       # by some other route still cannot get past this.
@@ -64,10 +81,31 @@ jobs:
       - name: The gates
         run: pnpm db:lint
 
-      - name: Push migrations to production
+      - name: Link the production project
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: pnpm --filter @courier/db link --project-ref "${{ secrets.SUPABASE_PROJECT_ID }}"
+
+      # Lists what production is missing and applies none of it. Runs on the push too,
+      # so the log of the run that pushed shows what it pushed.
+      - name: Dry run against production
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
         run: |
-          pnpm --filter @courier/db link --project-ref "${{ secrets.SUPABASE_PROJECT_ID }}"
-          pnpm --filter @courier/db push
+          pnpm --filter @courier/db push --dry-run 2>&1 | tee dry-run.txt
+          {
+            echo "### Dry run against production"
+            echo
+            echo '```'
+            cat dry-run.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Push migrations to production
+        if: inputs.push
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: pnpm --filter @courier/db push
