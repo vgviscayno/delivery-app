@@ -205,6 +205,10 @@ if ! command -v node >/dev/null 2>&1; then
   exit 1
 fi
 
+# Wrangler here acts as you, through its browser login. A token left in the environment
+# would win over that login, and `wrangler login` refuses to run while one is set.
+unset CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID
+
 # wrangler runs the console's own copy, the one CI deploys with.
 wrangler() { pnpm --filter @courier/console exec wrangler "$@"; }
 
