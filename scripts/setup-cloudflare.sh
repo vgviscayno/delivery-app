@@ -267,7 +267,9 @@ done
 write_env CLOUDFLARE_PAGES_PROJECT "$CLOUDFLARE_PAGES_PROJECT"
 # --production-branch matches the --branch=main CI deploys with, so those deploys are
 # production deploys, not previews.
-if wrangler pages project create "$CLOUDFLARE_PAGES_PROJECT" --production-branch=main; then
+if wrangler pages project list 2>/dev/null | grep -q "│ $CLOUDFLARE_PAGES_PROJECT "; then
+  note "$CLOUDFLARE_PAGES_PROJECT already exists"
+elif wrangler pages project create "$CLOUDFLARE_PAGES_PROJECT" --production-branch=main; then
   printf '  %s✓ created%s %s\n' "$GREEN" "$RESET" "$CLOUDFLARE_PAGES_PROJECT"
 else
   warn "create failed; fine if the project already exists (re-run), otherwise read the error above"
