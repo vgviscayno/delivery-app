@@ -125,7 +125,10 @@ credentials only reach jobs that run in `production`.
 Plus the `CLOUDFLARE_PAGES_PROJECT` variable on the same environment.
 
 `bash scripts/setup-supabase.sh` walks through creating the Supabase project and sets
-every Supabase secret above.
+every Supabase secret above. `bash scripts/setup-cloudflare.sh` does the same for the
+Pages project and the Cloudflare values. On Windows, run both from PowerShell through Git
+Bash (`& "C:\Program Files\Git\bin\bash.exe" scripts/...`): plain `bash` there is WSL's,
+which has no Node for wrangler.
 
 ## Testing
 
