@@ -124,6 +124,9 @@ credentials only reach jobs that run in `production`.
 
 Plus the `CLOUDFLARE_PAGES_PROJECT` variable on the same environment.
 
+`bash scripts/setup-supabase.sh` walks through creating the Supabase project and sets
+every Supabase secret above.
+
 ## Testing
 
 A good test checks behaviour through the highest seam available and never checks
