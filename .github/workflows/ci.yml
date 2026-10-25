@@ -19,6 +19,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       typescript: ${{ steps.filter.outputs.typescript }}
+      console: ${{ steps.filter.outputs.console }}
       database: ${{ steps.filter.outputs.database }}
     steps:
       - uses: actions/checkout@v5
@@ -36,6 +37,18 @@ jobs:
               - 'turbo.json'
               - 'tsconfig.base.json'
               - 'biome.jsonc'
+              - '.github/workflows/ci.yml'
+              - '.github/actions/**'
+            # What the console's own build reads. Narrower than `typescript`, so a change
+            # confined to the mobile apps never redeploys the console.
+            console:
+              - 'apps/console/**'
+              - 'packages/**'
+              - 'package.json'
+              - 'pnpm-lock.yaml'
+              - 'pnpm-workspace.yaml'
+              - 'turbo.json'
+              - 'tsconfig.base.json'
               - '.github/workflows/ci.yml'
               - '.github/actions/**'
             database:
@@ -101,7 +114,7 @@ jobs:
   # is worse than no preview.
   console:
     needs: [changes, typescript]
-    if: github.event_name == 'push' && needs.changes.outputs.typescript == 'true'
+    if: github.event_name == 'push' && needs.changes.outputs.console == 'true'
     runs-on: ubuntu-latest
     environment: production
     permissions:
