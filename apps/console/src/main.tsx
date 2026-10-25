@@ -9,7 +9,7 @@ import "./index.css";
 const root = document.getElementById("root");
 if (!root) throw new Error("index.html is missing its #root element");
 
-const client = createCourierClient(readBackendEnv(import.meta.env));
+const client = createCourierClient(readBackendEnv(import.meta.env, "VITE_"));
 const idleTimeoutMs = readIdleTimeout(import.meta.env.VITE_DISPATCHER_IDLE_MINUTES);
 
 createRoot(root).render(

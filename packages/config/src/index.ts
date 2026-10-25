@@ -15,9 +15,15 @@ const backendEnvSchema = z.object({
 /** Which Supabase a surface talks to. Local, a PR's preview branch, or production. */
 export type BackendEnv = z.infer<typeof backendEnvSchema>;
 
-const VARIABLE_NAMES = {
-  supabaseUrl: "VITE_SUPABASE_URL",
-  supabaseAnonKey: "VITE_SUPABASE_ANON_KEY",
+/**
+ * The prefix a bundler inlines into client code. Vite inlines `VITE_*` for the console;
+ * Expo inlines only `EXPO_PUBLIC_*` for the mobile apps. The rest of each name is shared.
+ */
+export type BackendEnvPrefix = "VITE_" | "EXPO_PUBLIC_";
+
+const VARIABLE_SUFFIXES = {
+  supabaseUrl: "SUPABASE_URL",
+  supabaseAnonKey: "SUPABASE_ANON_KEY",
 } as const;
 
 export class BackendEnvError extends Error {
@@ -36,21 +42,36 @@ export class BackendEnvError extends Error {
 
 /**
  * Reads the backend environment out of a bag of variables — `import.meta.env` in the
- * console, `process.env` in a script — and fails loudly rather than letting a surface
- * boot pointed at nothing.
+ * console, the inlined `process.env.EXPO_PUBLIC_*` values in a mobile app — and fails loudly rather than letting a surface
+ * boot pointed at nothing. Errors name each variable with the caller's `prefix`, so
+ * they point at the file the caller actually reads.
  */
-export function readBackendEnv(source: Record<string, string | undefined>): BackendEnv {
+export function readBackendEnv(
+  source: Record<string, string | undefined>,
+  prefix: BackendEnvPrefix,
+): BackendEnv {
+  const nameOf = (key: keyof typeof VARIABLE_SUFFIXES) =>
+    `${prefix}${VARIABLE_SUFFIXES[key]}`;
+
   const result = backendEnvSchema.safeParse({
-    supabaseUrl: source[VARIABLE_NAMES.supabaseUrl],
-    supabaseAnonKey: source[VARIABLE_NAMES.supabaseAnonKey],
+    supabaseUrl: source[nameOf("supabaseUrl")],
+    supabaseAnonKey: source[nameOf("supabaseAnonKey")],
   });
 
   if (result.success) return result.data;
 
   throw new BackendEnvError(
     result.error.issues.map((issue) => {
-      const key = issue.path[0] as keyof typeof VARIABLE_NAMES;
-      return `${VARIABLE_NAMES[key]}: ${issue.message}`;
+      const key = issue.path[0] as keyof typeof VARIABLE_SUFFIXES;
+      return `${nameOf(key)}: ${issue.message}`;
     }),
   );
 }
+
+export {
+  MAP_STYLE,
+  type MapStyle,
+  type MapStyleLayer,
+  type MapStyleValue,
+} from "./map-style.js";
+export { type LatLng, SHOP_PIN } from "./shop-pin.js";
