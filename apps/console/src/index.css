@@ -140,3 +140,46 @@ body {
   object-fit: contain;
   image-rendering: pixelated;
 }
+
+.warning {
+  color: #8a5300;
+  font-size: 0.9rem;
+}
+
+.catalog-products th {
+  text-align: left;
+  padding-right: 1rem;
+}
+
+.catalog-products td {
+  padding: 0.25rem 0.5rem;
+}
+
+.product-editor {
+  margin-top: 1rem;
+  padding: 1rem;
+  border: 1px solid #ccc;
+}
+
+.product-editor h3,
+.product-editor fieldset {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+
+.categories {
+  display: grid;
+  gap: 1rem;
+  padding-left: 1.5rem;
+}
+
+.category-heading,
+.category-products li {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.category-products {
+  padding-left: 1.5rem;
+}

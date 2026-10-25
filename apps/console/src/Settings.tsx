@@ -10,12 +10,14 @@ import {
 } from "@courier/api-client";
 import type { OrderingDay, ShopSettings } from "@courier/domain";
 import { type FormEvent, useCallback, useEffect, useState } from "react";
+import { Catalog } from "./Catalog.js";
 import {
   formFromSettings,
   readSettingsForm,
   type SettingsForm,
   type SettingsFormErrors,
 } from "./settings-form.js";
+import { Failure, messageOf, useWrite } from "./write.js";
 
 const WEEKDAYS = [
   "Monday",
@@ -33,8 +35,8 @@ type Load =
   | { readonly state: "error"; readonly message: string };
 
 /**
- * The console's settings surface: the shop's rules, the Ordering window, closure dates
- * and the QR Ph image. Every change goes to the server and the whole surface is read
+ * The console's settings surface: the shop's rules, the Ordering window, closure dates,
+ * the QR Ph image and the catalog. Every change goes to the server and the whole surface is read
  * back afterwards, so what is shown is always what customers and drivers now see.
  */
 export function Settings({ client }: { client: CourierClient }) {
@@ -72,6 +74,7 @@ export function Settings({ client }: { client: CourierClient }) {
       />
       <ClosuresSection client={client} settings={settings} onSaved={reload} />
       <QrPhSection client={client} path={settings.qrPhImagePath} onSaved={reload} />
+      <Catalog client={client} />
     </div>
   );
 }
@@ -79,35 +82,6 @@ export function Settings({ client }: { client: CourierClient }) {
 interface SectionProps {
   readonly client: CourierClient;
   readonly onSaved: () => Promise<void>;
-}
-
-/**
- * Runs one write: shows it as busy, reports a failure in words, and reads everything
- * back after a success.
- */
-function useWrite(onSaved: () => Promise<void>) {
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string>();
-
-  const run = useCallback(
-    async (write: () => Promise<unknown>) => {
-      setBusy(true);
-      setError(undefined);
-      try {
-        await write();
-        await onSaved();
-        return true;
-      } catch (thrown) {
-        setError(messageOf(thrown));
-        return false;
-      } finally {
-        setBusy(false);
-      }
-    },
-    [onSaved],
-  );
-
-  return { busy, error, run };
 }
 
 function RulesSection({
@@ -421,16 +395,3 @@ type InputProps = Omit<
   React.InputHTMLAttributes<HTMLInputElement>,
   "value" | "onChange" | "aria-invalid"
 >;
-
-function Failure({ message }: { message?: string | undefined }) {
-  if (!message) return null;
-  return (
-    <p className="notice" role="alert">
-      {message}
-    </p>
-  );
-}
-
-function messageOf(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
-}
