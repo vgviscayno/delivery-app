@@ -114,6 +114,10 @@ _Avoid_: Recipient (implies a distinct actor, which this system does not have), 
 The single number a customer rings to reach the shop, shown in the customer app and maintained by the dispatcher alongside the Ordering window and Delivery fee. The customer-initiated half of every conversation this system pushes onto the telephone rather than into software.
 _Avoid_: Support line, hotline, customer service number
 
+**Shop pin**:
+The one point on the map where the shop is: where drivers leave from and where the delivery radius is measured from, out to an Address's pin. Fixed, not something a dispatcher edits, because the shop does not move.
+_Avoid_: Store coordinates, store location, shop location (Location means a driver's live position), depot, origin
+
 **Delivery address**:
 The Address an Order is going to, copied onto the Order at submission the same way a Product's name and price are (see `docs/adr/0003-catalog-snapshot-on-order.md`). Once copied it never changes: editing or deleting the saved Address leaves every placed Order pointing where it was actually sent, and an in-flight Delivery can never have its destination moved out from under the driver. The one exception is deliberately narrow — a dispatcher may correct the *contact details and landmark note* on a single Order's copy when a driver can't find the door, never the pin.
 _Avoid_: Shipping address, delivery location
