@@ -69,6 +69,35 @@ out. The console also signs the dispatcher out after `VITE_DISPATCHER_IDLE_MINUT
 because Supabase's own inactivity timeout is a Pro-plan setting and would apply to
 customers too.
 
+### Adding a dispatcher
+
+The role is copied into the profile once, when the Auth user is inserted. The
+dashboard's **Add user** sets no app metadata, so an account made there is a customer,
+and the console signs it straight back out. Give it the role afterwards:
+
+1. In the Supabase dashboard, **Authentication → Users → Add user → Create new user**,
+   with **Auto Confirm User** ticked. This account can change every shop setting, so
+   give it a strong password.
+2. In the **SQL Editor**, with the new account's email:
+
+   ```sql
+   update auth.users
+   set raw_app_meta_data = raw_app_meta_data || '{"role": "dispatcher"}'
+   where email = 'dispatcher@example.com';
+
+   update app.profiles
+   set role = 'dispatcher'
+   where id = (select id from auth.users where email = 'dispatcher@example.com');
+
+   select p.role, p.active, u.email
+   from app.profiles p join auth.users u using (id)
+   where u.email = 'dispatcher@example.com';
+   ```
+
+   The last query should return `dispatcher | true`. Setting the metadata as well
+   keeps the Auth user agreeing with its profile, so nothing that reads the role from
+   metadata later turns it back into a customer.
+
 ## Shop settings
 
 The shop's rules are data the dispatcher edits on the console's Settings tab: the
