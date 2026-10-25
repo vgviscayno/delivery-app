@@ -1,5 +1,5 @@
 ---
-status: partly superseded by ADR-0012
+status: partly superseded by ADR-0012; amended by ADR-0013
 ---
 
 # No staging environment, and the pilot runs on production
@@ -25,3 +25,10 @@ There are three backends: local (the Supabase CLI in Docker), one Supabase previ
 - **The pilot APK is a plain `debug` build pointed at production** with `-Pbackend=production`. A custom `pilot` buildType would risk switching Transistorsoft's licence check on without anyone noticing. `release` builds are hard-wired to production, and `debug` defaults to local.
 - **No over-the-air updates for the driver app during the pilot.** The overnight `AUTO_UPDATE_DEFAULT` path starts only after the cutover. Until then the version gate blocks old builds and links to the bucket.
 - **Nothing can be tried on real data before it reaches real customers.** Preview branches test migrations, never data. The version gate and the kill-switch flags are what's left for pulling back a bad release.
+
+## Amendment (ADR 0013, React Native)
+
+Two consequences above were written for Gradle and no longer describe the mechanism.
+
+- **The pilot APK is still a `debug` build pointed at production, built a different way.** A React Native debug build doesn't include its JS, so a sideloaded phone that never sees a dev machine would have nothing to run. The pilot is built from an EAS profile that sets `EX_UPDATES_NATIVE_DEBUG=1` and `gradleCommand: ":app:assembleDebug"`, which embeds the JS through `expo-updates`. The build type stays `debug`, so Transistorsoft's licence check stays off, which is the reasoning above. Nothing builds the `debugOptimized` variant, since nobody has checked whether it trips the licence.
+- **The driver pilot does take over-the-air updates.** "No over-the-air updates" was written when they were impossible. Now they're a choice, and the pilot takes them so a JS fix doesn't mean re-sideloading every phone. Pilot builds subscribe to a `pilot` EAS Update channel. Updates are published by hand, between shifts only, never while a driver is on duty. A native change still goes through the bucket and the version gate as above.

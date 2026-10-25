@@ -1,8 +1,8 @@
 // Regenerates the Supabase types the domain package builds its hand-written types on.
 //
 // The generated file is checked in: a schema change and the TypeScript it breaks land
-// in the same PR, the same rule the Kotlin side follows. CI regenerates and fails if
-// the result differs from what is committed.
+// in the same PR, the mobile apps included, since they consume these types directly.
+// CI regenerates and fails if the result differs from what is committed.
 
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";

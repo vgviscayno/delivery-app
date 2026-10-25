@@ -18,8 +18,8 @@ supabase/            the Supabase project: migrations, pgTAP tests, seed.sql
 scripts/             CI helpers
 ```
 
-The mobile side (one Gradle project with `:core`, `:driver` and `:customer`) arrives
-with ticket #56, along with the shared fixtures directory.
+The mobile apps (`apps/driver` and `apps/customer`, Expo) arrive as workspace packages
+with ticket #104.
 
 ## Getting started
 
