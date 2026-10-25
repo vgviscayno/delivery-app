@@ -15,8 +15,10 @@ const SET_ORDERING_DAY = "set_ordering_day";
 const ADD_SHOP_CLOSURE = "add_shop_closure";
 const REMOVE_SHOP_CLOSURE = "remove_shop_closure";
 const SET_QR_PH_IMAGE = "set_qr_ph_image";
-const UPLOAD_QR_PH_IMAGE = "upload_qr_ph_image";
-const SIGN_SHOP_IMAGE = "sign_shop_image";
+
+// Storage steps, not RPCs: the names an ApiError gives when one of them fails.
+const UPLOAD_QR_PH_IMAGE_STEP = "upload_qr_ph_image";
+const SIGN_SHOP_IMAGE_STEP = "sign_shop_image";
 
 /** Long enough to load the image on screen; nobody should be keeping these links. */
 const SIGNED_LINK_SECONDS = 300;
@@ -80,7 +82,7 @@ export async function saveShopSettings(
     dark_threshold_minutes: edits.darkThresholdMinutes,
     time_confirmation_cutoff: edits.timeConfirmationCutoff,
   };
-  await call(client, UPDATE_SHOP_SETTINGS, args);
+  await callWrite(client, UPDATE_SHOP_SETTINGS, args);
 }
 
 /**
@@ -97,7 +99,7 @@ export async function setOrderingDay(
     opens_at: hours?.opensAt ?? null,
     closes_at: hours?.closesAt ?? null,
   };
-  await call(client, SET_ORDERING_DAY, args);
+  await callWrite(client, SET_ORDERING_DAY, args);
 }
 
 /** Closes the shop on a date, or rewrites the note of one already closed. */
@@ -107,7 +109,7 @@ export async function addShopClosure(
   note: string | null,
 ): Promise<void> {
   const args: NullableArgs<typeof ADD_SHOP_CLOSURE> = { closed_on: closedOn, note };
-  await call(client, ADD_SHOP_CLOSURE, args);
+  await callWrite(client, ADD_SHOP_CLOSURE, args);
 }
 
 /** Reopens a closed date. */
@@ -115,7 +117,7 @@ export async function removeShopClosure(
   client: CourierClient,
   closedOn: string,
 ): Promise<void> {
-  await call(client, REMOVE_SHOP_CLOSURE, { closed_on: closedOn });
+  await callWrite(client, REMOVE_SHOP_CLOSURE, { closed_on: closedOn });
 }
 
 /**
@@ -132,7 +134,7 @@ export async function replaceQrPhImage(
 ): Promise<string> {
   const extension = QR_PH_IMAGE_TYPES[image.type];
   if (!extension) {
-    throw new ApiError(UPLOAD_QR_PH_IMAGE, {
+    throw new ApiError(UPLOAD_QR_PH_IMAGE_STEP, {
       message: "the QR Ph image must be a PNG, JPEG or WebP image",
     });
   }
@@ -144,7 +146,7 @@ export async function replaceQrPhImage(
     contentType: image.type,
     upsert: false,
   });
-  if (upload.error) throw new ApiError(UPLOAD_QR_PH_IMAGE, upload.error);
+  if (upload.error) throw new ApiError(UPLOAD_QR_PH_IMAGE_STEP, upload.error);
 
   const { data: replaced, error } = await client.rpc(SET_QR_PH_IMAGE, { path });
   if (error) {
@@ -167,11 +169,12 @@ export async function signShopImage(
   const { data, error } = await client.storage
     .from(SHOP_BUCKET)
     .createSignedUrl(path, SIGNED_LINK_SECONDS);
-  if (error) throw new ApiError(SIGN_SHOP_IMAGE, error);
+  if (error) throw new ApiError(SIGN_SHOP_IMAGE_STEP, error);
   return data.signedUrl;
 }
 
-async function call<Name extends keyof Database["public"]["Functions"]>(
+/** Calls an RPC that changes something and returns nothing, throwing if it refuses. */
+async function callWrite<Name extends keyof Database["public"]["Functions"]>(
   client: CourierClient,
   name: Name,
   args: NullableArgs<Name>,

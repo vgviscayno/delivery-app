@@ -90,7 +90,7 @@ export function readSettingsForm(form: SettingsForm): SettingsFormResult {
  * Pesos as typed — `50`, `50.5`, `₱1,250.00` — into whole centavos. Done on the digits
  * rather than by multiplying a float, so `0.29` is 29 centavos and not 28.999….
  */
-export function parsePesos(text: string): Parsed<number | null> {
+function parsePesos(text: string): Parsed<number | null> {
   const cleaned = text.replace(/[₱,\s]/g, "");
   if (cleaned === "") return { ok: true, value: null };
 
@@ -111,7 +111,7 @@ export function parsePesos(text: string): Parsed<number | null> {
  * A Philippine number however it is written — `0917 123 4567`, `+63 917-123-4567`,
  * `(02) 8123 4567` — into E.164, `+639171234567`, which is how it is stored.
  */
-export function parseShopPhone(text: string): Parsed<string | null> {
+function parseShopPhone(text: string): Parsed<string | null> {
   const cleaned = text.replace(/[\s\-().]/g, "");
   if (cleaned === "") return { ok: true, value: null };
 

@@ -1,52 +1,6 @@
 import type { ShopSettings } from "@courier/domain";
 import { describe, expect, it } from "vitest";
-import {
-  formFromSettings,
-  parsePesos,
-  parseShopPhone,
-  readSettingsForm,
-} from "./settings-form.js";
-
-describe("parsePesos", () => {
-  it.each([
-    ["50", 5000],
-    ["50.5", 5050],
-    ["50.50", 5050],
-    ["0", 0],
-    ["₱1,250.00", 125000],
-    [" 75 ", 7500],
-  ])("reads %j as %i centavos", (text, centavos) => {
-    expect(parsePesos(text)).toEqual({ ok: true, value: centavos });
-  });
-
-  it("reads an empty field as not agreed yet", () => {
-    expect(parsePesos("")).toEqual({ ok: true, value: null });
-  });
-
-  it.each(["50.555", "-5", "fifty", "1.2.3"])("refuses %j", (text) => {
-    expect(parsePesos(text)).toMatchObject({ ok: false });
-  });
-});
-
-describe("parseShopPhone", () => {
-  it.each([
-    ["0917 123 4567", "+639171234567"],
-    ["0917-123-4567", "+639171234567"],
-    ["+63 917 123 4567", "+639171234567"],
-    ["639171234567", "+639171234567"],
-    ["(02) 8123 4567", "+63281234567"],
-  ])("reads %j as %s", (text, e164) => {
-    expect(parseShopPhone(text)).toEqual({ ok: true, value: e164 });
-  });
-
-  it("reads an empty field as not agreed yet", () => {
-    expect(parseShopPhone("  ")).toEqual({ ok: true, value: null });
-  });
-
-  it.each(["12345", "0917 123", "+0 917 123 4567", "call us"])("refuses %j", (text) => {
-    expect(parseShopPhone(text)).toMatchObject({ ok: false });
-  });
-});
+import { formFromSettings, readSettingsForm } from "./settings-form.js";
 
 const settings: ShopSettings = {
   sameDayCutoffBufferMinutes: 30,
@@ -114,5 +68,62 @@ describe("the settings form", () => {
       "sameDayCutoffBufferMinutes",
       "shopPhone",
     ]);
+  });
+});
+
+describe("the Delivery fee field", () => {
+  const withFee = (deliveryFeePesos: string) =>
+    readSettingsForm({ ...formFromSettings(settings), deliveryFeePesos });
+
+  it.each([
+    ["50", 5000],
+    ["50.5", 5050],
+    ["50.50", 5050],
+    ["0", 0],
+    ["₱1,250.00", 125000],
+    [" 75 ", 7500],
+    ["0.29", 29],
+  ])("reads %j pesos as %i centavos", (text, centavos) => {
+    expect(withFee(text)).toMatchObject({
+      ok: true,
+      edits: { deliveryFeeCentavos: centavos },
+    });
+  });
+
+  it("reads an empty field as not agreed yet", () => {
+    expect(withFee("")).toMatchObject({ ok: true, edits: { deliveryFeeCentavos: null } });
+  });
+
+  it.each(["50.555", "-5", "fifty", "1.2.3"])("refuses %j", (text) => {
+    expect(withFee(text)).toMatchObject({
+      ok: false,
+      errors: { deliveryFeePesos: expect.any(String) },
+    });
+  });
+});
+
+describe("the Shop phone field", () => {
+  const withPhone = (shopPhone: string) =>
+    readSettingsForm({ ...formFromSettings(settings), shopPhone });
+
+  it.each([
+    ["0917 123 4567", "+639171234567"],
+    ["0917-123-4567", "+639171234567"],
+    ["+63 917 123 4567", "+639171234567"],
+    ["639171234567", "+639171234567"],
+    ["(02) 8123 4567", "+63281234567"],
+  ])("reads %j as %s", (text, e164) => {
+    expect(withPhone(text)).toMatchObject({ ok: true, edits: { shopPhone: e164 } });
+  });
+
+  it("reads an empty field as not agreed yet", () => {
+    expect(withPhone("  ")).toMatchObject({ ok: true, edits: { shopPhone: null } });
+  });
+
+  it.each(["12345", "0917 123", "+0 917 123 4567", "call us"])("refuses %j", (text) => {
+    expect(withPhone(text)).toMatchObject({
+      ok: false,
+      errors: { shopPhone: expect.any(String) },
+    });
   });
 });

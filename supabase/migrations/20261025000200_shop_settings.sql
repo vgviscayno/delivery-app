@@ -14,8 +14,8 @@ create table app.shop_settings (
   -- Exactly one row: the shop has one set of rules.
   id boolean primary key default true constraint shop_settings_singleton check (id),
 
-  -- How long before the Ordering window closes today stops being offered. The drivers
-  -- finish at 16:00, so 30 puts the Same-day cutoff at 15:30.
+  -- How long before the Ordering window closes today stops being offered: the Same-day
+  -- cutoff is that day's closing time minus this, so a 16:00 close and 30 make 15:30.
   same_day_cutoff_buffer_minutes integer not null default 30
     constraint shop_settings_cutoff_buffer_range check (same_day_cutoff_buffer_minutes between 0 and 720),
 
