@@ -1,4 +1,5 @@
 import { spawnSync } from "node:child_process";
+import { readFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -53,6 +54,12 @@ export async function withClient(fn) {
   } finally {
     await client.end();
   }
+}
+
+/** Runs supabase/seed.sql: demo data for local and preview work, never a test input. */
+export async function seed() {
+  const sql = await readFile(path.join(repoRoot, "supabase", "seed.sql"), "utf8");
+  await withClient((client) => client.query(sql));
 }
 
 export function printProblemRows(rows) {

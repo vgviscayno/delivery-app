@@ -6,16 +6,9 @@
 //
 //   SUPABASE_DB_URL=postgresql://... node scripts/seed.mjs
 
-import { readFile } from "node:fs/promises";
-import path from "node:path";
-import { databaseUrl, repoRoot, withClient } from "./db.mjs";
+import { databaseUrl, seed } from "./db.mjs";
 
-const seedPath = path.join(repoRoot, "supabase", "seed.sql");
-const sql = await readFile(seedPath, "utf8");
-
-await withClient(async (client) => {
-  await client.query(sql);
-});
+await seed();
 
 console.log(
   `Seeded ${databaseUrl().replace(/:[^:@/]*@/, ":****@")} from supabase/seed.sql`,

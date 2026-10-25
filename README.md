@@ -194,4 +194,5 @@ internals.
 
 `supabase/seed.sql` is demo data for local and preview work. It is **never a test
 input** — `pnpm test:db` resets with `--no-seed` first, so nothing in the seed can
-quietly become the reason a test passes.
+quietly become the reason a test passes. It seeds again once the tests finish, pass or
+fail, so the console can still sign in to the local database afterwards.
