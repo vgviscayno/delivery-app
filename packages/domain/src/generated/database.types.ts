@@ -13,15 +13,45 @@ export type Database = {
             [_ in never]: never
           }
           Functions: {
-            "console_profile":
+            "add_shop_closure":
+{ Args: { "closed_on": string,"note": string }; Returns: undefined
+                           },
+"console_profile":
 { Args: Record<PropertyKey, never>; Returns: {
               "email": string,"id": string
             }[]
+                           },
+"ordering_window":
+{ Args: Record<PropertyKey, never>; Returns: {
+              "closes_at": string,"opens_at": string,"weekday": number
+            }[]
+                           },
+"remove_shop_closure":
+{ Args: { "closed_on": string }; Returns: undefined
                            },
 "server_clock":
 { Args: Record<PropertyKey, never>; Returns: {
               "instant": string,"local_date": string,"local_time": string,"time_zone": string
             }[]
+                           },
+"set_ordering_day":
+{ Args: { "closes_at": string,"opens_at": string,"weekday": number }; Returns: undefined
+                           },
+"set_qr_ph_image":
+{ Args: { "path": string }; Returns: string
+                           },
+"shop_closures":
+{ Args: Record<PropertyKey, never>; Returns: {
+              "closed_on": string,"note": string
+            }[]
+                           },
+"shop_settings":
+{ Args: Record<PropertyKey, never>; Returns: {
+              "dark_threshold_minutes": number,"delivery_fee_centavos": number,"delivery_radius_meters": number,"end_of_day": string,"qr_ph_image_path": string,"same_day_cutoff_buffer_minutes": number,"shop_phone": string,"time_confirmation_cutoff": string,"updated_at": string
+            }[]
+                           },
+"update_shop_settings":
+{ Args: { "dark_threshold_minutes": number,"delivery_fee_centavos": number,"delivery_radius_meters": number,"end_of_day": string,"same_day_cutoff_buffer_minutes": number,"shop_phone": string,"time_confirmation_cutoff": string }; Returns: undefined
                            }
           }
           Enums: {

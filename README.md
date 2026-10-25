@@ -69,6 +69,23 @@ out. The console also signs the dispatcher out after `VITE_DISPATCHER_IDLE_MINUT
 because Supabase's own inactivity timeout is a Pro-plan setting and would apply to
 customers too.
 
+## Shop settings
+
+The shop's rules are data the dispatcher edits on the console's Settings tab: the
+Ordering window per weekday, closure dates, the Same-day cutoff buffer, the delivery
+radius, the Delivery fee (whole centavos), the Shop phone (E.164), the QR Ph image, the
+end-of-day time, the dark threshold and the Time confirmation morning cut-off. Any
+signed-in account reads them through `public.shop_settings()`, `ordering_window()` and
+`shop_closures()`. Only an active dispatcher can change them, and anon can do neither.
+
+The migration sets the values the business has agreed on. The ones it hasn't (radius,
+fee, Shop phone, open weekdays and hours, morning cut-off) start empty in production,
+and the seed fills them with placeholders. The QR Ph image is kept in the private `shop`
+Storage bucket. Every upload gets a new name, so a replaced image is never served from a
+cache. The seed's placeholder image is uploaded by `[storage.buckets.shop]` in
+`supabase/config.toml` on every local reset. On a preview database, run
+`supabase seed buckets`. Like the seed, never run it against production.
+
 ## The commands that matter
 
 | Command                | What it does                                                   |

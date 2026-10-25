@@ -116,12 +116,15 @@ enabled = true
 # The maximum file size allowed (e.g. "5MB", "500KB").
 file_size_limit = "50MiB"
 
-# Uncomment to configure local storage buckets
-# [storage.buckets.images]
-# public = false
-# file_size_limit = "50MiB"
-# allowed_mime_types = ["image/png", "image/jpeg"]
-# objects_path = "./images"
+# The bucket itself is created by the shop settings migration, so production has it
+# too. This entry only uploads the seed's placeholder QR Ph image into it, locally on
+# `db reset` and on demand with `supabase seed buckets`. Keep the limits in step with
+# the migration.
+[storage.buckets.shop]
+public = false
+file_size_limit = "2MiB"
+allowed_mime_types = ["image/png", "image/jpeg", "image/webp"]
+objects_path = "./seed/shop"
 
 # Allow connections via S3 compatible clients
 [storage.s3_protocol]

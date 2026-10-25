@@ -11,6 +11,15 @@ export {
   signInToConsole,
   signOutOfConsole,
 } from "./console-access.js";
+export {
+  addShopClosure,
+  fetchShopSettings,
+  removeShopClosure,
+  replaceQrPhImage,
+  saveShopSettings,
+  setOrderingDay,
+  signShopImage,
+} from "./shop-settings.js";
 
 const SERVER_CLOCK = "server_clock";
 
