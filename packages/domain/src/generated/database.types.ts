@@ -13,7 +13,12 @@ export type Database = {
             [_ in never]: never
           }
           Functions: {
-            "server_clock":
+            "console_profile":
+{ Args: Record<PropertyKey, never>; Returns: {
+              "email": string,"id": string
+            }[]
+                           },
+"server_clock":
 { Args: Record<PropertyKey, never>; Returns: {
               "instant": string,"local_date": string,"local_time": string,"time_zone": string
             }[]

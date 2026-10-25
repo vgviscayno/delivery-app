@@ -1,29 +1,16 @@
-import type { BackendEnv } from "@courier/config";
-import type { Database, ServerClock } from "@courier/domain";
+import type { ServerClock } from "@courier/domain";
 import { toServerClock } from "@courier/domain";
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { ApiError, type CourierClient } from "./client.js";
 
-/**
- * The typed Supabase client every TypeScript surface talks through.
- *
- * The named server surface is narrow on purpose: RPCs, views, Broadcast channels,
- * Storage and Auth. Nothing here reaches a table directly.
- */
-export type CourierClient = SupabaseClient<Database>;
-
-export function createCourierClient(env: BackendEnv): CourierClient {
-  return createClient<Database>(env.supabaseUrl, env.supabaseAnonKey);
-}
-
-export class ApiError extends Error {
-  constructor(
-    readonly operation: string,
-    cause: { message: string; code?: string },
-  ) {
-    super(`${operation} failed: ${cause.message}`);
-    this.name = "ApiError";
-  }
-}
+export { ApiError, type CourierClient, createCourierClient } from "./client.js";
+export {
+  type ConsoleAccess,
+  type ConsoleCredentials,
+  type Dispatcher,
+  resumeConsoleSession,
+  signInToConsole,
+  signOutOfConsole,
+} from "./console-access.js";
 
 const SERVER_CLOCK = "server_clock";
 
