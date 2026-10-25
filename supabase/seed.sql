@@ -10,7 +10,7 @@
 -- Every later ticket extends it. The shape the MVP spec asks for, filled in as the
 -- tables arrive:
 --
---   * shop settings          -- ticket 58 (delivery radius, fee, Ordering window, cutoffs)
+--   * shop settings          -- ticket 58 (below)
 --   * catalog                -- ticket 59 (per-unit and per-weight Products)
 --   * one dispatcher         -- ticket 57 (below)
 --   * two drivers            -- ticket 61
@@ -67,3 +67,31 @@ values (
   app.now()
 )
 on conflict (provider_id, provider) do nothing;
+
+-- Shop settings. The migration already holds the values the business agreed on (the
+-- 30-minute Same-day cutoff buffer, 16:00 end of day, 10-minute dark threshold); these
+-- fill in the ones nobody has decided yet, so every screen has something to show.
+-- Placeholders all: the radius, fee, hours, cut-off and phone are guesses, and the QR
+-- Ph image is a checkerboard nobody can pay to.
+--
+-- The image itself is uploaded from supabase/seed/shop by `[storage.buckets.shop]` in
+-- config.toml: on every local `db reset`, and with `supabase seed buckets` on a preview
+-- database. Like this file, never against production.
+update app.shop_settings
+   set delivery_radius_meters = 5000,
+       delivery_fee_centavos = 5000,
+       shop_phone = '+639170000000',
+       qr_ph_image_path = 'qr-ph/placeholder.png',
+       time_confirmation_cutoff = '10:00'
+ where id;
+
+-- Monday to Saturday, 08:00-16:00: the drivers' working day.
+insert into app.ordering_hours (weekday, opens_at, closes_at)
+select weekday, '08:00', '16:00'
+from generate_series(1, 6) as weekday
+on conflict (weekday) do nothing;
+
+-- One closure, so the list is never empty on a fresh database.
+insert into app.shop_closures (closed_on, note)
+values ('2026-12-25', 'Christmas Day (placeholder)')
+on conflict (closed_on) do nothing;

@@ -74,3 +74,69 @@ body {
 [data-state="error"] .clock {
   color: #b00020;
 }
+
+.settings {
+  display: grid;
+  gap: 2rem;
+  max-width: 48rem;
+}
+
+.settings h2 {
+  margin: 0 0 0.25rem;
+  font-size: 1.1rem;
+}
+
+.settings-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(18rem, 1fr));
+  gap: 1rem;
+}
+
+.settings-form label {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.settings-form .actions {
+  grid-column: 1 / -1;
+}
+
+.settings .notice,
+.settings .detail {
+  font-size: 0.9rem;
+}
+
+.ordering-window th {
+  text-align: left;
+  padding-right: 1rem;
+}
+
+.ordering-window td {
+  padding: 0.25rem 0.5rem;
+}
+
+.closures {
+  padding: 0;
+  list-style: none;
+}
+
+.closures li {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+}
+
+.closure-form,
+.qr-form {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.qr-ph {
+  display: block;
+  width: 12rem;
+  height: 12rem;
+  object-fit: contain;
+  image-rendering: pixelated;
+}

@@ -1,6 +1,9 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
+    // Blob and crypto.randomUUID, for the QR Ph upload. Every surface that runs this
+    // client -- the console's browser, React Native -- provides both.
+    "lib": ["ES2022", "DOM"],
     "rootDir": "src",
     "outDir": "dist",
     "tsBuildInfoFile": "dist/.tsbuildinfo"
