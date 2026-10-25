@@ -32,7 +32,26 @@ cp .env.example .env.local   # paste the API URL and anon key the CLI printed
 pnpm --filter @courier/console dev
 ```
 
-The console shows the shop clock, read from the server through `public.server_clock()`.
+Sign in to the console as the seeded dispatcher, `dispatcher@courier.local` /
+`dispatcher-demo`. The seed only ever runs against a local database, never production.
+
+## Accounts and roles
+
+One Supabase Auth instance holds every account. Each Auth user gets one profile in
+`app.profiles`, created by a trigger in the same transaction: a role (`dispatcher`,
+`driver` or `customer`), an active flag with its deactivation time, and one overwritable
+FCM push token.
+
+The role comes from `raw_app_meta_data`, which only the service role can write (the
+Admin API, the seed, the driver invite). A sign-up through the public API is always a
+customer, whatever it puts in its own user metadata.
+
+The console asks `public.console_profile()` after every sign-in and on every reload. It
+answers only for an active dispatcher, and the console signs anyone else straight back
+out. The console also signs the dispatcher out after `VITE_DISPATCHER_IDLE_MINUTES`
+(default 30) without activity in any of its tabs. That check runs in the browser
+because Supabase's own inactivity timeout is a Pro-plan setting and would apply to
+customers too.
 
 ## The commands that matter
 

@@ -5,26 +5,72 @@
 
 body {
   margin: 0;
-  display: grid;
-  place-items: center;
   min-height: 100vh;
 }
 
-main {
+.sign-in {
+  display: grid;
+  place-items: center;
+  align-content: center;
+  min-height: 100vh;
   text-align: center;
 }
 
-.clock {
-  font-size: 2.5rem;
-  font-variant-numeric: tabular-nums;
-  margin: 0.25rem 0;
+.sign-in form {
+  display: grid;
+  gap: 0.75rem;
+  min-width: 18rem;
+  text-align: left;
 }
 
-.detail {
+.sign-in label {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.notice {
+  color: #b00020;
+}
+
+.shell header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.5rem 1rem;
+  border-bottom: 1px solid color-mix(in srgb, currentColor 20%, transparent);
+}
+
+.shell nav {
+  display: flex;
+  gap: 0.25rem;
+  margin-right: auto;
+}
+
+.shell nav [aria-current="page"] {
+  font-weight: bold;
+}
+
+.shell main {
+  padding: 1rem;
+}
+
+.shop-clock {
+  text-align: right;
+}
+
+.shop-clock p {
+  margin: 0;
+}
+
+.clock {
+  font-variant-numeric: tabular-nums;
+}
+
+.detail,
+.who {
   opacity: 0.7;
 }
 
 [data-state="error"] .clock {
-  font-size: 1.25rem;
   color: #b00020;
 }
