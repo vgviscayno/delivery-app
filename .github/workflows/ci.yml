@@ -14,8 +14,7 @@ env:
   TURBO_TELEMETRY_DISABLED: 1
 
 jobs:
-  # What changed decides what runs. Fixtures deliberately trigger both sides once the
-  # mobile project lands (ticket 56).
+  # What changed decides what runs.
   changes:
     runs-on: ubuntu-latest
     outputs:
@@ -30,7 +29,6 @@ jobs:
             typescript:
               - 'apps/**'
               - 'packages/**'
-              - 'fixtures/**'
               - 'scripts/**'
               - 'package.json'
               - 'pnpm-lock.yaml'
