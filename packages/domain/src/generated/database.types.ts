@@ -10,7 +10,40 @@ export type Database = {
             [_ in never]: never
           }
           Views: {
-            [_ in never]: never
+            "catalog_categories": {
+                  Row: {
+                    "id": string | null,"name": string | null,"position": number | null
+                  }
+                  Insert: {
+                           "id"?: string | null,"name"?: string | null,"position"?: number | null
+                         }
+                        Update: {
+                           "id"?: string | null,"name"?: string | null,"position"?: number | null
+                         }
+                        Relationships: [
+                    
+                  ]
+                },"catalog_memberships": {
+                  Row: {
+                    "category_id": string | null,"position": number | null,"product_id": string | null
+                  }
+                  Relationships: [
+                    
+                  ]
+                },"catalog_products": {
+                  Row: {
+                    "description": string | null,"id": string | null,"name": string | null,"photo_url": string | null,"price_per_kg_centavos": number | null,"price_type": string | null,"tolerance_grams": number | null,"unit_price_centavos": number | null,"weight_step_grams": number | null
+                  }
+                  Insert: {
+                           "description"?: string | null,"id"?: string | null,"name"?: string | null,"photo_url"?: string | null,"price_per_kg_centavos"?: number | null,"price_type"?: never,"tolerance_grams"?: number | null,"unit_price_centavos"?: number | null,"weight_step_grams"?: number | null
+                         }
+                        Update: {
+                           "description"?: string | null,"id"?: string | null,"name"?: string | null,"photo_url"?: string | null,"price_per_kg_centavos"?: number | null,"price_type"?: never,"tolerance_grams"?: number | null,"unit_price_centavos"?: number | null,"weight_step_grams"?: number | null
+                         }
+                        Relationships: [
+                    
+                  ]
+                }
           }
           Functions: {
             "add_shop_closure":
@@ -21,6 +54,22 @@ export type Database = {
               "email": string,"id": string
             }[]
                            },
+"delete_category":
+{ Args: { "id": string }; Returns: undefined
+                           },
+"delete_product":
+{ Args: { "id": string }; Returns: undefined
+                           },
+"dispatcher_category_products":
+{ Args: Record<PropertyKey, never>; Returns: {
+              "category_id": string,"position": number,"product_id": string
+            }[]
+                           },
+"dispatcher_products":
+{ Args: Record<PropertyKey, never>; Returns: {
+              "available": boolean,"description": string,"id": string,"name": string,"photo_url": string,"price_per_kg_centavos": number,"price_type": string,"tolerance_grams": number,"unit_price_centavos": number,"updated_at": string,"weight_step_grams": number
+            }[]
+                           },
 "ordering_window":
 { Args: Record<PropertyKey, never>; Returns: {
               "closes_at": string,"opens_at": string,"weekday": number
@@ -29,13 +78,28 @@ export type Database = {
 "remove_shop_closure":
 { Args: { "closed_on": string }; Returns: undefined
                            },
+"reorder_categories":
+{ Args: { "ids": (string)[] }; Returns: undefined
+                           },
+"save_category":
+{ Args: { "id": string,"name": string }; Returns: string
+                           },
+"save_product":
+{ Args: { "description": string,"id": string,"name": string,"photo_url": string,"price_per_kg_centavos": number,"price_type": string,"tolerance_grams": number,"unit_price_centavos": number,"weight_step_grams": number }; Returns: string
+                           },
 "server_clock":
 { Args: Record<PropertyKey, never>; Returns: {
               "instant": string,"local_date": string,"local_time": string,"time_zone": string
             }[]
                            },
+"set_category_products":
+{ Args: { "category_id": string,"product_ids": (string)[] }; Returns: undefined
+                           },
 "set_ordering_day":
 { Args: { "closes_at": string,"opens_at": string,"weekday": number }; Returns: undefined
+                           },
+"set_product_available":
+{ Args: { "available": boolean,"id": string }; Returns: undefined
                            },
 "set_qr_ph_image":
 { Args: { "path": string }; Returns: string

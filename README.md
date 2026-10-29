@@ -115,6 +115,22 @@ cache. The seed's placeholder image is uploaded by `[storage.buckets.shop]` in
 `supabase/config.toml` on every local reset. On a preview database, run
 `supabase seed buckets`. Like the seed, never run it against production.
 
+## Catalog
+
+The dispatcher keeps the catalog on the same Settings tab: Products, Categories, and
+each Product's position within each Category it is in. Customers read it through three
+views, `public.catalog_products`, `catalog_categories` and `catalog_memberships`. Those
+views show only Products that are available and not deleted. The console reads the
+whole catalog through `dispatcher_products()` and `dispatcher_category_products()`.
+Every write is an RPC that only an active dispatcher may call.
+
+A Product is priced per unit (`unit_price_centavos`) or per weight
+(`price_per_kg_centavos`, `weight_step_grams`, `tolerance_grams`). A check constraint
+makes sure each Product carries exactly the fields of its own price type. Prices are
+whole centavos, and per-weight rates stay per kg. Deleting a Product is soft, so Orders
+that refer to it keep working (ADR 0003). The production catalog starts empty. The seed
+fills in a dozen placeholder Products across five Categories.
+
 ## The commands that matter
 
 | Command                | What it does                                                   |

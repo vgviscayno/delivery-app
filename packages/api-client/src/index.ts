@@ -2,6 +2,17 @@ import type { ServerClock } from "@courier/domain";
 import { toServerClock } from "@courier/domain";
 import { ApiError, type CourierClient } from "./client.js";
 
+export {
+  deleteCategory,
+  deleteProduct,
+  fetchCatalog,
+  fetchDispatcherCatalog,
+  reorderCategories,
+  saveCategory,
+  saveProduct,
+  setCategoryProducts,
+  setProductAvailable,
+} from "./catalog.js";
 export { ApiError, type CourierClient, createCourierClient } from "./client.js";
 export {
   type ConsoleAccess,

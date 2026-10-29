@@ -11,7 +11,7 @@
 -- tables arrive:
 --
 --   * shop settings          -- ticket 58 (below)
---   * catalog                -- ticket 59 (per-unit and per-weight Products)
+--   * catalog                -- ticket 59 (below)
 --   * one dispatcher         -- ticket 57 (below)
 --   * two drivers            -- ticket 61
 --   * a customer with        -- tickets 60, 64
@@ -95,3 +95,83 @@ on conflict (weekday) do nothing;
 insert into app.shop_closures (closed_on, note)
 values ('2026-12-25', 'Christmas Day (placeholder)')
 on conflict (closed_on) do nothing;
+
+-- The catalog: per-weight cuts at a rate per kg, and per-unit packs, across five
+-- Categories. Some Products sit in two Categories, at different positions in each, and
+-- one is unavailable, so every state the console and the customer app show has an
+-- example. Prices are placeholders in the range a Metro Manila butcher charges.
+insert into app.categories (id, name, position) values
+  ('ca700000-0000-4000-8000-000000000001', 'Beef', 1),
+  ('ca700000-0000-4000-8000-000000000002', 'Pork', 2),
+  ('ca700000-0000-4000-8000-000000000003', 'Chicken', 3),
+  ('ca700000-0000-4000-8000-000000000004', 'Ready to cook', 4),
+  ('ca700000-0000-4000-8000-000000000005', 'For the grill', 5)
+on conflict (id) do nothing;
+
+insert into app.products (
+  id, name, description, price_type, unit_price_centavos, price_per_kg_centavos,
+  weight_step_grams, tolerance_grams, available
+) values
+  ('9d000000-0000-4000-8000-000000000001', 'Ribeye',
+   'Grain-fed, cut to order about 2 cm thick.',
+   'per_weight', null, 120000, 250, 50, true),
+  ('9d000000-0000-4000-8000-000000000002', 'Beef brisket',
+   'For nilaga and slow braises.',
+   'per_weight', null, 52000, 500, 250, true),
+  ('9d000000-0000-4000-8000-000000000003', 'Ground beef',
+   '80/20, ground fresh each morning.',
+   'per_weight', null, 42000, 250, 100, true),
+  ('9d000000-0000-4000-8000-000000000004', 'Pork belly (liempo)',
+   'Skin on. Sliced for grilling or whole for lechon kawali.',
+   'per_weight', null, 38000, 500, 250, true),
+  ('9d000000-0000-4000-8000-000000000005', 'Pork shoulder (kasim)',
+   null,
+   'per_weight', null, 32000, 500, 250, true),
+  ('9d000000-0000-4000-8000-000000000006', 'Whole chicken',
+   'Dressed, about 1.2 kg each.',
+   'per_weight', null, 22000, 1000, 300, true),
+  ('9d000000-0000-4000-8000-000000000007', 'Chicken thigh fillet',
+   'Boneless, skinless.',
+   'per_weight', null, 28000, 500, 250, false),
+  ('9d000000-0000-4000-8000-000000000008', 'Garlic longganisa, 500 g pack',
+   'Sweet and garlicky, made in-house.',
+   'per_unit', 18500, null, null, null, true),
+  ('9d000000-0000-4000-8000-000000000009', 'Pork tocino, 450 g pack',
+   null,
+   'per_unit', 16500, null, null, null, true),
+  ('9d000000-0000-4000-8000-00000000000a', 'Beef tapa, 400 g pack',
+   'Cured overnight in garlic and calamansi.',
+   'per_unit', 24000, null, null, null, true),
+  ('9d000000-0000-4000-8000-00000000000b', 'Chicken barbecue skewers, pack of 10',
+   'Marinated and skewered, ready for the grill.',
+   'per_unit', 32000, null, null, null, true),
+  ('9d000000-0000-4000-8000-00000000000c', 'Hungarian sausages, 4 pieces',
+   null,
+   'per_unit', 28000, null, null, null, true)
+on conflict (id) do nothing;
+
+insert into app.product_categories (category_id, product_id, position) values
+  ('ca700000-0000-4000-8000-000000000001', '9d000000-0000-4000-8000-000000000001', 1),
+  ('ca700000-0000-4000-8000-000000000001', '9d000000-0000-4000-8000-000000000002', 2),
+  ('ca700000-0000-4000-8000-000000000001', '9d000000-0000-4000-8000-000000000003', 3),
+  ('ca700000-0000-4000-8000-000000000001', '9d000000-0000-4000-8000-00000000000a', 4),
+
+  ('ca700000-0000-4000-8000-000000000002', '9d000000-0000-4000-8000-000000000004', 1),
+  ('ca700000-0000-4000-8000-000000000002', '9d000000-0000-4000-8000-000000000005', 2),
+  ('ca700000-0000-4000-8000-000000000002', '9d000000-0000-4000-8000-000000000008', 3),
+  ('ca700000-0000-4000-8000-000000000002', '9d000000-0000-4000-8000-000000000009', 4),
+
+  ('ca700000-0000-4000-8000-000000000003', '9d000000-0000-4000-8000-000000000006', 1),
+  ('ca700000-0000-4000-8000-000000000003', '9d000000-0000-4000-8000-000000000007', 2),
+  ('ca700000-0000-4000-8000-000000000003', '9d000000-0000-4000-8000-00000000000b', 3),
+
+  ('ca700000-0000-4000-8000-000000000004', '9d000000-0000-4000-8000-000000000008', 1),
+  ('ca700000-0000-4000-8000-000000000004', '9d000000-0000-4000-8000-000000000009', 2),
+  ('ca700000-0000-4000-8000-000000000004', '9d000000-0000-4000-8000-00000000000a', 3),
+  ('ca700000-0000-4000-8000-000000000004', '9d000000-0000-4000-8000-00000000000c', 4),
+
+  ('ca700000-0000-4000-8000-000000000005', '9d000000-0000-4000-8000-00000000000b', 1),
+  ('ca700000-0000-4000-8000-000000000005', '9d000000-0000-4000-8000-000000000004', 2),
+  ('ca700000-0000-4000-8000-000000000005', '9d000000-0000-4000-8000-000000000001', 3),
+  ('ca700000-0000-4000-8000-000000000005', '9d000000-0000-4000-8000-00000000000c', 4)
+on conflict (product_id, category_id) do nothing;
