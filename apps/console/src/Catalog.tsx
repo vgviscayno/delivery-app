@@ -10,13 +10,23 @@ import {
   setProductAvailable,
 } from "@courier/api-client";
 import type { Catalog as CatalogData, Category, Price, Product } from "@courier/domain";
-import { type FormEvent, useCallback, useEffect, useState } from "react";
+import { Outlet } from "@tanstack/react-router";
+import {
+  createContext,
+  type FormEvent,
+  useCallback,
+  useContext,
+  useEffect,
+  useState,
+} from "react";
 import {
   formFromProduct,
   type ProductForm,
   type ProductFormMessages,
   readProductForm,
 } from "./product-form.js";
+import { SubTabs } from "./SubTabs.js";
+import { useClient } from "./use-client.js";
 import { Failure, messageOf, useWrite } from "./write.js";
 
 type Load =
@@ -27,11 +37,28 @@ type Load =
 /** Which Product is open in the editor: a new one, an existing one, or none. */
 type Editing = { readonly product: Product | null } | null;
 
+interface SectionProps {
+  readonly client: CourierClient;
+  readonly catalog: CatalogData;
+  readonly onSaved: () => Promise<void>;
+}
+
+/** The catalog as last read, for whichever section the URL has open. */
+const CatalogContext = createContext<SectionProps | null>(null);
+
+function useCatalog(): SectionProps {
+  const section = useContext(CatalogContext);
+  if (!section) throw new Error("A Catalog section must be rendered inside Catalog");
+  return section;
+}
+
 /**
  * The console's Catalog mode: Products of both price types, and the Categories customers
- * browse them by. Like Settings, every change is read back from the server afterwards.
+ * browse them by, one section at a time. The catalog is read once for both, and like
+ * Settings, every change is read back from the server afterwards.
  */
-export function Catalog({ client }: { client: CourierClient }) {
+export function Catalog() {
+  const client = useClient();
   const [load, setLoad] = useState<Load>({ state: "loading" });
 
   const reload = useCallback(async () => {
@@ -48,6 +75,13 @@ export function Catalog({ client }: { client: CourierClient }) {
 
   return (
     <div className="surface">
+      <SubTabs
+        label="Catalog sections"
+        tabs={[
+          { label: "Products", to: "/catalog/products" },
+          { label: "Categories", to: "/catalog/categories" },
+        ]}
+      />
       {load.state === "loading" ? (
         <p className="detail">Loading the catalog…</p>
       ) : load.state === "error" ? (
@@ -55,22 +89,18 @@ export function Catalog({ client }: { client: CourierClient }) {
           {load.message}
         </p>
       ) : (
-        <>
-          <ProductsSection client={client} catalog={load.catalog} onSaved={reload} />
-          <CategoriesSection client={client} catalog={load.catalog} onSaved={reload} />
-        </>
+        <CatalogContext.Provider
+          value={{ client, catalog: load.catalog, onSaved: reload }}
+        >
+          <Outlet />
+        </CatalogContext.Provider>
       )}
     </div>
   );
 }
 
-interface SectionProps {
-  readonly client: CourierClient;
-  readonly catalog: CatalogData;
-  readonly onSaved: () => Promise<void>;
-}
-
-function ProductsSection({ client, catalog, onSaved }: SectionProps) {
+export function ProductsSection() {
+  const { client, catalog, onSaved } = useCatalog();
   const [editing, setEditing] = useState<Editing>(null);
   const { busy, error, run } = useWrite(onSaved);
 
@@ -262,7 +292,8 @@ function ProductEditor({
   );
 }
 
-function CategoriesSection({ client, catalog, onSaved }: SectionProps) {
+export function CategoriesSection() {
+  const { client, catalog, onSaved } = useCatalog();
   const [name, setName] = useState("");
   const { busy, error, run } = useWrite(onSaved);
   const ids = catalog.categories.map((category) => category.id);

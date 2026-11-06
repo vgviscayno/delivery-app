@@ -9,14 +9,24 @@ import {
   signShopImage,
 } from "@courier/api-client";
 import type { OrderingDay, ShopSettings } from "@courier/domain";
-import { type FormEvent, useCallback, useEffect, useState } from "react";
+import { Outlet } from "@tanstack/react-router";
+import {
+  createContext,
+  type FormEvent,
+  useCallback,
+  useContext,
+  useEffect,
+  useState,
+} from "react";
 import { Drivers } from "./Drivers.js";
+import { SubTabs } from "./SubTabs.js";
 import {
   formFromSettings,
   readSettingsForm,
   type SettingsForm,
   type SettingsFormErrors,
 } from "./settings-form.js";
+import { useClient } from "./use-client.js";
 import { Failure, messageOf, useWrite } from "./write.js";
 
 const WEEKDAYS = [
@@ -34,12 +44,32 @@ type Load =
   | { readonly state: "ready"; readonly settings: ShopSettings }
   | { readonly state: "error"; readonly message: string };
 
+interface SectionProps {
+  readonly client: CourierClient;
+  readonly onSaved: () => Promise<void>;
+}
+
+/** The settings as last read, for whichever section the URL has open. */
+interface LoadedSettings extends SectionProps {
+  readonly settings: ShopSettings;
+}
+
+const SettingsContext = createContext<LoadedSettings | null>(null);
+
+function useSettings(): LoadedSettings {
+  const section = useContext(SettingsContext);
+  if (!section) throw new Error("A Settings section must be rendered inside Settings");
+  return section;
+}
+
 /**
  * The console's settings surface: the shop's rules, the Ordering window, closure dates,
- * the QR Ph image and the drivers. Every change goes to the server and the whole surface is read
- * back afterwards, so what is shown is always what customers and drivers now see.
+ * the QR Ph image and the drivers, one section at a time. The settings are read once for
+ * all of them. Every change goes to the server and the settings are read back afterwards,
+ * so what is shown is always what customers and drivers now see.
  */
-export function Settings({ client }: { client: CourierClient }) {
+export function Settings() {
+  const client = useClient();
   const [load, setLoad] = useState<Load>({ state: "loading" });
 
   const reload = useCallback(async () => {
@@ -54,41 +84,37 @@ export function Settings({ client }: { client: CourierClient }) {
     void reload();
   }, [reload]);
 
-  if (load.state === "loading") return <p className="detail">Loading settings…</p>;
-  if (load.state === "error") {
-    return (
-      <p className="notice" role="alert">
-        {load.message}
-      </p>
-    );
-  }
-
-  const { settings } = load;
   return (
     <div className="surface">
-      <RulesSection client={client} settings={settings} onSaved={reload} />
-      <OrderingWindowSection
-        client={client}
-        orderingWindow={settings.orderingWindow}
-        onSaved={reload}
+      <SubTabs
+        label="Settings sections"
+        tabs={[
+          { label: "Shop rules", to: "/settings/rules" },
+          { label: "Ordering window", to: "/settings/ordering-window" },
+          { label: "Closure dates", to: "/settings/closures" },
+          { label: "QR Ph code", to: "/settings/qr-ph" },
+          { label: "Drivers", to: "/settings/drivers" },
+        ]}
       />
-      <ClosuresSection client={client} settings={settings} onSaved={reload} />
-      <QrPhSection client={client} path={settings.qrPhImagePath} onSaved={reload} />
-      <Drivers client={client} />
+      {load.state === "loading" ? (
+        <p className="detail">Loading settings…</p>
+      ) : load.state === "error" ? (
+        <p className="notice" role="alert">
+          {load.message}
+        </p>
+      ) : (
+        <SettingsContext.Provider
+          value={{ client, settings: load.settings, onSaved: reload }}
+        >
+          <Outlet />
+        </SettingsContext.Provider>
+      )}
     </div>
   );
 }
 
-interface SectionProps {
-  readonly client: CourierClient;
-  readonly onSaved: () => Promise<void>;
-}
-
-function RulesSection({
-  client,
-  settings,
-  onSaved,
-}: SectionProps & { settings: ShopSettings }) {
+export function RulesSection() {
+  const { client, settings, onSaved } = useSettings();
   const [form, setForm] = useState<SettingsForm>(() => formFromSettings(settings));
   const [errors, setErrors] = useState<SettingsFormErrors>({});
   const { busy, error, run } = useWrite(onSaved);
@@ -178,11 +204,8 @@ function RulesSection({
   );
 }
 
-function OrderingWindowSection({
-  client,
-  orderingWindow,
-  onSaved,
-}: SectionProps & { orderingWindow: readonly OrderingDay[] }) {
+export function OrderingWindowSection() {
+  const { client, settings, onSaved } = useSettings();
   return (
     <section aria-labelledby="window-heading">
       <h2 id="window-heading">Ordering window</h2>
@@ -191,7 +214,7 @@ function OrderingWindowSection({
         <tbody>
           {WEEKDAYS.map((name, index) => {
             const weekday = index + 1;
-            const day = orderingWindow.find((each) => each.weekday === weekday);
+            const day = settings.orderingWindow.find((each) => each.weekday === weekday);
             return (
               <OrderingDayRow
                 // A fresh row whenever the saved hours change, so its inputs start from them.
@@ -265,11 +288,8 @@ function OrderingDayRow({
   );
 }
 
-function ClosuresSection({
-  client,
-  settings,
-  onSaved,
-}: SectionProps & { settings: ShopSettings }) {
+export function ClosuresSection() {
+  const { client, settings, onSaved } = useSettings();
   const [closedOn, setClosedOn] = useState("");
   const [note, setNote] = useState("");
   const { busy, error, run } = useWrite(onSaved);
@@ -334,7 +354,9 @@ function ClosuresSection({
   );
 }
 
-function QrPhSection({ client, path, onSaved }: SectionProps & { path: string | null }) {
+export function QrPhSection() {
+  const { client, settings, onSaved } = useSettings();
+  const path = settings.qrPhImagePath;
   const [url, setUrl] = useState<string>();
   const [file, setFile] = useState<File>();
   const { busy, error, run } = useWrite(onSaved);
@@ -389,6 +411,11 @@ function QrPhSection({ client, path, onSaved }: SectionProps & { path: string | 
       <Failure message={error} />
     </section>
   );
+}
+
+export function DriversSection() {
+  const { client } = useSettings();
+  return <Drivers client={client} />;
 }
 
 type InputProps = Omit<

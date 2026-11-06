@@ -106,13 +106,13 @@ has):
 
 ### Drivers
 
-The dispatcher invites a driver in the console's Settings mode, by name and email. The
-console calls the `invite-driver` Edge Function, which checks the caller with
-`console_profile()` and then uses the Admin API, which needs the service-role key no
-browser may hold. It creates the Auth user with the role and name in app metadata, then
-sends the invite. The invite email (`supabase/templates/invite.html`) carries a one-time
-code rather than a link. In the driver app, **First time here?** takes the email, that
-code and a new password, and signs the driver in.
+The dispatcher invites a driver in the console's Settings mode (`/settings/drivers`), by
+name and email. The console calls the `invite-driver` Edge Function, which checks the
+caller with `console_profile()` and then uses the Admin API, which needs the
+service-role key no browser may hold. It creates the Auth user with the role and name in
+app metadata, then sends the invite. The invite email (`supabase/templates/invite.html`)
+carries a one-time code rather than a link. In the driver app, **First time here?**
+takes the email, that code and a new password, and signs the driver in.
 
 Signing in to the driver app is going On duty (`go_on_duty()`), and signing out takes
 the driver off (`go_off_duty()`). On duty is a flag plus the time it last changed, and no
@@ -150,7 +150,8 @@ invited account comes out as a customer and `go_on_duty()` does not exist. Then:
 
 ## Shop settings
 
-The shop's rules are data the dispatcher edits in the console's Settings mode: the
+The shop's rules are data the dispatcher edits in the console's Settings mode, one
+section per tab (`/settings/rules`, `ordering-window`, `closures`, `qr-ph`): the
 Ordering window per weekday, closure dates, the Same-day cutoff buffer, the delivery
 radius, the Delivery fee (whole centavos), the Shop phone (E.164), the QR Ph image, the
 end-of-day time, the dark threshold and the Time confirmation morning cut-off. Any
@@ -168,7 +169,8 @@ cache. The seed's placeholder image is uploaded by `[storage.buckets.shop]` in
 ## Catalog
 
 The catalog is Products, Categories, and each Product's position within each Category
-it is in. The dispatcher keeps it in the console's Catalog mode. Customers read it
+it is in. The dispatcher keeps it in the console's Catalog mode, under
+`/catalog/products` and `/catalog/categories`. Customers read it
 through three views, `public.catalog_products`, `catalog_categories` and
 `catalog_memberships`. Those views show only Products that are available and not
 deleted. The console reads the whole catalog through `dispatcher_products()` and
@@ -256,6 +258,12 @@ The console deploys to Cloudflare Pages from `main` only, pointed at production.
 are no PR previews: with no preview branch to point one at, a preview would need
 production, and a preview that can write to the shop's real data is worse than no
 preview.
+
+The console keeps the dispatcher's mode and section in the URL (`/catalog/products`,
+`/settings/drivers`), so every path must serve `index.html`. Pages does that on its own
+when the build output has no top-level `404.html`. Never ship one in
+`apps/console/dist`, or a refresh anywhere but `/` becomes a 404. Vite's dev server
+falls back the same way.
 
 ### Secrets CI needs
 
