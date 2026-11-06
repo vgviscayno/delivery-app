@@ -259,7 +259,7 @@ body {
 
 .products-grid th,
 .products-grid td {
-  padding: 0.25rem 0.4rem;
+  padding: 0.5rem 0.75rem;
   text-align: left;
   vertical-align: top;
   border-bottom: 1px solid color-mix(in srgb, currentColor 12%, transparent);
@@ -268,8 +268,67 @@ body {
 .products-grid thead th {
   position: sticky;
   top: 0;
-  background: Canvas;
+  z-index: 1;
+  background-color: Canvas;
   vertical-align: bottom;
+  white-space: nowrap;
+}
+
+/* Tick box and Name stay put while the rest scrolls sideways under them. */
+.products-grid .col-tick,
+.products-grid .col-name {
+  position: sticky;
+  z-index: 1;
+  background-color: Canvas;
+}
+
+.products-grid .col-tick {
+  left: 0;
+  width: 2.5rem;
+  min-width: 2.5rem;
+  box-sizing: border-box;
+}
+
+.products-grid .col-name {
+  left: 2.5rem;
+  box-shadow: inset -1px 0 color-mix(in srgb, currentColor 12%, transparent);
+}
+
+.products-grid thead .col-tick,
+.products-grid thead .col-name {
+  z-index: 2;
+}
+
+.sort-button {
+  display: inline-flex;
+  gap: 0.25rem;
+  align-items: center;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.sort-button:hover {
+  text-decoration: underline;
+}
+
+.sort-arrow {
+  display: inline-block;
+  min-width: 0.75em;
+  font-size: 0.75em;
+}
+
+.name-input {
+  box-sizing: border-box;
+  width: 100%;
+  resize: none;
+  overflow: hidden;
+  font: inherit;
+  line-height: 1.3;
 }
 
 .hint-tip {
@@ -316,12 +375,12 @@ body {
 }
 
 .products-grid tr[data-selected] td {
-  background: var(--selected);
+  background-image: linear-gradient(var(--selected), var(--selected));
 }
 
 .products-grid td.changed,
 .side-panel .panel-field.changed {
-  background: var(--changed);
+  background-image: linear-gradient(var(--changed), var(--changed));
 }
 
 .products-grid td[data-invalid] {
@@ -354,7 +413,7 @@ body {
   border-radius: 0.25rem;
 }
 
-.row-actions {
+.products-grid .col-actions {
   white-space: nowrap;
 }
 

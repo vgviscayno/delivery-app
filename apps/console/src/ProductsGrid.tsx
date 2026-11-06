@@ -8,13 +8,25 @@ import {
 import type { Category, PriceType } from "@courier/domain";
 import { getRouteApi, useBlocker } from "@tanstack/react-router";
 import {
+  type Column,
+  type ColumnDef,
+  flexRender,
+  getCoreRowModel,
+  type OnChangeFn,
+  type RowSelectionState,
+  type SortingState,
+  useReactTable,
+} from "@tanstack/react-table";
+import {
   type ComponentProps,
+  type CSSProperties,
   Fragment,
   type KeyboardEvent,
   type ReactNode,
   useCallback,
   useEffect,
   useId,
+  useLayoutEffect,
   useRef,
   useState,
 } from "react";
@@ -40,10 +52,11 @@ import {
   readRow,
   removeFromCategory,
   removeRows,
+  sortRows,
   syncDraft,
   visibleRows,
 } from "./product-grid.js";
-import type { ProductFilters } from "./products-search.js";
+import type { ProductFilters, ProductsSort, SortColumn } from "./products-search.js";
 import { Failure, useWrite } from "./write.js";
 
 const route = getRouteApi("/catalog/products");
@@ -63,9 +76,9 @@ const LABEL = {
 
 /** What the per-weight columns mean, in a tooltip beside their label. */
 const HINT = {
-  step: "Customers order in steps of this, and at least one.",
+  step: "Customers order in steps of this, and at least one. E.g. 250 g: customers can order 250 g, 500 g, 750 g…",
   tolerance:
-    "How far the packed weight may differ before the customer must approve the new price.",
+    "How far the packed weight may differ before the customer must approve the new price. E.g. ±30 g on a 500 g order: 470–530 g goes through as is; 540 g needs the customer's approval.",
 } as const;
 
 /** What follows each number cell, in the grid and the side panel alike. */
@@ -101,7 +114,7 @@ export function ProductsSection() {
 
   const [draft, setDraft] = useState<Draft>(() => draftFromCatalog(catalog));
   const [results, setResults] = useState<ReadonlyMap<string, RowResult>>(new Map());
-  const [ticked, setTicked] = useState<ReadonlySet<string>>(new Set());
+  const [ticked, setTicked] = useState<RowSelectionState>({});
   /** A row never saved has no id for the URL, so the panel follows it here instead. */
   const [openUnsaved, setOpenUnsaved] = useState<string | null>(null);
   const [notice, setNotice] = useState<string>();
@@ -131,7 +144,7 @@ export function ProductsSection() {
     withResolver: true,
   });
 
-  const rows = visibleRows(draft, search);
+  const rows = sortRows(visibleRows(draft, search), search.sort);
   const open =
     draft.rows.find((row) =>
       openUnsaved !== null
@@ -173,7 +186,7 @@ export function ProductsSection() {
   /** Deletes each ticked row on its own: those the server deletes go, even if some fail. */
   function deleteTicked() {
     setConfirmingDelete(false);
-    const doomed = draft.rows.filter((row) => ticked.has(row.key));
+    const doomed = draft.rows.filter((row) => ticked[row.key]);
     void deleting.run(async () => {
       const outcomes = await Promise.allSettled(
         doomed.map(async (row) => {
@@ -183,17 +196,21 @@ export function ProductsSection() {
       const gone = doomed.filter((_, i) => outcomes[i]?.status === "fulfilled");
       const goneKeys = gone.map((row) => row.key);
       setDraft((current) => removeRows(current, goneKeys));
-      setTicked((current) => toggled(current, goneKeys, false));
+      setTicked((current) =>
+        Object.fromEntries(
+          Object.entries(current).filter(([key]) => !goneKeys.includes(key)),
+        ),
+      );
       if (open && goneKeys.includes(open.key)) openRow(null);
       const refused = outcomes.find((outcome) => outcome.status === "rejected");
       if (refused) throw refused.reason;
     });
   }
 
-  const tickedKeys = [...ticked];
+  const tickedRows = tickedKeys(ticked);
   const bulk = (change: (current: Draft) => Draft) => {
     setDraft(change);
-    setResults((current) => withoutSettled(current, tickedKeys));
+    setResults((current) => withoutSettled(current, tickedRows));
   };
 
   return (
@@ -225,15 +242,15 @@ export function ProductsSection() {
         </div>
 
         <BulkBar
-          count={ticked.size}
+          count={tickedRows.length}
           deleting={deleting.busy}
           categories={catalog.categories}
           onAvailable={(available) =>
-            bulk((current) => editRows(current, tickedKeys, { available }))
+            bulk((current) => editRows(current, tickedRows, { available }))
           }
-          onAddTo={(id) => bulk((current) => addToCategory(current, tickedKeys, id))}
+          onAddTo={(id) => bulk((current) => addToCategory(current, tickedRows, id))}
           onRemoveFrom={(id) =>
-            bulk((current) => removeFromCategory(current, tickedKeys, id))
+            bulk((current) => removeFromCategory(current, tickedRows, id))
           }
           onDelete={() => setConfirmingDelete(true)}
         />
@@ -256,8 +273,15 @@ export function ProductsSection() {
               categories={catalog.categories}
               results={results}
               ticked={ticked}
+              sort={search.sort}
               openKey={open?.key ?? null}
               onTick={setTicked}
+              onSort={(sort) =>
+                void navigate({
+                  search: ({ sort: _, ...rest }) => (sort ? { ...rest, sort } : rest),
+                  replace: true,
+                })
+              }
               onEdit={edit}
               onFillDown={(field, from, to) => {
                 setDraft((current) => fillDown(current, field, from, to));
@@ -284,7 +308,7 @@ export function ProductsSection() {
 
       {confirmingDelete && (
         <Dialog
-          title={`Delete ${plural(ticked.size, "Product")}?`}
+          title={`Delete ${plural(tickedRows.length, "Product")}?`}
           confirm="Delete"
           cancel="Keep them"
           onConfirm={deleteTicked}
@@ -419,13 +443,222 @@ function BulkBar({
   );
 }
 
+/** What one row's cells need, worked out once per row rather than once per cell. */
+interface RowView {
+  readonly row: DraftRow;
+  /** Its place among the rows shown, for Ctrl+D. */
+  readonly index: number;
+  readonly title: string;
+  readonly changed: readonly GridField[];
+  readonly errors: CellMessages;
+  readonly warnings: CellMessages;
+  readonly result: RowResult | undefined;
+  readonly categories: readonly Category[];
+  readonly onEdit: (edits: Partial<RowValues>) => void;
+  readonly onDuplicate: () => void;
+  readonly onOpen: () => void;
+}
+
+/** TanStack sizes columns in pixels; these are written in rem, as the stylesheet is. */
+const rem = (size: number) => size * 16;
+
+/** The cells that are a Product's values, and so can be highlighted and carry a message. */
+const VALUE_CELLS: ReadonlySet<string> = new Set<GridField>([
+  "name",
+  "priceType",
+  "price",
+  "step",
+  "tolerance",
+  "available",
+  "categoryIds",
+]);
+
+/** What every cell's control carries: where it is, for Ctrl+D, and its name. */
+const cellProps = (view: RowView, field: GridField) => ({
+  "data-row": view.index,
+  "data-field": field,
+  "aria-label": `${LABEL[field]} of ${view.title}`,
+  "aria-invalid": view.errors[field] ? true : undefined,
+});
+
+/**
+ * A sortable column. Its value is only there so TanStack lets it sort: the rows arrive
+ * already sorted by `sortRows`, which knows the grid's own rules.
+ */
+const sortable = (
+  field: SortColumn,
+  def: Omit<ColumnDef<RowView, unknown>, "id">,
+): ColumnDef<RowView, unknown> => ({
+  id: field,
+  accessorFn: (view) => view.row.saved?.[field],
+  header: ({ column }) => <SortButton column={column} field={field} />,
+  ...def,
+});
+
+const GRAMS_CELL = (field: "step" | "tolerance"): ColumnDef<RowView, unknown> =>
+  sortable(field, {
+    size: rem(8),
+    header: ({ column }) => (
+      <>
+        <SortButton column={column} field={field} /> <HintTip field={field} />
+      </>
+    ),
+    cell: ({ row: { original: view } }) =>
+      hasCell(view.row.values, field) ? (
+        <GramsInput
+          {...cellProps(view, field)}
+          field={field}
+          value={view.row.values[field]}
+          onChange={(grams) => view.onEdit({ [field]: grams })}
+        />
+      ) : (
+        "—"
+      ),
+  });
+
+const COLUMNS: ColumnDef<RowView, unknown>[] = [
+  {
+    id: "tick",
+    header: ({ table }) => (
+      <input
+        type="checkbox"
+        aria-label="Tick every row shown"
+        checked={table.getIsAllRowsSelected()}
+        onChange={table.getToggleAllRowsSelectedHandler()}
+      />
+    ),
+    cell: ({ row }) => (
+      <input
+        type="checkbox"
+        aria-label={`Tick ${row.original.title}`}
+        checked={row.getIsSelected()}
+        onChange={row.getToggleSelectedHandler()}
+      />
+    ),
+  },
+  sortable("name", {
+    size: rem(18),
+    minSize: rem(14),
+    maxSize: rem(22),
+    cell: ({ row: { original: view } }) => (
+      <NameInput
+        {...cellProps(view, "name")}
+        value={view.row.values.name}
+        onChange={(name) => view.onEdit({ name })}
+      />
+    ),
+  }),
+  sortable("priceType", {
+    cell: ({ row: { original: view } }) => (
+      <PriceTypeSelect
+        {...cellProps(view, "priceType")}
+        value={view.row.values.priceType}
+        onChange={(priceType) => view.onEdit({ priceType })}
+      />
+    ),
+  }),
+  sortable("price", {
+    size: rem(10),
+    cell: ({ row: { original: view } }) => (
+      <PriceInput
+        {...cellProps(view, "price")}
+        priceType={view.row.values.priceType}
+        value={view.row.values.price}
+        onChange={(price) => view.onEdit({ price })}
+      />
+    ),
+  }),
+  GRAMS_CELL("step"),
+  GRAMS_CELL("tolerance"),
+  sortable("available", {
+    cell: ({ row: { original: view } }) => (
+      <input
+        {...cellProps(view, "available")}
+        type="checkbox"
+        checked={view.row.values.available}
+        onChange={(event) => view.onEdit({ available: event.target.checked })}
+      />
+    ),
+  }),
+  {
+    id: "categoryIds",
+    size: rem(12),
+    header: LABEL.categoryIds,
+    cell: ({ row: { original: view } }) => (
+      <CategoryPicker
+        {...cellProps(view, "categoryIds")}
+        categories={view.categories}
+        chosen={view.row.values.categoryIds}
+        onChange={(categoryIds) => view.onEdit({ categoryIds })}
+      />
+    ),
+  },
+  {
+    id: "photoUrl",
+    header: LABEL.photoUrl,
+    cell: ({ row: { original: view } }) =>
+      view.row.values.photoUrl ? (
+        <img className="thumb" src={view.row.values.photoUrl} alt={view.title} />
+      ) : (
+        <span className="detail">No photo</span>
+      ),
+  },
+  {
+    id: "actions",
+    header: () => <span className="visually-hidden">Actions</span>,
+    cell: ({ row: { original: view } }) => (
+      <>
+        <button
+          type="button"
+          aria-label={`Details of ${view.title}`}
+          onClick={view.onOpen}
+        >
+          Details
+        </button>
+        <button
+          type="button"
+          aria-label={`Duplicate ${view.title}`}
+          onClick={view.onDuplicate}
+        >
+          Duplicate
+        </button>
+      </>
+    ),
+  },
+  {
+    id: "result",
+    header: () => <span className="visually-hidden">Result</span>,
+    cell: ({ row: { original: view } }) => (
+      <RowStatus result={view.result} errors={view.errors} />
+    ),
+  },
+];
+
+/** A column's set widths, for the columns that have them. */
+function widths(def: ColumnDef<RowView, unknown>): CSSProperties {
+  return {
+    ...(def.size !== undefined && { width: def.size }),
+    ...(def.minSize !== undefined && { minWidth: def.minSize }),
+    ...(def.maxSize !== undefined && { maxWidth: def.maxSize }),
+  };
+}
+
+const ARIA_SORT = { asc: "ascending", desc: "descending" } as const;
+
+/**
+ * The rows shown, as TanStack lays them out: already filtered and sorted, since both
+ * follow the URL and the draft's saved values. TanStack holds the columns, the ticks and
+ * which header is sorted.
+ */
 function Grid({
   rows,
   categories,
   results,
   ticked,
+  sort,
   openKey,
   onTick,
+  onSort,
   onEdit,
   onFillDown,
   onDuplicate,
@@ -434,15 +667,52 @@ function Grid({
   rows: readonly DraftRow[];
   categories: readonly Category[];
   results: ReadonlyMap<string, RowResult>;
-  ticked: ReadonlySet<string>;
+  ticked: RowSelectionState;
+  sort: ProductsSort | undefined;
   openKey: string | null;
-  onTick: (ticked: ReadonlySet<string>) => void;
+  onTick: OnChangeFn<RowSelectionState>;
+  onSort: (sort: ProductsSort | undefined) => void;
   onEdit: (key: string, edits: Partial<RowValues>) => void;
   onFillDown: (field: GridField, from: string, to: readonly string[]) => void;
   onDuplicate: (key: string) => void;
   onOpen: (row: DraftRow) => void;
 }) {
-  const allTicked = rows.every((row) => ticked.has(row.key));
+  const data = rows.map((row, index): RowView => {
+    const result = results.get(row.key);
+    return {
+      row,
+      index,
+      title: rowTitle(row),
+      changed: changedFields(row),
+      ...messages(row, result),
+      result,
+      categories,
+      onEdit: (edits) => onEdit(row.key, edits),
+      onDuplicate: () => onDuplicate(row.key),
+      onOpen: () => onOpen(row),
+    };
+  });
+
+  const sorting: SortingState = sort
+    ? [{ id: sort.replace(/^-/, ""), desc: sort.startsWith("-") }]
+    : [];
+
+  const table = useReactTable({
+    data,
+    columns: COLUMNS,
+    getRowId: (view) => view.row.key,
+    getCoreRowModel: getCoreRowModel(),
+    state: { sorting, rowSelection: ticked },
+    onRowSelectionChange: onTick,
+    manualSorting: true,
+    // Up, down, then back to the catalog's order — numbers as well as names.
+    sortDescFirst: false,
+    enableMultiSort: false,
+    onSortingChange: (change) => {
+      const [next] = typeof change === "function" ? change(sorting) : change;
+      onSort(next && ((next.desc ? `-${next.id}` : next.id) as ProductsSort));
+    },
+  });
 
   // Spreadsheet keys, read off the cell that has focus.
   function onKeyDown(event: KeyboardEvent<HTMLTableElement>) {
@@ -453,10 +723,11 @@ function Grid({
 
     if (event.key === "d" && (event.ctrlKey || event.metaKey)) {
       event.preventDefault();
+      // "Below" is below on screen, after sorting and filtering.
       const fill = fillDownTargets(
         rows.map((row) => row.key),
         index,
-        ticked,
+        new Set(tickedKeys(ticked)),
       );
       if (fill) onFillDown(field, fill.from, fill.to);
     }
@@ -465,65 +736,94 @@ function Grid({
   return (
     <table className="products-grid" aria-label="Products" onKeyDown={onKeyDown}>
       <thead data-tour="grid-header">
-        <tr>
-          <th scope="col">
-            <input
-              type="checkbox"
-              aria-label="Tick every row shown"
-              checked={allTicked}
-              onChange={() =>
-                onTick(
-                  toggled(
-                    ticked,
-                    rows.map((row) => row.key),
-                    !allTicked,
-                  ),
-                )
-              }
-            />
-          </th>
-          <th scope="col">{LABEL.name}</th>
-          <th scope="col">{LABEL.priceType}</th>
-          <th scope="col">{LABEL.price}</th>
-          <HintedHeader field="step" />
-          <HintedHeader field="tolerance" />
-          <th scope="col">{LABEL.available}</th>
-          <th scope="col">{LABEL.categoryIds}</th>
-          <th scope="col">{LABEL.photoUrl}</th>
-          <th scope="col">
-            <span className="visually-hidden">Actions</span>
-          </th>
-          <th scope="col">
-            <span className="visually-hidden">Result</span>
-          </th>
-        </tr>
+        {table.getHeaderGroups().map((group) => (
+          <tr key={group.id}>
+            {group.headers.map((header) => {
+              const sorted = header.column.getIsSorted();
+              return (
+                <th
+                  key={header.id}
+                  scope="col"
+                  className={`col-${header.column.id}`}
+                  style={widths(header.column.columnDef)}
+                  aria-sort={sorted ? ARIA_SORT[sorted] : undefined}
+                >
+                  {flexRender(header.column.columnDef.header, header.getContext())}
+                </th>
+              );
+            })}
+          </tr>
+        ))}
       </thead>
       <tbody>
-        {rows.map((row, index) => (
-          <GridRow
-            key={row.key}
-            row={row}
-            index={index}
-            categories={categories}
-            result={results.get(row.key)}
-            ticked={ticked.has(row.key)}
-            open={row.key === openKey}
-            onTick={(on) => onTick(toggled(ticked, [row.key], on))}
-            onEdit={(edits) => onEdit(row.key, edits)}
-            onDuplicate={() => onDuplicate(row.key)}
-            onOpen={() => onOpen(row)}
-          />
-        ))}
+        {table.getRowModel().rows.map((row) => {
+          const view = row.original;
+          return (
+            <tr
+              key={row.id}
+              aria-label={view.title}
+              className={view.row.saved === null ? "new" : undefined}
+              data-selected={view.row.key === openKey || undefined}
+            >
+              {row.getVisibleCells().map((cell) => {
+                const id = cell.column.id;
+                const field = VALUE_CELLS.has(id) ? (id as GridField) : null;
+                const absent = field !== null && !hasCell(view.row.values, field);
+                return (
+                  <td
+                    key={cell.id}
+                    className={
+                      [
+                        `col-${id}`,
+                        field && view.changed.includes(field) && "changed",
+                        absent && "not-applicable",
+                      ]
+                        .filter(Boolean)
+                        .join(" ") || undefined
+                    }
+                    data-invalid={field && view.errors[field] ? true : undefined}
+                  >
+                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                    {field && !absent && <CellMessage view={view} field={field} />}
+                  </td>
+                );
+              })}
+            </tr>
+          );
+        })}
       </tbody>
     </table>
   );
 }
 
-function HintedHeader({ field }: { field: "step" | "tolerance" }) {
+/** The error on a cell, or else its warning, underneath its control. */
+function CellMessage({ view, field }: { view: RowView; field: GridField }) {
+  const error = view.errors[field];
+  if (error) return <span className="notice cell-message">{error}</span>;
+  const warning = view.warnings[field];
+  return warning ? <span className="warning cell-message">{warning}</span> : null;
+}
+
+/** A header that sorts its column: up, down, then back to the catalog's order. */
+function SortButton({
+  column,
+  field,
+}: {
+  column: Column<RowView, unknown>;
+  field: SortColumn;
+}) {
+  const sorted = column.getIsSorted();
   return (
-    <th scope="col">
-      {LABEL[field]} <HintTip field={field} />
-    </th>
+    <button
+      type="button"
+      className="sort-button"
+      onClick={column.getToggleSortingHandler()}
+    >
+      {LABEL[field]}
+      <span aria-hidden="true" className="sort-arrow">
+        {sorted === "asc" ? "▲" : sorted === "desc" ? "▼" : ""}
+      </span>
+    </button>
   );
 }
 
@@ -569,156 +869,6 @@ function HintTip({ field }: { field: keyof typeof HINT }) {
         {HINT[field]}
       </span>
     </span>
-  );
-}
-
-function GridRow({
-  row,
-  index,
-  categories,
-  result,
-  ticked,
-  open,
-  onTick,
-  onEdit,
-  onDuplicate,
-  onOpen,
-}: {
-  row: DraftRow;
-  index: number;
-  categories: readonly Category[];
-  result: RowResult | undefined;
-  ticked: boolean;
-  open: boolean;
-  onTick: (ticked: boolean) => void;
-  onEdit: (edits: Partial<RowValues>) => void;
-  onDuplicate: () => void;
-  onOpen: () => void;
-}) {
-  const { values } = row;
-  const title = rowTitle(row);
-  const changed = changedFields(row);
-  const { errors, warnings } = messages(row, result);
-
-  /** A cell with its highlight, and the message about it underneath. */
-  const cell = (field: GridField, content: ReactNode) => (
-    <td
-      className={changed.includes(field) ? "changed" : undefined}
-      data-invalid={errors[field] ? true : undefined}
-    >
-      {content}
-      {errors[field] ? (
-        <span className="notice cell-message">{errors[field]}</span>
-      ) : (
-        warnings[field] && <span className="warning cell-message">{warnings[field]}</span>
-      )}
-    </td>
-  );
-
-  /** What every cell's control carries: where it is, for Ctrl+D, and its name. */
-  const cellProps = (field: GridField) => ({
-    "data-row": index,
-    "data-field": field,
-    "aria-label": `${LABEL[field]} of ${title}`,
-    "aria-invalid": errors[field] ? true : undefined,
-  });
-
-  return (
-    <tr
-      aria-label={title}
-      className={row.saved === null ? "new" : undefined}
-      data-selected={open || undefined}
-    >
-      <td>
-        <input
-          type="checkbox"
-          aria-label={`Tick ${title}`}
-          checked={ticked}
-          onChange={(event) => onTick(event.target.checked)}
-        />
-      </td>
-      {cell(
-        "name",
-        <input
-          {...cellProps("name")}
-          type="text"
-          value={values.name}
-          onChange={(event) => onEdit({ name: event.target.value })}
-        />,
-      )}
-      {cell(
-        "priceType",
-        <PriceTypeSelect
-          {...cellProps("priceType")}
-          value={values.priceType}
-          onChange={(priceType) => onEdit({ priceType })}
-        />,
-      )}
-      {cell(
-        "price",
-        <PriceInput
-          {...cellProps("price")}
-          priceType={values.priceType}
-          value={values.price}
-          onChange={(price) => onEdit({ price })}
-        />,
-      )}
-      {(["step", "tolerance"] as const).map((field) =>
-        hasCell(values, field) ? (
-          <Fragment key={field}>
-            {cell(
-              field,
-              <GramsInput
-                {...cellProps(field)}
-                field={field}
-                value={values[field]}
-                onChange={(grams) => onEdit({ [field]: grams })}
-              />,
-            )}
-          </Fragment>
-        ) : (
-          <td key={field} className="not-applicable">
-            —
-          </td>
-        ),
-      )}
-      {cell(
-        "available",
-        <input
-          {...cellProps("available")}
-          type="checkbox"
-          checked={values.available}
-          onChange={(event) => onEdit({ available: event.target.checked })}
-        />,
-      )}
-      {cell(
-        "categoryIds",
-        <CategoryPicker
-          {...cellProps("categoryIds")}
-          categories={categories}
-          chosen={values.categoryIds}
-          onChange={(categoryIds) => onEdit({ categoryIds })}
-        />,
-      )}
-      <td>
-        {values.photoUrl ? (
-          <img className="thumb" src={values.photoUrl} alt={title} />
-        ) : (
-          <span className="detail">No photo</span>
-        )}
-      </td>
-      <td className="row-actions">
-        <button type="button" aria-label={`Details of ${title}`} onClick={onOpen}>
-          Details
-        </button>
-        <button type="button" aria-label={`Duplicate ${title}`} onClick={onDuplicate}>
-          Duplicate
-        </button>
-      </td>
-      <td>
-        <RowStatus result={result} errors={errors} />
-      </td>
-    </tr>
   );
 }
 
@@ -771,6 +921,42 @@ type TextInputProps = {
   value: string;
   onChange: (value: string) => void;
 } & Omit<ComponentProps<"input">, "value" | "onChange">;
+
+/**
+ * A name that wraps in its cell rather than scrolling out of sight, and grows to fit.
+ * It is still one line of text: Enter adds no line, and a pasted line break is a space.
+ */
+function NameInput({
+  value,
+  onChange,
+  ...textarea
+}: {
+  value: string;
+  onChange: (value: string) => void;
+} & Omit<ComponentProps<"textarea">, "value" | "onChange" | "rows">) {
+  const ref = useRef<HTMLTextAreaElement>(null);
+  // Firefox has no `field-sizing: content` yet, so the height is measured here.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: it is the value that changes the height
+  useLayoutEffect(() => {
+    const element = ref.current;
+    if (!element) return;
+    element.style.height = "auto";
+    element.style.height = `${element.scrollHeight}px`;
+  }, [value]);
+  return (
+    <textarea
+      {...textarea}
+      ref={ref}
+      rows={1}
+      className="name-input"
+      value={value}
+      onKeyDown={(event) => {
+        if (event.key === "Enter") event.preventDefault();
+      }}
+      onChange={(event) => onChange(event.target.value.replace(/\s*[\r\n]+\s*/g, " "))}
+    />
+  );
+}
 
 /** The price, between "₱" and "each" or "/ kg", so it reads as it will be shown. */
 function PriceInput({
@@ -1021,18 +1207,9 @@ function withoutSettled(
   return next;
 }
 
-/** The ticked rows, with these rows ticked or unticked. */
-function toggled(
-  ticked: ReadonlySet<string>,
-  keys: readonly string[],
-  on: boolean,
-): ReadonlySet<string> {
-  const next = new Set(ticked);
-  for (const key of keys) {
-    if (on) next.add(key);
-    else next.delete(key);
-  }
-  return next;
+/** The keys of the ticked rows, shown or not. */
+function tickedKeys(ticked: RowSelectionState): string[] {
+  return Object.keys(ticked).filter((key) => ticked[key]);
 }
 
 /** The Product a row's Save left it tied to, if Save got as far as making one. */

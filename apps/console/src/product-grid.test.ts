@@ -15,6 +15,7 @@ import {
   readRow,
   removeFromCategory,
   removeRows,
+  sortRows,
   syncDraft,
   visibleRows,
 } from "./product-grid.js";
@@ -256,6 +257,121 @@ describe("the Products grid draft", () => {
     it("always shows rows not yet saved", () => {
       const draft = addRow(draftFromCatalog(catalog));
       expect(keys(draft, { q: "ribeye" })).toEqual(["p-ribeye", lastKey(draft)]);
+    });
+  });
+
+  describe("sorting rows", () => {
+    const sirloin: Product = {
+      ...ribeye,
+      id: "p-sirloin",
+      name: "sirloin",
+      available: false,
+      price: {
+        type: "per_weight",
+        pricePerKgCentavos: 90000,
+        weightStepGrams: 500,
+        toleranceGrams: 50,
+      },
+    };
+    const chicken: Product = {
+      ...tocino,
+      id: "p-chicken",
+      name: "Chicken, whole",
+      available: true,
+      price: { type: "per_unit", unitPriceCentavos: 30000 },
+    };
+    // Ribeye ₱1200.50/kg 250 g ±100 g · tocino ₱165 each, unavailable ·
+    // sirloin ₱900/kg 500 g ±50 g, unavailable · chicken ₱300 each.
+    const many: Catalog = { ...catalog, products: [ribeye, tocino, sirloin, chicken] };
+    const sorted = (draft: Draft, sort: Parameters<typeof sortRows>[1]) =>
+      sortRows(draft.rows, sort).map((row) => row.key);
+
+    it("keeps the catalog's order when not sorted", () => {
+      expect(sorted(draftFromCatalog(many), undefined)).toEqual([
+        "p-ribeye",
+        "p-tocino",
+        "p-sirloin",
+        "p-chicken",
+      ]);
+    });
+
+    it("sorts by name ignoring case, either way", () => {
+      const draft = draftFromCatalog(many);
+      expect(sorted(draft, "name")).toEqual([
+        "p-chicken",
+        "p-tocino",
+        "p-ribeye",
+        "p-sirloin",
+      ]);
+      expect(sorted(draft, "-name")).toEqual([
+        "p-sirloin",
+        "p-ribeye",
+        "p-tocino",
+        "p-chicken",
+      ]);
+    });
+
+    it("sorts prices per unit first, then per kg, each by amount", () => {
+      const draft = draftFromCatalog(many);
+      expect(sorted(draft, "price")).toEqual([
+        "p-tocino",
+        "p-chicken",
+        "p-sirloin",
+        "p-ribeye",
+      ]);
+      expect(sorted(draft, "-price")).toEqual([
+        "p-chicken",
+        "p-tocino",
+        "p-ribeye",
+        "p-sirloin",
+      ]);
+    });
+
+    it("sorts by step or tolerance, with per-unit rows last either way", () => {
+      const draft = draftFromCatalog(many);
+      expect(sorted(draft, "tolerance")).toEqual([
+        "p-sirloin",
+        "p-ribeye",
+        "p-tocino",
+        "p-chicken",
+      ]);
+      expect(sorted(draft, "-step")).toEqual([
+        "p-sirloin",
+        "p-ribeye",
+        "p-tocino",
+        "p-chicken",
+      ]);
+    });
+
+    it("sorts available rows first, or last when descending", () => {
+      const draft = draftFromCatalog(many);
+      expect(sorted(draft, "available")).toEqual([
+        "p-ribeye",
+        "p-chicken",
+        "p-tocino",
+        "p-sirloin",
+      ]);
+      expect(sorted(draft, "-available")).toEqual([
+        "p-tocino",
+        "p-sirloin",
+        "p-ribeye",
+        "p-chicken",
+      ]);
+    });
+
+    it("sorts on what was saved, so a row being edited holds still", () => {
+      const draft = editRows(draftFromCatalog(many), ["p-ribeye"], { name: "Aaa" });
+      expect(sorted(draft, "name")[0]).toBe("p-chicken");
+    });
+
+    it("keeps rows not yet saved at the bottom, in the order added", () => {
+      let draft = addRow(draftFromCatalog(many));
+      const first = lastKey(draft);
+      draft = addRow(editRows(draft, [first], { name: "Zzz" }));
+      const second = lastKey(draft);
+      draft = editRows(draft, [second], { name: "Aaa" });
+      expect(sorted(draft, "name").slice(-2)).toEqual([first, second]);
+      expect(sorted(draft, "-name").slice(-2)).toEqual([first, second]);
     });
   });
 

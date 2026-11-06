@@ -5,7 +5,7 @@ import {
   type ProductFormMessages,
   readProductForm,
 } from "./product-form.js";
-import type { ProductFilters } from "./products-search.js";
+import type { ProductFilters, ProductsSort, SortColumn } from "./products-search.js";
 
 /**
  * One row of the Products grid as the dispatcher types it. A single price cell serves
@@ -220,6 +220,53 @@ export function visibleRows(draft: Draft, filters: ProductFilters): DraftRow[] {
     if (filters.unavailable && saved.available) return false;
     return true;
   });
+}
+
+/**
+ * The rows in the order sorted. Like the filters it reads what was saved, so a row holds
+ * still while it is edited. Rows never saved stay at the bottom in the order added, and
+ * ties keep the catalog's order.
+ */
+export function sortRows(
+  rows: readonly DraftRow[],
+  sort: ProductsSort | undefined,
+): DraftRow[] {
+  if (sort === undefined) return [...rows];
+  const desc = sort.startsWith("-");
+  const column = (desc ? sort.slice(1) : sort) as SortColumn;
+  const saved = rows.filter((row) => row.saved !== null);
+  const unsaved = rows.filter((row) => row.saved === null);
+  const order = (row: DraftRow) => SORT_KEY[column](row.saved as RowValues);
+  saved.sort((a, b) => compareKeys(order(a), order(b), desc));
+  return [...saved, ...unsaved];
+}
+
+/**
+ * What each column sorts on: a group that holds its place either way, then a value that
+ * turns around when descending. A row with no value for the column goes in a last group.
+ */
+type SortKey = readonly [group: number, value: string | number];
+
+const LAST: SortKey = [Number.POSITIVE_INFINITY, 0];
+
+const SORT_KEY: Record<SortColumn, (values: RowValues) => SortKey> = {
+  name: (values) => [0, values.name.toLocaleLowerCase()],
+  priceType: (values) => [0, values.priceType],
+  // Per unit and per kg are not comparable amounts, so each sorts among its own.
+  price: (values) => [values.priceType === "per_unit" ? 0 : 1, Number(values.price)],
+  step: (values) => (hasCell(values, "step") ? [0, Number(values.step)] : LAST),
+  tolerance: (values) =>
+    hasCell(values, "tolerance") ? [0, Number(values.tolerance)] : LAST,
+  available: (values) => [0, values.available ? 0 : 1],
+};
+
+function compareKeys(a: SortKey, b: SortKey, desc: boolean): number {
+  if (a[0] !== b[0]) return a[0] < b[0] ? -1 : 1;
+  const order =
+    typeof a[1] === "string" && typeof b[1] === "string"
+      ? a[1].localeCompare(b[1])
+      : Number(a[1]) - Number(b[1]);
+  return desc ? -order : order;
 }
 
 /**

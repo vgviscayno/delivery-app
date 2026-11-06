@@ -12,6 +12,16 @@ describe("the Products view's search params", () => {
     expect(readProductsSearch({ q: 250 })).toEqual({ q: "250" });
   });
 
+  it("reads the sort, descending behind a minus", () => {
+    expect(readProductsSearch({ sort: "price" })).toEqual({ sort: "price" });
+    expect(readProductsSearch({ sort: "-tolerance" })).toEqual({ sort: "-tolerance" });
+  });
+
+  it("drops a sort on a column that cannot be sorted", () => {
+    expect(readProductsSearch({ sort: "categoryIds" })).toEqual({});
+    expect(readProductsSearch({ sort: "--name" })).toEqual({});
+  });
+
   it("drops what it does not understand, and empty values", () => {
     expect(
       readProductsSearch({ q: "", category: ["c-1"], unavailable: "yes", page: 2 }),
