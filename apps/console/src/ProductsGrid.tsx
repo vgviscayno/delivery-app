@@ -14,6 +14,7 @@ import {
   type ReactNode,
   useCallback,
   useEffect,
+  useId,
   useRef,
   useState,
 } from "react";
@@ -47,7 +48,7 @@ import { Failure, useWrite } from "./write.js";
 
 const route = getRouteApi("/catalog/products");
 
-/** The column labels and hints, shared by the grid's header and the side panel. */
+/** The column labels, shared by the grid's header and the side panel. */
 const LABEL = {
   name: "Name",
   priceType: "Priced",
@@ -60,6 +61,7 @@ const LABEL = {
   description: "Description",
 } as const satisfies Record<GridField, string>;
 
+/** What the per-weight columns mean, in a tooltip beside their label. */
 const HINT = {
   step: "Customers order in steps of this, and at least one.",
   tolerance:
@@ -520,9 +522,53 @@ function Grid({
 function HintedHeader({ field }: { field: "step" | "tolerance" }) {
   return (
     <th scope="col">
-      {LABEL[field]}
-      <span className="hint">{HINT[field]}</span>
+      {LABEL[field]} <HintTip field={field} />
     </th>
+  );
+}
+
+/**
+ * A "?" beside a label that shows its hint while hovered or focused. Hover is the
+ * stylesheet's, so the pointer can move onto the hint without losing it. Escape hides it
+ * without moving focus, and screen readers hear the hint as the button's description.
+ */
+function HintTip({ field }: { field: keyof typeof HINT }) {
+  const id = useId();
+  const [focused, setFocused] = useState(false);
+  const [dismissed, setDismissed] = useState(false);
+  return (
+    <span className="hint-tip">
+      <button
+        type="button"
+        className="hint-icon"
+        aria-label={`About ${LABEL[field]}`}
+        aria-describedby={id}
+        onFocus={() => {
+          setFocused(true);
+          setDismissed(false);
+        }}
+        onBlur={() => setFocused(false)}
+        onMouseEnter={() => setDismissed(false)}
+        onKeyDown={(event) => {
+          if (event.key === "Escape" && !dismissed) {
+            // Only this tooltip closes, not the side panel around it.
+            event.stopPropagation();
+            setDismissed(true);
+          }
+        }}
+      >
+        ?
+      </button>
+      <span
+        role="tooltip"
+        id={id}
+        className="tooltip"
+        hidden={!focused || dismissed}
+        data-dismissed={dismissed || undefined}
+      >
+        {HINT[field]}
+      </span>
+    </span>
   );
 }
 
@@ -856,7 +902,10 @@ function SidePanel({
     const message = errors[name] ?? warnings[name];
     return (
       <div className={`panel-field${changed.includes(name) ? " changed" : ""}`}>
-        <label htmlFor={id}>{LABEL[name]}</label>
+        <span className="panel-label">
+          <label htmlFor={id}>{LABEL[name]}</label>
+          {(name === "step" || name === "tolerance") && <HintTip field={name} />}
+        </span>
         {control(id)}
         {message ? (
           <span className={errors[name] ? "notice" : "warning"}>{message}</span>
@@ -914,18 +963,14 @@ function SidePanel({
         {hasCell(values, "step") ? (
           (["step", "tolerance"] as const).map((name) => (
             <Fragment key={name}>
-              {field(
-                name,
-                (id) => (
-                  <GramsInput
-                    id={id}
-                    field={name}
-                    value={values[name]}
-                    onChange={(grams) => onEdit({ [name]: grams })}
-                  />
-                ),
-                HINT[name],
-              )}
+              {field(name, (id) => (
+                <GramsInput
+                  id={id}
+                  field={name}
+                  value={values[name]}
+                  onChange={(grams) => onEdit({ [name]: grams })}
+                />
+              ))}
             </Fragment>
           ))
         ) : (

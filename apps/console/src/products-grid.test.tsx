@@ -98,6 +98,28 @@ describe("the Products grid", () => {
     expect(within(tocino).getByText("each")).toBeTruthy();
   });
 
+  it("explains Ordered in and Weight tolerance in a tooltip on their headers", async () => {
+    renderAt("/catalog/products");
+    const table = await grid();
+
+    const about = within(table).getByRole("button", {
+      name: "About Weight tolerance",
+      description:
+        "How far the packed weight may differ before the customer must approve the new price.",
+    });
+    expect(screen.queryByRole("tooltip")).toBeNull();
+    fireEvent.focus(about);
+    expect(screen.getByRole("tooltip").textContent).toMatch(/^How far the packed weight/);
+    fireEvent.keyDown(about, { key: "Escape" });
+    expect(screen.queryByRole("tooltip")).toBeNull();
+    expect(
+      within(table).getByRole("button", {
+        name: "About Ordered in",
+        description: "Customers order in steps of this, and at least one.",
+      }),
+    ).toBeTruthy();
+  });
+
   it("restores the search and the open Product from the URL", async () => {
     renderAt("/catalog/products?q=rib&product=p-ribeye");
     const table = await grid();
