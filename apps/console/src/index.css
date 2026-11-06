@@ -183,3 +183,22 @@ body {
 .category-products {
   padding-left: 1.5rem;
 }
+
+.drivers th {
+  text-align: left;
+  padding-right: 1rem;
+}
+
+.drivers td {
+  padding: 0.25rem 1rem 0.25rem 0;
+}
+
+.drivers .inactive {
+  color: #6b7280;
+}
+
+.invite-form {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}

@@ -13,7 +13,7 @@
 --   * shop settings          -- ticket 58 (below)
 --   * catalog                -- ticket 59 (below)
 --   * one dispatcher         -- ticket 57 (below)
---   * two drivers            -- ticket 61
+--   * two drivers            -- ticket 61 (below)
 --   * a customer with        -- tickets 60, 64
 --     sample Addresses
 
@@ -66,6 +66,37 @@ values (
   app.now(),
   app.now()
 )
+on conflict (provider_id, provider) do nothing;
+
+-- Two drivers, created as the `invite-driver` Edge Function creates them: role and name
+-- in app metadata. Unlike a real invite they already have a password, so the driver
+-- app signs in as driver1@courier.local or driver2@courier.local / driver-demo.
+insert into auth.users (
+  instance_id, id, aud, role, email, encrypted_password, email_confirmed_at,
+  raw_app_meta_data, raw_user_meta_data, created_at, updated_at,
+  confirmation_token, recovery_token, email_change_token_new, email_change
+)
+select
+  '00000000-0000-0000-0000-000000000000', driver.id, 'authenticated', 'authenticated',
+  driver.email, extensions.crypt('driver-demo', extensions.gen_salt('bf')), app.now(),
+  jsonb_build_object('provider', 'email', 'providers', jsonb_build_array('email'),
+                     'role', 'driver', 'name', driver.name),
+  '{}', app.now(), app.now(), '', '', '', ''
+from (values
+  ('d1500000-0000-4000-8000-000000000101'::uuid, 'driver1@courier.local', 'Jun Santos'),
+  ('d1500000-0000-4000-8000-000000000102'::uuid, 'driver2@courier.local', 'Mara Dizon')
+) as driver (id, email, name)
+on conflict (id) do nothing;
+
+insert into auth.identities (
+  provider_id, user_id, identity_data, provider, last_sign_in_at, created_at, updated_at
+)
+select
+  u.id::text, u.id,
+  jsonb_build_object('sub', u.id::text, 'email', u.email, 'email_verified', true),
+  'email', app.now(), app.now(), app.now()
+from auth.users u
+where u.id in ('d1500000-0000-4000-8000-000000000101', 'd1500000-0000-4000-8000-000000000102')
 on conflict (provider_id, provider) do nothing;
 
 -- Shop settings. The migration already holds the values the business agreed on (the

@@ -66,6 +66,14 @@
       "linter": {
         "rules": { "correctness": { "noUndeclaredVariables": "error" } }
       }
+    },
+    {
+      // Edge Functions run on Supabase's Deno runtime, which sets SUPABASE_URL and the
+      // keys itself. Turbo never builds them, so it has no env to declare.
+      "includes": ["supabase/functions/**"],
+      "linter": {
+        "rules": { "suspicious": { "noUndeclaredEnvVars": "off" } }
+      }
     }
   ],
   "assist": {

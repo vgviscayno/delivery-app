@@ -13,7 +13,12 @@ export {
   setCategoryProducts,
   setProductAvailable,
 } from "./catalog.js";
-export { ApiError, type CourierClient, createCourierClient } from "./client.js";
+export {
+  ApiError,
+  type CourierClient,
+  type CourierClientOptions,
+  createCourierClient,
+} from "./client.js";
 export {
   type ConsoleAccess,
   type ConsoleCredentials,
@@ -22,6 +27,23 @@ export {
   signInToConsole,
   signOutOfConsole,
 } from "./console-access.js";
+export {
+  acceptDriverInvite,
+  type Driver,
+  type DriverAccess,
+  type DriverCredentials,
+  type DriverInvite,
+  resumeDriverSession,
+  signInAsDriver,
+  signOutAsDriver,
+} from "./driver-access.js";
+export {
+  type DispatcherDriver,
+  type DriverInvitation,
+  deactivateDriver,
+  fetchDrivers,
+  inviteDriver,
+} from "./drivers.js";
 export {
   addShopClosure,
   fetchShopSettings,

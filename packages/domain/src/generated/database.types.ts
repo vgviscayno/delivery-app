@@ -54,6 +54,9 @@ export type Database = {
               "email": string,"id": string
             }[]
                            },
+"deactivate_driver":
+{ Args: { "driver_id": string }; Returns: undefined
+                           },
 "delete_category":
 { Args: { "id": string }; Returns: undefined
                            },
@@ -65,9 +68,29 @@ export type Database = {
               "category_id": string,"position": number,"product_id": string
             }[]
                            },
+"dispatcher_drivers":
+{ Args: Record<PropertyKey, never>; Returns: {
+              "active": boolean,"deactivated_at": string,"email": string,"id": string,"name": string,"on_duty": boolean,"on_duty_changed_at": string
+            }[]
+                           },
 "dispatcher_products":
 { Args: Record<PropertyKey, never>; Returns: {
               "available": boolean,"description": string,"id": string,"name": string,"photo_url": string,"price_per_kg_centavos": number,"price_type": string,"tolerance_grams": number,"unit_price_centavos": number,"updated_at": string,"weight_step_grams": number
+            }[]
+                           },
+"driver_profile":
+{ Args: Record<PropertyKey, never>; Returns: {
+              "email": string,"id": string,"name": string,"on_duty": boolean,"on_duty_changed_at": string
+            }[]
+                           },
+"go_off_duty":
+{ Args: Record<PropertyKey, never>; Returns: {
+              "email": string,"id": string,"name": string,"on_duty": boolean,"on_duty_changed_at": string
+            }[]
+                           },
+"go_on_duty":
+{ Args: Record<PropertyKey, never>; Returns: {
+              "email": string,"id": string,"name": string,"on_duty": boolean,"on_duty_changed_at": string
             }[]
                            },
 "ordering_window":

@@ -32,6 +32,10 @@ const config: ExpoConfig = {
   plugins: [
     "expo-dev-client",
     "expo-updates",
+    // The session, refresh token included, is kept in SecureStore. The plugin keeps
+    // its values out of Android's cloud backup, which could restore them onto a phone
+    // whose Keystore cannot decrypt them.
+    "expo-secure-store",
     // No licence: the pilot is a debug build, where Transistorsoft runs unlicensed
     // (ADR 0009). The release build needs one before it ships.
     "react-native-background-geolocation",

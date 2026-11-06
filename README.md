@@ -49,7 +49,9 @@ each app's `eas.json`; nothing in `pnpm build` runs EAS or a native build. After
 update URL, so `expo-updates` is off and the driver `pilot` channel does nothing.
 
 Sign in to the console as the seeded dispatcher, `dispatcher@courier.local` /
-`dispatcher-demo`. The seed only ever runs against a local database, never production.
+`dispatcher-demo`, and to the driver app as `driver1@courier.local` or
+`driver2@courier.local` / `driver-demo`. The seed only ever runs against a local
+database, never production.
 
 ## Accounts and roles
 
@@ -58,9 +60,12 @@ One Supabase Auth instance holds every account. Each Auth user gets one profile 
 `driver` or `customer`), an active flag with its deactivation time, and one overwritable
 FCM push token.
 
-The role comes from `raw_app_meta_data`, which only the service role can write (the
-Admin API, the seed, the driver invite). A sign-up through the public API is always a
-customer, whatever it puts in its own user metadata.
+The role (and a driver's name) comes from `raw_app_meta_data`, which only the service
+role can write (the Admin API, the seed, the driver invite). A sign-up through the public
+API is always a customer, whatever it puts in its own user metadata. The profile follows
+app metadata until the account first signs in, because GoTrue's `admin.createUser`
+writes it in a second statement after the insert. From the first sign-in on, the role
+is settled.
 
 The console asks `public.console_profile()` after every sign-in and on every reload. It
 answers only for an active dispatcher, and the console signs anyone else straight back
@@ -71,9 +76,10 @@ customers too.
 
 ### Adding a dispatcher
 
-The role is copied into the profile once, when the Auth user is inserted. The
-dashboard's **Add user** sets no app metadata, so an account made there is a customer,
-and the console signs it straight back out. Give it the role afterwards:
+The dashboard's **Add user** sets no app metadata, so an account made there is a
+customer, and the console signs it straight back out. Give it the role afterwards, before
+anyone signs in with it (the second statement below also covers an account that already
+has):
 
 1. In the Supabase dashboard, **Authentication → Users → Add user → Create new user**,
    with **Auto Confirm User** ticked. This account can change every shop setting, so
@@ -97,6 +103,50 @@ and the console signs it straight back out. Give it the role afterwards:
    The last query should return `dispatcher | true`. Setting the metadata as well
    keeps the Auth user agreeing with its profile, so nothing that reads the role from
    metadata later turns it back into a customer.
+
+### Drivers
+
+The dispatcher invites a driver from the console's Settings tab, by name and email. The
+console calls the `invite-driver` Edge Function, which checks the caller with
+`console_profile()` and then uses the Admin API, which needs the service-role key no
+browser may hold. It creates the Auth user with the role and name in app metadata, then
+sends the invite. The invite email (`supabase/templates/invite.html`) carries a one-time
+code rather than a link. In the driver app, **First time here?** takes the email, that
+code and a new password, and signs the driver in.
+
+Signing in to the driver app is going On duty (`go_on_duty()`), and signing out takes
+the driver off (`go_off_duty()`). On duty is a flag plus the time it last changed, and no
+history is kept. The console lists every driver with their state.
+
+Deactivating a driver (`deactivate_driver()`) keeps the profile. In one transaction it
+takes them off duty, nulls their push token, bans the Auth user and ends their sessions,
+so they cannot sign in and their refresh tokens are dead. The RPCs refuse an access
+token minted before the ban.
+
+The driver app keeps its session in `expo-secure-store`, which encrypts with a key in
+the Android Keystore. It splits the session across several entries, because SecureStore
+caps one value at 2048 bytes. The names of drivers who have signed in on the phone are
+kept there too.
+
+Locally, `pnpm db:start` serves the function and uses the invite template, and the
+invite email lands in Mailpit (the Mailpit URL `pnpm db:status` prints).
+
+No workflow deploys the function or the template to production yet. Deploy them only
+once `Migrate production` has pushed the migrations they rely on: before that, an
+invited account comes out as a customer and `go_on_duty()` does not exist. Then:
+
+1. Deploy the function (after `supabase login`, or with `SUPABASE_ACCESS_TOKEN` set).
+   Supabase gives a deployed function its URL and keys, so it needs no secrets:
+
+   ```sh
+   pnpm --filter @courier/db exec node scripts/cli.mjs functions deploy invite-driver --project-ref <production ref>
+   ```
+
+2. Set the invite email by hand in the dashboard, under Authentication → Emails → Invite
+   user: the subject from `[auth.email.template.invite]` in `supabase/config.toml`, and
+   the body from `supabase/templates/invite.html`. Never `config push`. It sends the
+   whole `[auth]` section, local values included, and would point production's site URL
+   at `127.0.0.1` and turn off email confirmations.
 
 ## Shop settings
 
