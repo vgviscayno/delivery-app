@@ -50,11 +50,13 @@ interface SectionProps {
 }
 
 /** The settings as last read, for whichever section the URL has open. */
-const SettingsContext = createContext<(SectionProps & { settings: ShopSettings }) | null>(
-  null,
-);
+interface LoadedSettings extends SectionProps {
+  readonly settings: ShopSettings;
+}
 
-function useSettings(): SectionProps & { settings: ShopSettings } {
+const SettingsContext = createContext<LoadedSettings | null>(null);
+
+function useSettings(): LoadedSettings {
   const section = useContext(SettingsContext);
   if (!section) throw new Error("A Settings section must be rendered inside Settings");
   return section;

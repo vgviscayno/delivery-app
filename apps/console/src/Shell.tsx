@@ -45,8 +45,3 @@ export function Shell({ client, dispatcher, onSignOut }: ShellProps) {
     </div>
   );
 }
-
-/** A mode with no content yet says so. */
-export function Placeholder() {
-  return <p className="detail">Nothing here yet.</p>;
-}

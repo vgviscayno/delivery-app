@@ -16,7 +16,6 @@ import {
   RulesSection,
   Settings,
 } from "./Settings.js";
-import { Placeholder } from "./Shell.js";
 
 /** What every route can reach without props: the server, and how long idle may last. */
 export interface ConsoleContext {
@@ -34,6 +33,11 @@ const rootRoute = createRootRouteWithContext<ConsoleContext>()({ component: Root
 function Root() {
   const { client, idleTimeoutMs } = rootRoute.useRouteContext();
   return <App client={client} idleTimeoutMs={idleTimeoutMs} />;
+}
+
+/** A mode with no content yet says so. */
+function Placeholder() {
+  return <p className="detail">Nothing here yet.</p>;
 }
 
 const indexRoute = createRoute({

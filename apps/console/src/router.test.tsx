@@ -93,7 +93,9 @@ describe("console routes", () => {
     clearActivity();
     const router = renderAt("/settings/drivers");
 
-    fireEvent.change(await screen.findByLabelText("Email"), {
+    const email = await screen.findByLabelText("Email");
+    expect(screen.queryByRole("heading", { level: 2, name: "Drivers" })).toBeNull();
+    fireEvent.change(email, {
       target: { value: "dispatcher@courier.local" },
     });
     fireEvent.change(screen.getByLabelText("Password"), { target: { value: "secret" } });
