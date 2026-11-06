@@ -38,11 +38,11 @@ export {
   signOutAsDriver,
 } from "./driver-access.js";
 export {
+  type DispatcherDriver,
   type DriverInvitation,
   deactivateDriver,
   fetchDrivers,
   inviteDriver,
-  type RosterDriver,
 } from "./drivers.js";
 export {
   addShopClosure,

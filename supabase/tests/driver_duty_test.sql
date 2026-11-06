@@ -2,7 +2,7 @@
 -- A flag plus the time it last changed, and nothing else -- no history is kept.
 
 begin;
-select plan(8);
+select plan(11);
 
 select set_config('t.driver', tests.create_user('driver', 'ana@test.courier.local', 'Ana Reyes')::text, true);
 
@@ -16,8 +16,8 @@ select results_eq(
   'signing in puts a driver On duty, stamped by the server clock'
 );
 
--- The flag did not change, so neither does the time it last changed: picking up a
--- second phone mid-shift is not a new shift.
+-- The flag did not change, so neither does the time it last changed: signing in on a
+-- second phone while On duty does not make them On duty again.
 reset role;
 select app.pin_clock('2026-11-06 11:30:00+08');
 select tests.authenticate_as(current_setting('t.driver')::uuid);
@@ -54,6 +54,16 @@ select throws_ok(
   '42501', 'only an active driver may use the driver app',
   'a customer cannot go On duty'
 );
+select throws_ok(
+  $$ select * from public.go_off_duty() $$,
+  '42501', null,
+  'a customer has no duty to come off'
+);
+select throws_ok(
+  $$ select * from public.driver_profile() $$,
+  '42501', null,
+  'a customer is not a driver to the driver app'
+);
 reset role;
 
 select tests.authenticate_as(current_setting('t.dispatcher')::uuid);
@@ -61,6 +71,11 @@ select throws_ok(
   $$ select * from public.go_on_duty() $$,
   '42501', null,
   'a dispatcher cannot go On duty'
+);
+select throws_ok(
+  $$ select * from public.go_off_duty() $$,
+  '42501', null,
+  'a dispatcher cannot take anyone off duty through the driver app'
 );
 select throws_ok(
   $$ select * from public.driver_profile() $$,

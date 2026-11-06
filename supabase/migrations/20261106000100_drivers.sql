@@ -148,7 +148,7 @@ declare
 begin
   update app.profiles p
      set on_duty = true,
-         -- A second sign-in mid-shift changes nothing, so it keeps the time.
+         -- Signing in again while On duty changes nothing, so it keeps the time.
          on_duty_changed_at = case when p.on_duty then p.on_duty_changed_at else app.now() end
    where p.id = driver_id;
 
@@ -338,15 +338,15 @@ insert into app.access_matrix (object_name, object_kind, actor, allowed, note) v
   ('dispatcher_drivers', 'function', 'anon', false,
    'Staff names and emails are not public. Not granted.'),
   ('dispatcher_drivers', 'function', 'customer', false,
-   'Customers never see the roster. Raises insufficient_privilege.'),
+   'Customers never see who works for the shop. Raises insufficient_privilege.'),
   ('dispatcher_drivers', 'function', 'driver', false,
    'Drivers do not see each other''s duty state. Raises insufficient_privilege.'),
   ('dispatcher_drivers', 'function', 'dispatcher', true,
    'The console lists drivers with their On duty state.'),
   ('deactivate_driver', 'function', 'anon', false,
-   'Not granted.'),
+   'Nobody is signed in, so nobody may change staff. Not granted.'),
   ('deactivate_driver', 'function', 'customer', false,
-   'Raises insufficient_privilege.'),
+   'Staff changes are the dispatcher''s alone. Raises insufficient_privilege.'),
   ('deactivate_driver', 'function', 'driver', false,
    'A driver cannot deactivate anyone, themselves included. Raises insufficient_privilege.'),
   ('deactivate_driver', 'function', 'dispatcher', true,

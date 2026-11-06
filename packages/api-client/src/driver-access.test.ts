@@ -171,13 +171,14 @@ describe("acceptDriverInvite", () => {
 describe("signOutAsDriver", () => {
   const offDuty = { data: [{ ...onDuty.data[0], on_duty: false }], error: null };
 
-  it("takes the driver off duty, then lets go of the session", async () => {
+  it("takes the driver off duty, then ends the session on the server too", async () => {
     const { client, auth, rpc } = fakeClient({ rpc: { go_off_duty: offDuty } });
 
     await signOutAsDriver(client);
 
     expect(rpc).toHaveBeenCalledWith("go_off_duty");
-    expect(auth.signOut).toHaveBeenCalledWith({ scope: "local" });
+    // Global: a copied refresh token must not outlive signing out.
+    expect(auth.signOut).toHaveBeenCalledWith({ scope: "global" });
     expect(rpc.mock.invocationCallOrder[0]).toBeLessThan(
       auth.signOut.mock.invocationCallOrder[0] ?? 0,
     );
@@ -197,6 +198,17 @@ describe("signOutAsDriver", () => {
 
     await signOutAsDriver(client);
 
-    expect(auth.signOut).toHaveBeenCalledWith({ scope: "local" });
+    expect(auth.signOut).toHaveBeenCalledWith({ scope: "global" });
+  });
+
+  it("still lets go on this phone when the server could not end the session", async () => {
+    const { client, auth } = fakeClient({ rpc: { go_off_duty: offDuty } });
+    auth.signOut
+      .mockResolvedValueOnce({ error: { message: "network error" } })
+      .mockResolvedValueOnce({ error: null });
+
+    await signOutAsDriver(client);
+
+    expect(auth.signOut).toHaveBeenLastCalledWith({ scope: "local" });
   });
 });

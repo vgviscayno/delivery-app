@@ -3,7 +3,7 @@
 -- the Auth user with the role and name in app metadata -- as `tests.create_user` does.
 
 begin;
-select plan(14);
+select plan(17);
 
 select set_config('t.dispatcher', tests.create_user('dispatcher')::text, true);
 select set_config('t.ana', tests.create_user('driver', 'ana@test.courier.local', 'Ana Reyes')::text, true);
@@ -118,12 +118,30 @@ select throws_ok(
 );
 reset role;
 
--- Only a dispatcher deactivates, and only drivers.
+-- Only a dispatcher sees the drivers, deactivates, and only drivers.
 select tests.authenticate_as(current_setting('t.ben')::uuid);
+select throws_ok(
+  $$ select * from public.dispatcher_drivers() $$,
+  '42501', null,
+  'a driver cannot see the other drivers or their duty'
+);
 select throws_ok(
   $$ select public.deactivate_driver(current_setting('t.ben')::uuid) $$,
   '42501', null,
   'a driver cannot deactivate anyone, themselves included'
+);
+reset role;
+
+select tests.authenticate_as(current_setting('t.customer')::uuid);
+select throws_ok(
+  $$ select * from public.dispatcher_drivers() $$,
+  '42501', null,
+  'a customer cannot see the drivers'
+);
+select throws_ok(
+  $$ select public.deactivate_driver(current_setting('t.ben')::uuid) $$,
+  '42501', null,
+  'a customer cannot deactivate a driver'
 );
 reset role;
 

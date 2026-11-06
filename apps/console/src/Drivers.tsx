@@ -1,16 +1,16 @@
 import {
   type CourierClient,
+  type DispatcherDriver,
   deactivateDriver,
   fetchDrivers,
   inviteDriver,
-  type RosterDriver,
 } from "@courier/api-client";
 import { type FormEvent, useCallback, useEffect, useState } from "react";
 import { Failure, messageOf, useWrite } from "./write.js";
 
 type Load =
   | { readonly state: "loading" }
-  | { readonly state: "ready"; readonly drivers: readonly RosterDriver[] }
+  | { readonly state: "ready"; readonly drivers: readonly DispatcherDriver[] }
   | { readonly state: "error"; readonly message: string };
 
 // Drivers go On and off duty from their phones, not from here, so the list is read
@@ -156,7 +156,7 @@ function InviteForm({
   );
 }
 
-function dutyLabel(driver: RosterDriver): string {
+function dutyLabel(driver: DispatcherDriver): string {
   if (!driver.active) {
     return driver.deactivatedAt
       ? `Deactivated ${shopDate(driver.deactivatedAt)}`

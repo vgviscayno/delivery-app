@@ -100,16 +100,22 @@ export async function resumeDriverSession(client: CourierClient): Promise<Driver
 }
 
 /**
- * Signs out of this phone, which takes the driver off duty. The server is told first:
- * if it cannot be, the session is kept and this throws, because a phone that let go
- * without saying so would leave the dispatcher seeing the driver On duty. An account
- * that is no longer a driver has nothing to come off, and is let go regardless.
+ * Signs out, which takes the driver off duty. The server is told first: if it cannot
+ * be, the session is kept and this throws, because a phone that let go without saying
+ * so would leave the dispatcher seeing the driver On duty. An account that is no
+ * longer a driver has nothing to come off, and is let go regardless.
+ *
+ * The session is then ended on the server, every refresh token with it, so nothing
+ * copied off the phone can keep minting access tokens. Signing out is the person
+ * leaving work, not one phone forgetting them. If that call fails the driver is still
+ * off duty, and this phone lets go all the same.
  */
 export async function signOutAsDriver(client: CourierClient): Promise<void> {
   const { error } = await client.rpc(GO_OFF_DUTY);
   if (error && error.code !== REFUSED) throw new ApiError(GO_OFF_DUTY, error);
 
-  await client.auth.signOut({ scope: "local" });
+  const ended = await client.auth.signOut({ scope: "global" });
+  if (ended.error) await client.auth.signOut({ scope: "local" });
 }
 
 async function askAsDriver(

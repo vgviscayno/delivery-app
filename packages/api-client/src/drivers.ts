@@ -5,7 +5,7 @@ const DEACTIVATE_DRIVER = "deactivate_driver";
 const INVITE_DRIVER = "invite-driver";
 
 /** A driver as the console lists them. */
-export interface RosterDriver {
+export interface DispatcherDriver {
   readonly id: string;
   readonly email: string;
   readonly name: string;
@@ -23,7 +23,7 @@ export interface DriverInvitation {
 }
 
 /** Every driver, active first then by name, with their On duty state. */
-export async function fetchDrivers(client: CourierClient): Promise<RosterDriver[]> {
+export async function fetchDrivers(client: CourierClient): Promise<DispatcherDriver[]> {
   const { data, error } = await client.rpc(DISPATCHER_DRIVERS);
   if (error) throw new ApiError(DISPATCHER_DRIVERS, error);
 
