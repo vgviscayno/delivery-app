@@ -7,7 +7,9 @@ import {
   redirect,
 } from "@tanstack/react-router";
 import { App } from "./App.js";
-import { Catalog, CategoriesSection, ProductsSection } from "./Catalog.js";
+import { Catalog, CategoriesSection } from "./Catalog.js";
+import { ProductsSection } from "./ProductsGrid.js";
+import { readProductsSearch } from "./products-search.js";
 import {
   ClosuresSection,
   DriversSection,
@@ -86,6 +88,7 @@ const catalogIndexRoute = createRoute({
 const productsRoute = createRoute({
   getParentRoute: () => catalogRoute,
   path: "products",
+  validateSearch: readProductsSearch,
   component: ProductsSection,
 });
 
