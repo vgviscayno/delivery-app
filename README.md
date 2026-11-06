@@ -128,13 +128,25 @@ the Android Keystore. It splits the session across several entries, because Secu
 caps one value at 2048 bytes. The names of drivers who have signed in on the phone are
 kept there too.
 
-Neither the function nor the email template is deployed by a workflow yet. For a hosted
-project:
+Locally, `pnpm db:start` serves the function and uses the invite template, and the
+invite email lands in Mailpit (the Mailpit URL `pnpm db:status` prints).
 
-```sh
-pnpm --filter @courier/db exec node scripts/cli.mjs functions deploy invite-driver
-pnpm --filter @courier/db exec node scripts/cli.mjs config push   # the invite template
-```
+No workflow deploys the function or the template to production yet. Deploy them only
+once `Migrate production` has pushed the migrations they rely on: before that, an
+invited account comes out as a customer and `go_on_duty()` does not exist. Then:
+
+1. Deploy the function (after `supabase login`, or with `SUPABASE_ACCESS_TOKEN` set).
+   Supabase gives a deployed function its URL and keys, so it needs no secrets:
+
+   ```sh
+   pnpm --filter @courier/db exec node scripts/cli.mjs functions deploy invite-driver --project-ref <production ref>
+   ```
+
+2. Set the invite email by hand in the dashboard, under Authentication → Emails → Invite
+   user: the subject from `[auth.email.template.invite]` in `supabase/config.toml`, and
+   the body from `supabase/templates/invite.html`. Never `config push`. It sends the
+   whole `[auth]` section, local values included, and would point production's site URL
+   at `127.0.0.1` and turn off email confirmations.
 
 ## Shop settings
 
