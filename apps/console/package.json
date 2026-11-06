@@ -15,6 +15,7 @@
     "@courier/config": "workspace:*",
     "@courier/domain": "workspace:*",
     "@tanstack/react-router": "^1.170.46",
+    "@tanstack/react-table": "^8.21.3",
     "react": "^19.2.0",
     "react-dom": "^19.2.0"
   },

@@ -1,15 +1,12 @@
 import {
   type CourierClient,
   deleteCategory,
-  deleteProduct,
   fetchDispatcherCatalog,
   reorderCategories,
   saveCategory,
-  saveProduct,
   setCategoryProducts,
-  setProductAvailable,
 } from "@courier/api-client";
-import type { Catalog as CatalogData, Category, Price, Product } from "@courier/domain";
+import type { Catalog as CatalogData, Category } from "@courier/domain";
 import { Outlet } from "@tanstack/react-router";
 import {
   createContext,
@@ -19,12 +16,6 @@ import {
   useEffect,
   useState,
 } from "react";
-import {
-  formFromProduct,
-  type ProductForm,
-  type ProductFormMessages,
-  readProductForm,
-} from "./product-form.js";
 import { SubTabs } from "./SubTabs.js";
 import { useClient } from "./use-client.js";
 import { Failure, messageOf, useWrite } from "./write.js";
@@ -33,9 +24,6 @@ type Load =
   | { readonly state: "loading" }
   | { readonly state: "ready"; readonly catalog: CatalogData }
   | { readonly state: "error"; readonly message: string };
-
-/** Which Product is open in the editor: a new one, an existing one, or none. */
-type Editing = { readonly product: Product | null } | null;
 
 interface SectionProps {
   readonly client: CourierClient;
@@ -46,7 +34,7 @@ interface SectionProps {
 /** The catalog as last read, for whichever section the URL has open. */
 const CatalogContext = createContext<SectionProps | null>(null);
 
-function useCatalog(): SectionProps {
+export function useCatalog(): SectionProps {
   const section = useContext(CatalogContext);
   if (!section) throw new Error("A Catalog section must be rendered inside Catalog");
   return section;
@@ -74,7 +62,7 @@ export function Catalog() {
   }, [reload]);
 
   return (
-    <div className="surface">
+    <div className="surface catalog">
       <SubTabs
         label="Catalog sections"
         tabs={[
@@ -96,199 +84,6 @@ export function Catalog() {
         </CatalogContext.Provider>
       )}
     </div>
-  );
-}
-
-export function ProductsSection() {
-  const { client, catalog, onSaved } = useCatalog();
-  const [editing, setEditing] = useState<Editing>(null);
-  const { busy, error, run } = useWrite(onSaved);
-
-  return (
-    <section aria-labelledby="products-heading">
-      <h2 id="products-heading">Products</h2>
-      <p className="detail">
-        What customers can order. Edits never change Orders already placed.
-      </p>
-      {catalog.products.length === 0 ? (
-        <p className="detail">No Products yet.</p>
-      ) : (
-        <table className="catalog-products">
-          <tbody>
-            {catalog.products.map((product) => (
-              <tr key={product.id}>
-                <th scope="row">{product.name}</th>
-                <td>{describePrice(product.price)}</td>
-                <td>
-                  <label>
-                    <input
-                      type="checkbox"
-                      checked={product.available}
-                      disabled={busy}
-                      onChange={(event) => {
-                        const available = event.target.checked;
-                        void run(() =>
-                          setProductAvailable(client, product.id, available),
-                        );
-                      }}
-                    />{" "}
-                    Available
-                  </label>
-                </td>
-                <td>
-                  <button type="button" onClick={() => setEditing({ product })}>
-                    Edit
-                  </button>
-                  <button
-                    type="button"
-                    disabled={busy}
-                    onClick={() => {
-                      if (
-                        window.confirm(`Delete ${product.name}? This cannot be undone.`)
-                      ) {
-                        void run(() => deleteProduct(client, product.id));
-                      }
-                    }}
-                  >
-                    Delete
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
-      <Failure message={error} />
-      {editing ? (
-        <ProductEditor
-          // A fresh editor for each Product, so its fields start from that Product.
-          key={editing.product?.id ?? "new"}
-          client={client}
-          product={editing.product}
-          onClose={() => setEditing(null)}
-          onSaved={onSaved}
-        />
-      ) : (
-        <button type="button" onClick={() => setEditing({ product: null })}>
-          Add a Product
-        </button>
-      )}
-    </section>
-  );
-}
-
-function ProductEditor({
-  client,
-  product,
-  onClose,
-  onSaved,
-}: {
-  client: CourierClient;
-  product: Product | null;
-  onClose: () => void;
-  onSaved: () => Promise<void>;
-}) {
-  const [form, setForm] = useState<ProductForm>(() => formFromProduct(product));
-  const [errors, setErrors] = useState<ProductFormMessages>({});
-  const { busy, error, run } = useWrite(onSaved);
-
-  // Warnings follow the form as it is typed, so the dispatcher sees them before saving.
-  const read = readProductForm(form);
-  const warnings = read.ok ? read.warnings : {};
-
-  async function submit(event: FormEvent) {
-    event.preventDefault();
-    if (!read.ok) {
-      setErrors(read.errors);
-      return;
-    }
-    setErrors({});
-    if (await run(() => saveProduct(client, product?.id ?? null, read.edits))) onClose();
-  }
-
-  const field = (
-    name: keyof ProductForm,
-    label: string,
-    input: React.InputHTMLAttributes<HTMLInputElement>,
-    hint?: string,
-  ) => (
-    <label>
-      <span>{label}</span>
-      <input
-        {...input}
-        value={form[name]}
-        aria-invalid={errors[name] ? true : undefined}
-        onChange={(event) => setForm({ ...form, [name]: event.target.value })}
-      />
-      {errors[name] ? (
-        <span className="notice">{errors[name]}</span>
-      ) : warnings[name] ? (
-        <span className="warning">{warnings[name]}</span>
-      ) : (
-        hint && <span className="detail">{hint}</span>
-      )}
-    </label>
-  );
-
-  return (
-    <form onSubmit={submit} className="settings-form product-editor">
-      <h3>{product ? `Edit ${product.name}` : "New Product"}</h3>
-      {field("name", "Name", { required: true })}
-      {field("description", "Description", {}, "Optional.")}
-      {field("photoUrl", "Photo URL", { type: "url" }, "Optional. https://…")}
-      <fieldset>
-        <legend>Priced</legend>
-        <label>
-          <input
-            type="radio"
-            name="price-type"
-            checked={form.priceType === "per_unit"}
-            onChange={() => setForm({ ...form, priceType: "per_unit" })}
-          />{" "}
-          Per unit
-        </label>
-        <label>
-          <input
-            type="radio"
-            name="price-type"
-            checked={form.priceType === "per_weight"}
-            onChange={() => setForm({ ...form, priceType: "per_weight" })}
-          />{" "}
-          Per weight
-        </label>
-      </fieldset>
-      {form.priceType === "per_unit" ? (
-        field("unitPricePesos", "Price (₱)", { inputMode: "decimal", required: true })
-      ) : (
-        <>
-          {field("pricePerKgPesos", "Rate (₱ per kg)", {
-            inputMode: "decimal",
-            required: true,
-          })}
-          {field(
-            "weightStepGrams",
-            "Step (g)",
-            { inputMode: "numeric", required: true },
-            "Customers order in steps of this, and at least one.",
-          )}
-          {field(
-            "toleranceGrams",
-            "Tolerance (g)",
-            { inputMode: "numeric" },
-            "Packed this far from the estimate, either way, without a call. 250 if blank.",
-          )}
-        </>
-      )}
-      <div className="actions">
-        <button type="submit" disabled={busy}>
-          {busy ? "Saving…" : product ? "Save Product" : "Add Product"}
-        </button>
-        <button type="button" onClick={onClose}>
-          Cancel
-        </button>
-        <Failure message={error} />
-      </div>
-    </form>
   );
 }
 
@@ -503,14 +298,4 @@ function moved(ids: readonly string[], index: number, by: -1 | 1): string[] {
   const [item] = next.splice(index, 1);
   if (item !== undefined) next.splice(index + by, 0, item);
   return next;
-}
-
-const PESOS = new Intl.NumberFormat("en-PH", { style: "currency", currency: "PHP" });
-
-function describePrice(price: Price): string {
-  if (price.type === "per_unit") return PESOS.format(price.unitPriceCentavos / 100);
-  return (
-    `${PESOS.format(price.pricePerKgCentavos / 100)} per kg · ` +
-    `in ${price.weightStepGrams} g steps · ±${price.toleranceGrams} g`
-  );
 }
