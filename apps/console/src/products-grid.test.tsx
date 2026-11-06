@@ -14,6 +14,7 @@ import {
   waitFor,
   within,
 } from "@testing-library/react";
+import { Profiler } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createConsoleRouter } from "./router.js";
 import { clearActivity, recordActivity } from "./use-idle-sign-out.js";
@@ -67,13 +68,21 @@ const client = {
   },
 } as unknown as CourierClient;
 
+/** How many times React has committed the page since it was rendered. */
+let commits = 0;
+
 function renderAt(path: string) {
   const router = createConsoleRouter({
     client,
     idleTimeoutMs: 30 * 60_000,
     history: createMemoryHistory({ initialEntries: [path] }),
   });
-  render(<RouterProvider router={router} />);
+  commits = 0;
+  render(
+    <Profiler id="page" onRender={() => commits++}>
+      <RouterProvider router={router} />
+    </Profiler>,
+  );
   return router;
 }
 
@@ -193,6 +202,28 @@ describe("the Products grid", () => {
     expect(fireEvent.keyDown(name, { key: "Enter" })).toBe(false);
     fireEvent.change(name, { target: { value: "Ribeye,\nbone in" } });
     expect(name).toHaveProperty("value", "Ribeye, bone in");
+  });
+
+  it("opens a Product's details in the side panel", async () => {
+    const router = renderAt("/catalog/products");
+    await grid();
+
+    fireEvent.click(screen.getByRole("button", { name: "Details of Ribeye" }));
+
+    expect(await screen.findByRole("complementary", { name: "Ribeye" })).toBeTruthy();
+    expect(router.state.location.search).toEqual({ product: "p-ribeye" });
+  });
+
+  it("goes quiet once nothing is happening, rather than re-rendering forever", async () => {
+    renderAt("/catalog/products");
+    await grid();
+    fireEvent.click(screen.getByRole("button", { name: "Details of Ribeye" }));
+    await screen.findByRole("complementary", { name: "Ribeye" });
+    await new Promise((settle) => setTimeout(settle, 50));
+
+    const settled = commits;
+    await new Promise((idle) => setTimeout(idle, 100));
+    expect(commits).toBe(settled);
   });
 
   it("restores the search and the open Product from the URL", async () => {

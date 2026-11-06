@@ -705,6 +705,10 @@ function Grid({
     state: { sorting, rowSelection: ticked },
     onRowSelectionChange: onTick,
     manualSorting: true,
+    // The rows are rebuilt on every render, and TanStack resets its paging each time
+    // they change: a state change, so another render, without end. This grid has no
+    // pages or expanded rows to reset.
+    autoResetAll: false,
     // Up, down, then back to the catalog's order — numbers as well as names.
     sortDescFirst: false,
     enableMultiSort: false,
