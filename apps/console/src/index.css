@@ -75,13 +75,13 @@ body {
   color: #b00020;
 }
 
-.settings {
+.surface {
   display: grid;
   gap: 2rem;
   max-width: 48rem;
 }
 
-.settings h2 {
+.surface h2 {
   margin: 0 0 0.25rem;
   font-size: 1.1rem;
 }
@@ -101,8 +101,8 @@ body {
   grid-column: 1 / -1;
 }
 
-.settings .notice,
-.settings .detail {
+.surface .notice,
+.surface .detail {
   font-size: 0.9rem;
 }
 

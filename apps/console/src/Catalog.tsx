@@ -28,9 +28,8 @@ type Load =
 type Editing = { readonly product: Product | null } | null;
 
 /**
- * The catalog on the settings surface: Products of both price types, and the Categories
- * customers browse them by. Like the rest of the surface, every change is read back from
- * the server afterwards.
+ * The console's Catalog mode: Products of both price types, and the Categories customers
+ * browse them by. Like Settings, every change is read back from the server afterwards.
  */
 export function Catalog({ client }: { client: CourierClient }) {
   const [load, setLoad] = useState<Load>({ state: "loading" });
@@ -47,20 +46,21 @@ export function Catalog({ client }: { client: CourierClient }) {
     void reload();
   }, [reload]);
 
-  if (load.state === "loading") return <p className="detail">Loading the catalog…</p>;
-  if (load.state === "error") {
-    return (
-      <p className="notice" role="alert">
-        {load.message}
-      </p>
-    );
-  }
-
   return (
-    <>
-      <ProductsSection client={client} catalog={load.catalog} onSaved={reload} />
-      <CategoriesSection client={client} catalog={load.catalog} onSaved={reload} />
-    </>
+    <div className="surface">
+      {load.state === "loading" ? (
+        <p className="detail">Loading the catalog…</p>
+      ) : load.state === "error" ? (
+        <p className="notice" role="alert">
+          {load.message}
+        </p>
+      ) : (
+        <>
+          <ProductsSection client={client} catalog={load.catalog} onSaved={reload} />
+          <CategoriesSection client={client} catalog={load.catalog} onSaved={reload} />
+        </>
+      )}
+    </div>
   );
 }
 

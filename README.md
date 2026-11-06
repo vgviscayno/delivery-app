@@ -106,7 +106,7 @@ has):
 
 ### Drivers
 
-The dispatcher invites a driver from the console's Settings tab, by name and email. The
+The dispatcher invites a driver in the console's Settings mode, by name and email. The
 console calls the `invite-driver` Edge Function, which checks the caller with
 `console_profile()` and then uses the Admin API, which needs the service-role key no
 browser may hold. It creates the Auth user with the role and name in app metadata, then
@@ -150,7 +150,7 @@ invited account comes out as a customer and `go_on_duty()` does not exist. Then:
 
 ## Shop settings
 
-The shop's rules are data the dispatcher edits on the console's Settings tab: the
+The shop's rules are data the dispatcher edits in the console's Settings mode: the
 Ordering window per weekday, closure dates, the Same-day cutoff buffer, the delivery
 radius, the Delivery fee (whole centavos), the Shop phone (E.164), the QR Ph image, the
 end-of-day time, the dark threshold and the Time confirmation morning cut-off. Any
@@ -168,11 +168,12 @@ cache. The seed's placeholder image is uploaded by `[storage.buckets.shop]` in
 ## Catalog
 
 The catalog is Products, Categories, and each Product's position within each Category
-it is in. Customers read it through three
-views, `public.catalog_products`, `catalog_categories` and `catalog_memberships`. Those
-views show only Products that are available and not deleted. The console reads the
-whole catalog through `dispatcher_products()` and `dispatcher_category_products()`.
-Every write is an RPC that only an active dispatcher may call.
+it is in. The dispatcher keeps it in the console's Catalog mode. Customers read it
+through three views, `public.catalog_products`, `catalog_categories` and
+`catalog_memberships`. Those views show only Products that are available and not
+deleted. The console reads the whole catalog through `dispatcher_products()` and
+`dispatcher_category_products()`. Every write is an RPC that only an active dispatcher
+may call.
 
 A Product is priced per unit (`unit_price_centavos`) or per weight
 (`price_per_kg_centavos`, `weight_step_grams`, `tolerance_grams`). A check constraint
