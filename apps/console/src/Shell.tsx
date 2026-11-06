@@ -1,11 +1,14 @@
 import type { CourierClient, Dispatcher } from "@courier/api-client";
-import { useState } from "react";
-import { Catalog } from "./Catalog.js";
-import { Settings } from "./Settings.js";
+import { Link, Outlet, useMatchRoute } from "@tanstack/react-router";
 import { ShopClock } from "./ShopClock.js";
+import type { Tab } from "./SubTabs.js";
 
-const MODES = ["Dispatch", "Packing bench", "Catalog", "Settings"] as const;
-type Mode = (typeof MODES)[number];
+const MODES: readonly Tab[] = [
+  { label: "Dispatch", to: "/dispatch" },
+  { label: "Packing bench", to: "/packing-bench" },
+  { label: "Catalog", to: "/catalog" },
+  { label: "Settings", to: "/settings" },
+];
 
 export interface ShellProps {
   readonly client: CourierClient;
@@ -13,9 +16,10 @@ export interface ShellProps {
   readonly onSignOut: () => void;
 }
 
-/** The signed-in console: its modes, kept in memory. A mode with no content yet says so. */
+/** The signed-in console. The URL says which mode is open, and the route fills it in. */
 export function Shell({ client, dispatcher, onSignOut }: ShellProps) {
-  const [mode, setMode] = useState<Mode>("Dispatch");
+  const matchRoute = useMatchRoute();
+  const mode = MODES.find((each) => matchRoute({ to: each.to, fuzzy: true }));
 
   return (
     <div className="shell">
@@ -23,14 +27,9 @@ export function Shell({ client, dispatcher, onSignOut }: ShellProps) {
         <strong>Courier Ops</strong>
         <nav aria-label="Console">
           {MODES.map((each) => (
-            <button
-              key={each}
-              type="button"
-              aria-current={each === mode ? "page" : undefined}
-              onClick={() => setMode(each)}
-            >
-              {each}
-            </button>
+            <Link key={each.to} to={each.to}>
+              {each.label}
+            </Link>
           ))}
         </nav>
         <ShopClock client={client} />
@@ -39,16 +38,15 @@ export function Shell({ client, dispatcher, onSignOut }: ShellProps) {
           Sign out
         </button>
       </header>
-      <main aria-label={mode}>
-        <h1>{mode}</h1>
-        {mode === "Catalog" ? (
-          <Catalog client={client} />
-        ) : mode === "Settings" ? (
-          <Settings client={client} />
-        ) : (
-          <p className="detail">Nothing here yet.</p>
-        )}
+      <main aria-label={mode?.label}>
+        {mode && <h1>{mode.label}</h1>}
+        <Outlet />
       </main>
     </div>
   );
+}
+
+/** A mode with no content yet says so. */
+export function Placeholder() {
+  return <p className="detail">Nothing here yet.</p>;
 }
