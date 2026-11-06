@@ -21,7 +21,8 @@
     "db:lint:matrix": "pnpm --filter @courier/db lint:matrix",
     "db:lint:schemas": "pnpm --filter @courier/db lint:schemas",
     "db:lint": "pnpm --filter @courier/db lint:gates",
-    "db:stop": "pnpm --filter @courier/db stop"
+    "db:stop": "pnpm --filter @courier/db stop",
+    "db:status": "pnpm --filter @courier/db status"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.14",
