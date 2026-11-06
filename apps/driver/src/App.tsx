@@ -100,7 +100,7 @@ function Session({
       ]);
       if (!live) return;
       setRemembered(names);
-      setSession(settle(access));
+      setSession(withRefusedNotice(access));
     })();
     return () => {
       live = false;
@@ -132,7 +132,7 @@ function Session({
           return next;
         });
       }
-      setSession(settle(access));
+      setSession(withRefusedNotice(access));
     } catch (error) {
       setSession({ status: "signed-out", notice: messageOf(error) });
     } finally {
@@ -207,7 +207,7 @@ function Session({
   );
 }
 
-function settle(access: SessionState): SessionState {
+function withRefusedNotice(access: SessionState): SessionState {
   return access.status === "refused" ? { ...access, notice: REFUSED_NOTICE } : access;
 }
 

@@ -5,6 +5,7 @@ import {
   fetchDrivers,
   inviteDriver,
 } from "@courier/api-client";
+import { describeDuty } from "@courier/domain";
 import { type FormEvent, useCallback, useEffect, useState } from "react";
 import { Failure, messageOf, useWrite } from "./write.js";
 
@@ -70,7 +71,7 @@ export function Drivers({ client }: { client: CourierClient }) {
                 <tr key={driver.id} className={driver.active ? undefined : "inactive"}>
                   <td>{driver.name}</td>
                   <td>{driver.email}</td>
-                  <td>{dutyLabel(driver)}</td>
+                  <td>{describeDuty(driver)}</td>
                   <td>
                     {driver.active && (
                       <button
@@ -154,36 +155,4 @@ function InviteForm({
       <Failure message={error} />
     </>
   );
-}
-
-function dutyLabel(driver: DispatcherDriver): string {
-  if (!driver.active) {
-    return driver.deactivatedAt
-      ? `Deactivated ${shopDate(driver.deactivatedAt)}`
-      : "Deactivated";
-  }
-  if (driver.onDuty) {
-    return driver.onDutyChangedAt
-      ? `On duty since ${shopTime(driver.onDutyChangedAt)}`
-      : "On duty";
-  }
-  return "Off duty";
-}
-
-// The shop's wall clock, whatever time zone this browser is in.
-function shopTime(instant: string): string {
-  return new Date(instant).toLocaleTimeString("en-GB", {
-    timeZone: "Asia/Manila",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
-
-function shopDate(instant: string): string {
-  return new Date(instant).toLocaleDateString("en-GB", {
-    timeZone: "Asia/Manila",
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
 }

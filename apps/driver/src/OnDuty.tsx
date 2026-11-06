@@ -1,6 +1,6 @@
 import type { Driver } from "@courier/api-client";
+import { describeDuty } from "@courier/domain";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { formatShopTime } from "./shop-time";
 
 export interface OnDutyProps {
   readonly driver: Driver;
@@ -14,11 +14,7 @@ export function OnDuty({ driver, busy, onSignOut }: OnDutyProps) {
     <View style={styles.bar}>
       <View style={styles.who}>
         <Text style={styles.name}>{driver.name}</Text>
-        <Text style={styles.duty}>
-          {driver.onDuty
-            ? `On duty${driver.onDutyChangedAt ? ` since ${formatShopTime(driver.onDutyChangedAt)}` : ""}`
-            : "Off duty"}
-        </Text>
+        <Text style={styles.duty}>{describeDuty(driver)}</Text>
       </View>
       <Pressable
         accessibilityRole="button"

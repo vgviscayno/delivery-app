@@ -15,6 +15,8 @@ export {
 } from "./catalog.js";
 export type { ServerClock } from "./clock.js";
 export { ServerClockError, toServerClock } from "./clock.js";
+export type { DutyState } from "./duty.js";
+export { describeDuty } from "./duty.js";
 export type { Database, Json } from "./generated/database.types.js";
 export type {
   OrderingDay,
