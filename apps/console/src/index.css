@@ -369,9 +369,23 @@ body {
 }
 
 .side-panel .panel-label {
+  position: relative;
   display: flex;
   gap: 0.375rem;
   align-items: center;
+}
+
+/*
+ * The panel scrolls, so it clips anything that sticks out sideways. A tooltip centred on
+ * its "?" would; here it starts under the label instead, inside the panel.
+ */
+.side-panel .panel-label .hint-tip {
+  position: static;
+}
+
+.side-panel .panel-label .tooltip {
+  left: 0;
+  transform: none;
 }
 
 .products-grid tr[data-selected] td {
