@@ -1,6 +1,10 @@
 import type { BackendEnv } from "@courier/config";
 import type { Database } from "@courier/domain";
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import {
+  createClient,
+  type SupabaseClient,
+  type SupportedStorage,
+} from "@supabase/supabase-js";
 
 /**
  * The typed Supabase client every TypeScript surface talks through.
@@ -10,8 +14,30 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
  */
 export type CourierClient = SupabaseClient<Database>;
 
-export function createCourierClient(env: BackendEnv): CourierClient {
-  return createClient<Database>(env.supabaseUrl, env.supabaseAnonKey);
+export interface CourierClientOptions {
+  /**
+   * Where the session is kept. The browser's localStorage when omitted; a phone passes
+   * encrypted storage, since the session holds a long-lived refresh token.
+   */
+  readonly sessionStorage?: SupportedStorage;
+}
+
+export function createCourierClient(
+  env: BackendEnv,
+  { sessionStorage }: CourierClientOptions = {},
+): CourierClient {
+  if (!sessionStorage)
+    return createClient<Database>(env.supabaseUrl, env.supabaseAnonKey);
+
+  return createClient<Database>(env.supabaseUrl, env.supabaseAnonKey, {
+    auth: {
+      storage: sessionStorage,
+      persistSession: true,
+      autoRefreshToken: true,
+      // A native app has no URL for a session to arrive in.
+      detectSessionInUrl: false,
+    },
+  });
 }
 
 export class ApiError extends Error {

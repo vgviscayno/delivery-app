@@ -11,6 +11,7 @@ import {
 import type { OrderingDay, ShopSettings } from "@courier/domain";
 import { type FormEvent, useCallback, useEffect, useState } from "react";
 import { Catalog } from "./Catalog.js";
+import { Drivers } from "./Drivers.js";
 import {
   formFromSettings,
   readSettingsForm,
@@ -36,7 +37,7 @@ type Load =
 
 /**
  * The console's settings surface: the shop's rules, the Ordering window, closure dates,
- * the QR Ph image and the catalog. Every change goes to the server and the whole surface is read
+ * the QR Ph image, the catalog and the drivers. Every change goes to the server and the whole surface is read
  * back afterwards, so what is shown is always what customers and drivers now see.
  */
 export function Settings({ client }: { client: CourierClient }) {
@@ -75,6 +76,7 @@ export function Settings({ client }: { client: CourierClient }) {
       <ClosuresSection client={client} settings={settings} onSaved={reload} />
       <QrPhSection client={client} path={settings.qrPhImagePath} onSaved={reload} />
       <Catalog client={client} />
+      <Drivers client={client} />
     </div>
   );
 }

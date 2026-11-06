@@ -13,7 +13,8 @@ revoke all on schema tests from public;
 -- the rest, exactly as it does for a real sign-up.
 create or replace function tests.create_user(
   role text default 'customer',
-  email text default null
+  email text default null,
+  name text default null
 )
 returns uuid
 language plpgsql
@@ -28,8 +29,14 @@ begin
     'authenticated',
     'authenticated',
     coalesce(email, user_id::text || '@test.courier.local'),
-    case when create_user.role is null then '{}'::jsonb
-         else jsonb_build_object('role', create_user.role) end,
+    jsonb_strip_nulls(jsonb_build_object(
+      'role', create_user.role,
+      -- Every driver has a name; one a test did not choose gets a placeholder.
+      'name', coalesce(
+        create_user.name,
+        case when create_user.role = 'driver' then 'Test driver' end
+      )
+    )),
     '{}'::jsonb
   );
   return user_id;
@@ -84,13 +91,40 @@ begin
 end
 $$;
 
--- Soft-deactivate a profile, as the dispatcher's deactivation will (ticket 61).
+-- Soft-deactivate a profile directly, for a role `public.deactivate_driver` does not
+-- cover, such as a dispatcher.
 create or replace function tests.deactivate(user_id uuid)
 returns void
 language sql
 set search_path = ''
 as $$
   update app.profiles
-     set active = false, deactivated_at = app.now(), push_token = null
+     set active = false, deactivated_at = app.now(), push_token = null, on_duty = false
    where id = user_id
+$$;
+
+-- An Auth user created as GoTrue's `admin.createUser` really does it: the row is
+-- inserted with only the provider in app metadata, and the caller's app metadata is
+-- written by a second statement in the same transaction.
+create or replace function tests.admin_create_user(app_metadata jsonb, email text default null)
+returns uuid
+language plpgsql
+set search_path = ''
+as $$
+declare
+  user_id uuid := gen_random_uuid();
+begin
+  insert into auth.users (id, aud, role, email, raw_app_meta_data, raw_user_meta_data)
+  values (
+    user_id, 'authenticated', 'authenticated',
+    coalesce(email, user_id::text || '@test.courier.local'),
+    '{"provider": "email", "providers": ["email"]}'::jsonb, '{}'::jsonb
+  );
+
+  update auth.users u
+     set raw_app_meta_data = u.raw_app_meta_data || app_metadata
+   where u.id = user_id;
+
+  return user_id;
+end
 $$;
