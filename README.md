@@ -117,8 +117,8 @@ cache. The seed's placeholder image is uploaded by `[storage.buckets.shop]` in
 
 ## Catalog
 
-The dispatcher keeps the catalog on the same Settings tab: Products, Categories, and
-each Product's position within each Category it is in. Customers read it through three
+The catalog is Products, Categories, and each Product's position within each Category
+it is in. Customers read it through three
 views, `public.catalog_products`, `catalog_categories` and `catalog_memberships`. Those
 views show only Products that are available and not deleted. The console reads the
 whole catalog through `dispatcher_products()` and `dispatcher_category_products()`.

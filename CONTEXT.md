@@ -122,8 +122,12 @@ _Avoid_: Store coordinates, store location, shop location (Location means a driv
 The Address an Order is going to, copied onto the Order at submission the same way a Product's name and price are (see `docs/adr/0003-catalog-snapshot-on-order.md`). Once copied it never changes: editing or deleting the saved Address leaves every placed Order pointing where it was actually sent, and an in-flight Delivery can never have its destination moved out from under the driver. The one exception is deliberately narrow — a dispatcher may correct the *contact details and landmark note* on a single Order's copy when a driver can't find the door, never the pin.
 _Avoid_: Shipping address, delivery location
 
+**Catalog**:
+Everything the shop offers, as the dispatcher keeps it: every Product, every Category, and each Product–Category membership. Holds no stock counts.
+_Avoid_: Menu, inventory (implies stock), product list
+
 **Product**:
-A catalog item a customer can choose. Dispatcher-maintained data (not code), rendered read-only in the customer app. Priced one of two ways via `price_type`: **per-unit** (a packaged item, e.g. a 500g pack of sausages) or **per-weight** (cut-to-order, e.g. ribeye at a per-kg rate, ordered by an estimated weight in per-Product step increments, with a per-Product weight tolerance). A Product has a stable identity; when an Order references it, the Order snapshots the Product's name and price so later catalog edits never rewrite placed Orders. Availability is a manual toggle, not a stock count.
+A catalog item a customer can choose. Dispatcher-maintained data (not code), rendered read-only in the customer app. Priced one of two ways: **per-unit** (a packaged item, e.g. a 500g pack of sausages) or **per-weight** (cut-to-order, e.g. ribeye at a per-kg rate, ordered by an estimated weight in per-Product step increments, with a per-Product weight tolerance). A Product has a stable identity; when an Order references it, the Order snapshots the Product's name and price so later catalog edits never rewrite placed Orders. Availability is a manual toggle, not a stock count.
 _Avoid_: Item (unqualified — say Product for the catalog concept, "line item" for the thing on an Order), SKU, Listing
 
 **Category**:
