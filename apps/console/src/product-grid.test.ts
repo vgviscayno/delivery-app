@@ -7,7 +7,6 @@ import {
   type Draft,
   draftFromCatalog,
   duplicateRow,
-  editRow,
   editRows,
   fillDown,
   fillDownTargets,
@@ -108,9 +107,9 @@ describe("the Products grid draft", () => {
 
   it("marks the cells that differ from what was saved", () => {
     let draft = draftFromCatalog(catalog);
-    draft = editRow(draft, "p-ribeye", { price: "1250.00", name: "Ribeye" });
+    draft = editRows(draft, ["p-ribeye"], { price: "1250.00", name: "Ribeye" });
     draft = addRow(draft);
-    draft = editRow(draft, lastKey(draft), { name: "Sirloin" });
+    draft = editRows(draft, [lastKey(draft)], { name: "Sirloin" });
 
     expect(draft.rows.map((row) => changedFields(row))).toEqual([
       ["price"],
@@ -121,7 +120,7 @@ describe("the Products grid draft", () => {
   });
 
   it("ignores step and tolerance on a per-unit row", () => {
-    const draft = editRow(draftFromCatalog(catalog), "p-tocino", { tolerance: "50" });
+    const draft = editRows(draftFromCatalog(catalog), ["p-tocino"], { tolerance: "50" });
     expect(changedFields(nth(draft, 1))).toEqual([]);
   });
 
@@ -166,7 +165,7 @@ describe("the Products grid draft", () => {
 
   it("does not fill a step or tolerance into a per-unit row, whose cells are disabled", () => {
     let draft = addRow(draftFromCatalog(catalog));
-    draft = editRow(draft, lastKey(draft), { priceType: "per_weight" });
+    draft = editRows(draft, [lastKey(draft)], { priceType: "per_weight" });
     draft = fillDown(draft, "step", "p-ribeye", ["p-tocino", lastKey(draft)]);
 
     expect(draft.rows.map((row) => row.values.step)).toEqual(["250", "", "250"]);
@@ -187,7 +186,10 @@ describe("the Products grid draft", () => {
 
   it("puts each error on the cell it is about", () => {
     let draft = addRow(draftFromCatalog(catalog));
-    draft = editRow(draft, lastKey(draft), { name: "Sirloin", priceType: "per_weight" });
+    draft = editRows(draft, [lastKey(draft)], {
+      name: "Sirloin",
+      priceType: "per_weight",
+    });
 
     const read = readRow(nth(draft, 2));
     expect(read.ok).toBe(false);
@@ -195,7 +197,7 @@ describe("the Products grid draft", () => {
   });
 
   it("warns on the tolerance cell when it is not less than the step, and still reads", () => {
-    const draft = editRow(draftFromCatalog(catalog), "p-ribeye", { tolerance: "250" });
+    const draft = editRows(draftFromCatalog(catalog), ["p-ribeye"], { tolerance: "250" });
     expect(readRow(nth(draft, 0))).toMatchObject({
       ok: true,
       warnings: { tolerance: expect.stringMatching(/step/) },
@@ -241,12 +243,14 @@ describe("the Products grid draft", () => {
     it("filters by Category and by unavailable", () => {
       const draft = draftFromCatalog(catalog);
       expect(keys(draft, { category: "c-beef" })).toEqual(["p-ribeye"]);
-      expect(keys(draft, { unavailable: true })).toEqual(["p-tocino"]);
+      expect(keys(draft, { unavailable: 1 })).toEqual(["p-tocino"]);
     });
 
     it("filters on what was saved, so a row being edited stays in view", () => {
-      const draft = editRow(draftFromCatalog(catalog), "p-tocino", { available: true });
-      expect(keys(draft, { unavailable: true })).toEqual(["p-tocino"]);
+      const draft = editRows(draftFromCatalog(catalog), ["p-tocino"], {
+        available: true,
+      });
+      expect(keys(draft, { unavailable: 1 })).toEqual(["p-tocino"]);
     });
 
     it("always shows rows not yet saved", () => {
@@ -271,7 +275,9 @@ describe("the Products grid draft", () => {
     });
 
     it("keeps the cells edited and not yet saved, and takes up the rest", () => {
-      const edited = editRow(draftFromCatalog(catalog), "p-tocino", { name: "Tocino" });
+      const edited = editRows(draftFromCatalog(catalog), ["p-tocino"], {
+        name: "Tocino",
+      });
       const draft = syncDraft(edited, { ...catalog, products: [ribeye, repriced] });
       expect(draft.rows[1]?.values).toMatchObject({ name: "Tocino", price: "170.00" });
       expect(changedFields(nth(draft, 1))).toEqual(["name"]);
@@ -289,7 +295,7 @@ describe("the Products grid draft", () => {
     it("keeps a newly saved row where it was, under its own key", () => {
       let draft = addRow(draftFromCatalog(catalog));
       const key = lastKey(draft);
-      draft = editRow(draft, key, { name: "Sirloin", price: "900" });
+      draft = editRows(draft, [key], { name: "Sirloin", price: "900" });
       draft = markSaved(draft, key, "p-sirloin");
       const sirloin: Product = {
         ...tocino,

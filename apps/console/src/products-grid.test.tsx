@@ -1,5 +1,9 @@
 // @vitest-environment jsdom
-import { type CourierClient, saveProduct } from "@courier/api-client";
+import {
+  type CourierClient,
+  fetchDispatcherCatalog,
+  saveProduct,
+} from "@courier/api-client";
 import type { Catalog } from "@courier/domain";
 import { createMemoryHistory, RouterProvider } from "@tanstack/react-router";
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
@@ -160,5 +164,36 @@ describe("the Products grid", () => {
         price: expect.objectContaining({ pricePerKgCentavos: 90000 }),
       }),
     );
+  });
+
+  it("puts a new Product open in the side panel into the URL once it is saved", async () => {
+    const router = renderAt("/catalog/products");
+    await grid();
+
+    fireEvent.click(screen.getByRole("button", { name: "Add row" }));
+    fireEvent.click(screen.getByRole("button", { name: "Details of New Product" }));
+    const panel = screen.getByRole("complementary", { name: "New Product" });
+    fireEvent.change(within(panel).getByLabelText("Name"), {
+      target: { value: "Chorizo" },
+    });
+    fireEvent.change(within(panel).getByLabelText("Price"), {
+      target: { value: "220" },
+    });
+    const chorizo = {
+      id: "p-new",
+      name: "Chorizo",
+      description: null,
+      photoUrl: null,
+      available: true,
+      price: { type: "per_unit", unitPriceCentavos: 22000 },
+    } as const;
+    vi.mocked(fetchDispatcherCatalog).mockResolvedValueOnce({
+      ...catalog,
+      products: [...catalog.products, chorizo],
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    expect(await screen.findByRole("complementary", { name: "Chorizo" })).toBeTruthy();
+    expect(router.state.location.search).toEqual({ product: "p-new" });
   });
 });

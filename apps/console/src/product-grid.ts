@@ -5,6 +5,7 @@ import {
   type ProductFormMessages,
   readProductForm,
 } from "./product-form.js";
+import type { ProductFilters } from "./products-search.js";
 
 /**
  * One row of the Products grid as the dispatcher types it. A single price cell serves
@@ -53,14 +54,11 @@ export interface Draft {
 }
 
 /** A new row: per unit, available, no step, and the 250 g tolerance already filled in. */
-const BLANK: RowValues = valuesFromForm(formFromProduct(null), true, []);
+const BLANK_ROW: RowValues = valuesFromForm(formFromProduct(null), true, []);
 
 export function draftFromCatalog(catalog: Catalog): Draft {
   return {
-    rows: catalog.products.map((product) => {
-      const values = valuesFromProduct(product, catalog);
-      return { key: product.id, productId: product.id, saved: values, values };
-    }),
+    rows: catalog.products.map((product) => savedRow(product, catalog)),
     added: 0,
   };
 }
@@ -68,7 +66,7 @@ export function draftFromCatalog(catalog: Catalog): Draft {
 /** Appends a blank row. */
 export function addRow(draft: Draft): Draft {
   const added = draft.added + 1;
-  return { rows: [...draft.rows, newRow(added, BLANK)], added };
+  return { rows: [...draft.rows, newRow(added, BLANK_ROW)], added };
 }
 
 /** Copies a row, all but its name and photo, into a new row directly below it. */
@@ -100,7 +98,7 @@ export function fillDown(
   return {
     ...draft,
     rows: draft.rows.map((row) =>
-      to.includes(row.key) && relevant(row.values, field)
+      to.includes(row.key) && hasCell(row.values, field)
         ? { ...row, values: { ...row.values, [field]: value } }
         : row,
     ),
@@ -148,13 +146,24 @@ function onCells(messages: ProductFormMessages): CellMessages {
   return cells;
 }
 
-/** Records that a row was saved as it stands, under the Product id the server gave it. */
-export function markSaved(draft: Draft, key: string, productId: string): Draft {
+/**
+ * Records that a row was saved as it stands, under the Product id the server gave it:
+ * all of it, or all but the one cell whose write failed.
+ */
+export function markSaved(
+  draft: Draft,
+  key: string,
+  productId: string,
+  { except }: { except?: GridField } = {},
+): Draft {
   return {
     ...draft,
-    rows: draft.rows.map((row) =>
-      row.key === key ? { ...row, productId, saved: row.values } : row,
-    ),
+    rows: draft.rows.map((row) => {
+      if (row.key !== key) return row;
+      const before = row.saved ?? BLANK_ROW;
+      const saved = except ? { ...row.values, [except]: before[except] } : row.values;
+      return { ...row, productId, saved };
+    }),
   };
 }
 
@@ -194,27 +203,15 @@ export function syncDraft(draft: Draft, catalog: Catalog): Draft {
   });
   const unseen = catalog.products
     .filter((product) => !seen.has(product.id))
-    .map((product): DraftRow => {
-      const values = valuesFromProduct(product, catalog);
-      return { key: product.id, productId: product.id, saved: values, values };
-    });
+    .map((product) => savedRow(product, catalog));
   return { ...draft, rows: [...rows, ...unseen] };
-}
-
-/** What the grid is narrowed to. Each is optional; together they must all match. */
-export interface RowFilters {
-  /** Part of the name, any case. */
-  readonly q?: string | undefined;
-  readonly category?: string | undefined;
-  /** Only unavailable Products. */
-  readonly unavailable?: boolean | undefined;
 }
 
 /**
  * The rows the filters let through. They match what was saved, so a row does not vanish
  * while it is being edited; a row never saved has nothing to match and is always shown.
  */
-export function visibleRows(draft: Draft, filters: RowFilters): DraftRow[] {
+export function visibleRows(draft: Draft, filters: ProductFilters): DraftRow[] {
   const q = filters.q?.trim().toLowerCase() ?? "";
   return draft.rows.filter(({ saved }) => {
     if (saved === null) return true;
@@ -243,21 +240,22 @@ export function fillDownTargets(
   return above === undefined ? null : { from: above, to: [here] };
 }
 
-/** Whether a cell can be edited at all: step and tolerance only on a per-weight row. */
-export function relevant(values: RowValues, field: GridField): boolean {
+/** Whether a row has this cell at all: step and tolerance only on a per-weight row. */
+export function hasCell(values: RowValues, field: GridField): boolean {
   return values.priceType === "per_weight" || (field !== "step" && field !== "tolerance");
+}
+
+/** A Product's row with no edits. */
+function savedRow(product: Product, catalog: Catalog): DraftRow {
+  const values = valuesFromProduct(product, catalog);
+  return { key: product.id, productId: product.id, saved: values, values };
 }
 
 function newRow(added: number, values: RowValues): DraftRow {
   return { key: `new-${added}`, productId: null, saved: null, values };
 }
 
-/** Changes some cells of one row. */
-export function editRow(draft: Draft, key: string, edits: Partial<RowValues>): Draft {
-  return editRows(draft, [key], edits);
-}
-
-/** Changes the same cells of several rows, as the bulk actions do. */
+/** Changes the same cells of one or more rows. */
 export function editRows(
   draft: Draft,
   keys: readonly string[],
@@ -307,9 +305,9 @@ function mapRows(
 /** The cells that differ from what was last saved. A per-unit row has no step or tolerance. */
 export function changedFields(row: DraftRow): GridField[] {
   const { values } = row;
-  const saved = row.saved ?? BLANK;
+  const saved = row.saved ?? BLANK_ROW;
   return (Object.keys(values) as GridField[]).filter(
-    (field) => relevant(values, field) && !same(values[field], saved[field]),
+    (field) => hasCell(values, field) && !sameValue(values[field], saved[field]),
   );
 }
 
@@ -346,7 +344,7 @@ function valuesFromForm(
   };
 }
 
-function same(a: RowValues[GridField], b: RowValues[GridField]): boolean {
+function sameValue(a: RowValues[GridField], b: RowValues[GridField]): boolean {
   if (Array.isArray(a) && Array.isArray(b)) {
     return a.length === b.length && a.every((id) => b.includes(id));
   }

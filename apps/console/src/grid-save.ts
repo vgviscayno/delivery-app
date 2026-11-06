@@ -27,6 +27,12 @@ export type RowResult =
       /** Set when the Product itself was saved and a later write for it failed. */
       readonly productId: string | null;
       readonly message: string;
+    }
+  | {
+      /** The Product and its availability were saved; its Category moves were not. */
+      readonly status: "categoriesFailed";
+      readonly productId: string;
+      readonly message: string;
     };
 
 /** The cells `save_product` writes. Availability and Categories have RPCs of their own. */
@@ -70,7 +76,7 @@ export async function saveDraft(
       } catch (error) {
         const message = messageOf(error);
         for (const { key, productId } of list.movedBy) {
-          results.set(key, { status: "failed", productId, message });
+          results.set(key, { status: "categoriesFailed", productId, message });
         }
       }
     }),
@@ -80,8 +86,9 @@ export async function saveDraft(
 }
 
 /**
- * The draft once Save's results are in: saved rows have no edits left, and a new row
- * whose Product was added before a later write failed keeps that Product's id.
+ * The draft once Save's results are in: saved rows have no edits left but the Category
+ * moves that failed, and a new row whose Product was added before a later write failed
+ * keeps that Product's id.
  */
 export function applyResults(
   draft: Draft,
@@ -90,7 +97,9 @@ export function applyResults(
   let next = draft;
   for (const [key, result] of results) {
     if (result.status === "saved") next = markSaved(next, key, result.productId);
-    else if (result.status === "failed" && result.productId !== null) {
+    else if (result.status === "categoriesFailed") {
+      next = markSaved(next, key, result.productId, { except: "categoryIds" });
+    } else if (result.status === "failed" && result.productId !== null) {
       next = linkProduct(next, key, result.productId);
     }
   }

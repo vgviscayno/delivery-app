@@ -6,7 +6,7 @@ import {
   changedFields,
   type Draft,
   draftFromCatalog,
-  editRow,
+  editRows,
   isDirty,
 } from "./product-grid.js";
 
@@ -74,8 +74,8 @@ const lastKey = (draft: Draft) => draft.rows.at(-1)?.key ?? "";
 describe("saving the Products grid", () => {
   it("writes each valid changed row, and leaves invalid ones in the draft", async () => {
     let draft = draftFromCatalog(catalog);
-    draft = editRow(draft, "p-ribeye", { price: "1250" });
-    draft = editRow(draft, "p-tocino", { price: "" });
+    draft = editRows(draft, ["p-ribeye"], { price: "1250" });
+    draft = editRows(draft, ["p-tocino"], { price: "" });
     const { writes, calls } = fakeWrites();
 
     const results = await saveDraft(draft, catalog, writes);
@@ -90,7 +90,7 @@ describe("saving the Products grid", () => {
   });
 
   it("switches availability without saving the Product's other fields", async () => {
-    const draft = editRow(draftFromCatalog(catalog), "p-tocino", { available: false });
+    const draft = editRows(draftFromCatalog(catalog), ["p-tocino"], { available: false });
     const { writes, calls } = fakeWrites();
 
     await saveDraft(draft, catalog, writes);
@@ -100,7 +100,7 @@ describe("saving the Products grid", () => {
 
   it("adds a new row, then switches it off if it was entered unavailable", async () => {
     let draft = addRow(draftFromCatalog(catalog));
-    draft = editRow(draft, lastKey(draft), {
+    draft = editRows(draft, [lastKey(draft)], {
       name: "Chorizo",
       price: "220",
       available: false,
@@ -121,10 +121,10 @@ describe("saving the Products grid", () => {
 
   it("writes each touched Category once, putting Products newly added last", async () => {
     let draft = draftFromCatalog(catalog);
-    draft = editRow(draft, "p-ribeye", { categoryIds: ["c-beef", "c-pork"] });
-    draft = editRow(draft, "p-longganisa", { categoryIds: [] });
+    draft = editRows(draft, ["p-ribeye"], { categoryIds: ["c-beef", "c-pork"] });
+    draft = editRows(draft, ["p-longganisa"], { categoryIds: [] });
     draft = addRow(draft);
-    draft = editRow(draft, lastKey(draft), {
+    draft = editRows(draft, [lastKey(draft)], {
       name: "Chorizo",
       price: "220",
       categoryIds: ["c-pork"],
@@ -140,12 +140,12 @@ describe("saving the Products grid", () => {
 
   it("reports a row the server refused, and writes nothing more for it", async () => {
     let draft = addRow(draftFromCatalog(catalog));
-    draft = editRow(draft, lastKey(draft), {
+    draft = editRows(draft, [lastKey(draft)], {
       name: "Chorizo",
       price: "220",
       categoryIds: ["c-pork"],
     });
-    draft = editRow(draft, "p-ribeye", { name: "Rib-eye" });
+    draft = editRows(draft, ["p-ribeye"], { name: "Rib-eye" });
     const { writes, calls } = fakeWrites({ saveProduct: "Chorizo" });
 
     const results = await saveDraft(draft, catalog, writes);
@@ -159,11 +159,29 @@ describe("saving the Products grid", () => {
     expect(calls.some(([write]) => write === "setCategoryProducts")).toBe(false);
   });
 
+  it("tells a row whose Category write failed apart from one that was not saved", async () => {
+    let draft = draftFromCatalog(catalog);
+    draft = editRows(draft, ["p-ribeye"], { name: "Rib-eye", categoryIds: ["c-pork"] });
+    const { writes } = fakeWrites();
+    writes.setCategoryProducts = async () => {
+      throw new Error("no such Category");
+    };
+
+    const results = await saveDraft(draft, catalog, writes);
+    expect(results.get("p-ribeye")).toEqual({
+      status: "categoriesFailed",
+      productId: "p-ribeye",
+      message: "no such Category",
+    });
+    const ribeye = applyResults(draft, results).rows[0];
+    expect(ribeye && changedFields(ribeye)).toEqual(["categoryIds"]);
+  });
+
   describe("the draft after Save", () => {
     it("has no edits left on the rows that were saved", async () => {
       let draft = draftFromCatalog(catalog);
-      draft = editRow(draft, "p-ribeye", { price: "1250" });
-      draft = editRow(draft, "p-tocino", { price: "" });
+      draft = editRows(draft, ["p-ribeye"], { price: "1250" });
+      draft = editRows(draft, ["p-tocino"], { price: "" });
       const { writes } = fakeWrites();
 
       draft = applyResults(draft, await saveDraft(draft, catalog, writes));
@@ -171,24 +189,26 @@ describe("saving the Products grid", () => {
       expect(draft.rows.map((row) => changedFields(row))).toEqual([[], ["price"], []]);
     });
 
-    it("keeps the id of a new Product whose Category write failed, so it is not added twice", async () => {
+    it("retries only the Category write of a new Product, so it is not added twice", async () => {
       let draft = addRow(draftFromCatalog(catalog));
-      draft = editRow(draft, lastKey(draft), {
+      draft = editRows(draft, [lastKey(draft)], {
         name: "Chorizo",
         price: "220",
         categoryIds: ["c-pork"],
       });
-      const { writes, calls } = fakeWrites();
+      const { writes } = fakeWrites();
       writes.setCategoryProducts = async () => {
         throw new Error("no such Category");
       };
 
       draft = applyResults(draft, await saveDraft(draft, catalog, writes));
       expect(isDirty(draft)).toBe(true);
-      calls.length = 0;
-      await saveDraft(draft, catalog, writes);
+      const retry = fakeWrites();
+      await saveDraft(draft, catalog, retry.writes);
 
-      expect(calls[0]).toEqual(["saveProduct", "p-new-1", "Chorizo"]);
+      expect(retry.calls).toEqual([
+        ["setCategoryProducts", "c-pork", ["p-longganisa", "p-tocino", "p-new-1"]],
+      ]);
     });
   });
 });

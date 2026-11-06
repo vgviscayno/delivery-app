@@ -8,6 +8,7 @@ import {
 import type { Category, PriceType } from "@courier/domain";
 import { getRouteApi, useBlocker } from "@tanstack/react-router";
 import {
+  type ComponentProps,
   Fragment,
   type KeyboardEvent,
   type ReactNode,
@@ -28,21 +29,21 @@ import {
   type DraftRow,
   draftFromCatalog,
   duplicateRow,
-  editRow,
   editRows,
   fillDown,
   fillDownTargets,
   type GridField,
+  hasCell,
   isDirty,
   type RowValues,
   readRow,
-  relevant,
   removeFromCategory,
   removeRows,
   syncDraft,
   visibleRows,
 } from "./product-grid.js";
-import { Failure, messageOf } from "./write.js";
+import type { ProductFilters } from "./products-search.js";
+import { Failure, useWrite } from "./write.js";
 
 const route = getRouteApi("/catalog/products");
 
@@ -65,12 +66,17 @@ const HINT = {
     "How far the packed weight may differ before the customer must approve the new price.",
 } as const;
 
+/** What follows each number cell, in the grid and the side panel alike. */
+const UNIT = { step: "g steps", tolerance: "g" } as const;
+
+const priceUnit = (type: PriceType) => (type === "per_unit" ? "each" : "/ kg");
+
 const PRICE_TYPES: readonly { value: PriceType; label: string }[] = [
   { value: "per_unit", label: "Per unit" },
   { value: "per_weight", label: "Per weight" },
 ];
 
-const GONE = "That Product no longer exists.";
+const PRODUCT_GONE = "That Product no longer exists.";
 
 /** Navigating within the Products view (filters, the side panel) never asks. */
 const leavesProducts = ({
@@ -97,9 +103,10 @@ export function ProductsSection() {
   /** A row never saved has no id for the URL, so the panel follows it here instead. */
   const [openUnsaved, setOpenUnsaved] = useState<string | null>(null);
   const [notice, setNotice] = useState<string>();
-  const [saving, setSaving] = useState(false);
-  const [deleting, setDeleting] = useState(false);
-  const [error, setError] = useState<string>();
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const saving = useWrite(onSaved);
+  const deleting = useWrite(onSaved);
+  const busy = saving.busy || deleting.busy;
 
   // Each read of the catalog — after Save, after Delete — is folded into the draft.
   useEffect(() => setDraft((current) => syncDraft(current, catalog)), [catalog]);
@@ -107,7 +114,7 @@ export function ProductsSection() {
   // An id in the URL that is not in the catalog: an old link, or a Product deleted since.
   useEffect(() => {
     if (search.product && !catalog.products.some((each) => each.id === search.product)) {
-      setNotice(GONE);
+      setNotice(PRODUCT_GONE);
       void navigate({ search: ({ product: _, ...rest }) => rest, replace: true });
     }
   }, [search.product, catalog, navigate]);
@@ -122,11 +129,7 @@ export function ProductsSection() {
     withResolver: true,
   });
 
-  const rows = visibleRows(draft, {
-    q: search.q,
-    category: search.category,
-    unavailable: search.unavailable === 1,
-  });
+  const rows = visibleRows(draft, search);
   const open =
     draft.rows.find((row) =>
       openUnsaved !== null
@@ -135,7 +138,7 @@ export function ProductsSection() {
     ) ?? null;
 
   const edit = useCallback((key: string, edits: Partial<RowValues>) => {
-    setDraft((current) => editRow(current, key, edits));
+    setDraft((current) => editRows(current, [key], edits));
     setResults((current) => withoutSettled(current, [key]));
   }, []);
 
@@ -149,36 +152,40 @@ export function ProductsSection() {
   }
 
   async function save() {
-    setSaving(true);
-    setError(undefined);
-    try {
+    let savedOpenId: string | null = null;
+    const ok = await saving.run(async () => {
       const saved = await saveDraft(draft, catalog, writesFor(client));
       setDraft((current) => applyResults(current, saved));
       setResults(saved);
-      await onSaved();
-    } catch (thrown) {
-      setError(messageOf(thrown));
-    } finally {
-      setSaving(false);
+      if (openUnsaved !== null) savedOpenId = productIdOf(saved.get(openUnsaved));
+    });
+    // A new row open in the panel now has an id for the URL. Only once the catalog has
+    // been read back, or the URL would name a Product the page has not heard of yet.
+    if (ok && savedOpenId !== null) {
+      const product = savedOpenId;
+      setOpenUnsaved(null);
+      void navigate({ search: (current) => ({ ...current, product }), replace: true });
     }
   }
 
-  async function deleteTicked() {
-    const keys = [...ticked];
-    const productIds = draft.rows.flatMap((row) =>
-      keys.includes(row.key) && row.productId !== null ? [row.productId] : [],
-    );
-    setDeleting(false);
-    setError(undefined);
-    try {
-      await Promise.all(productIds.map((id) => deleteProduct(client, id)));
-      setDraft((current) => removeRows(current, keys));
-      setTicked(new Set());
-      if (open && keys.includes(open.key)) openRow(null);
-    } catch (thrown) {
-      setError(messageOf(thrown));
-    }
-    await onSaved();
+  /** Deletes each ticked row on its own: those the server deletes go, even if some fail. */
+  function deleteTicked() {
+    setConfirmingDelete(false);
+    const doomed = draft.rows.filter((row) => ticked.has(row.key));
+    void deleting.run(async () => {
+      const outcomes = await Promise.allSettled(
+        doomed.map(async (row) => {
+          if (row.productId !== null) await deleteProduct(client, row.productId);
+        }),
+      );
+      const gone = doomed.filter((_, i) => outcomes[i]?.status === "fulfilled");
+      const goneKeys = gone.map((row) => row.key);
+      setDraft((current) => removeRows(current, goneKeys));
+      setTicked((current) => toggled(current, goneKeys, false));
+      if (open && goneKeys.includes(open.key)) openRow(null);
+      const refused = outcomes.find((outcome) => outcome.status === "rejected");
+      if (refused) throw refused.reason;
+    });
   }
 
   const tickedKeys = [...ticked];
@@ -193,8 +200,8 @@ export function ProductsSection() {
         <h2 id="products-heading">Products</h2>
         <p className="detail">
           What customers can order. Edits stay here until you press Save, and never change
-          Orders already placed. Tab moves between cells, Enter moves down, and Ctrl+D
-          fills down: into the ticked rows below, or from the row above.
+          Orders already placed. Tab moves between cells, and Ctrl+D fills down: into the
+          ticked rows below, or from the row above.
         </p>
 
         <Filters categories={catalog.categories} />
@@ -207,16 +214,17 @@ export function ProductsSection() {
             type="button"
             data-tour="save"
             className="primary"
-            disabled={!dirty || saving}
+            disabled={!dirty || busy}
             onClick={() => void save()}
           >
-            {saving ? "Saving…" : "Save"}
+            {saving.busy ? "Saving…" : "Save"}
           </button>
           {dirty && <span className="detail">Unsaved changes are highlighted.</span>}
         </div>
 
         <BulkBar
           count={ticked.size}
+          deleting={deleting.busy}
           categories={catalog.categories}
           onAvailable={(available) =>
             bulk((current) => editRows(current, tickedKeys, { available }))
@@ -225,7 +233,7 @@ export function ProductsSection() {
           onRemoveFrom={(id) =>
             bulk((current) => removeFromCategory(current, tickedKeys, id))
           }
-          onDelete={() => setDeleting(true)}
+          onDelete={() => setConfirmingDelete(true)}
         />
 
         {notice && (
@@ -233,14 +241,14 @@ export function ProductsSection() {
             {notice}
           </p>
         )}
-        <Failure message={error} />
+        <Failure message={saving.error ?? deleting.error} />
 
         {rows.length === 0 ? (
           <p className="detail">
             {draft.rows.length === 0 ? "No Products yet." : "No Products match."}
           </p>
         ) : (
-          <fieldset disabled={saving} className="grid-frame">
+          <fieldset disabled={busy} className="grid-frame">
             <Grid
               rows={rows}
               categories={catalog.categories}
@@ -265,19 +273,20 @@ export function ProductsSection() {
           // A fresh panel for each row, so it takes focus as it opens.
           key={open.key}
           row={open}
-          disabled={saving}
+          messages={messages(open, results.get(open.key))}
+          disabled={busy}
           onEdit={(edits) => edit(open.key, edits)}
           onClose={() => openRow(null)}
         />
       )}
 
-      {deleting && (
+      {confirmingDelete && (
         <Dialog
           title={`Delete ${plural(ticked.size, "Product")}?`}
           confirm="Delete"
           cancel="Keep them"
-          onConfirm={() => void deleteTicked()}
-          onCancel={() => setDeleting(false)}
+          onConfirm={deleteTicked}
+          onCancel={() => setConfirmingDelete(false)}
         >
           <p>
             Customers will no longer see them. Orders already placed keep them. This
@@ -305,11 +314,9 @@ function Filters({ categories }: { categories: readonly Category[] }) {
   const search = route.useSearch();
   const navigate = route.useNavigate();
   /** Changes some filters, dropping any left empty from the URL. */
-  const set = (changes: {
-    q?: string | undefined;
-    category?: string | undefined;
-    unavailable?: 1 | undefined;
-  }) =>
+  const set = (
+    changes: { [K in keyof ProductFilters]?: ProductFilters[K] | undefined },
+  ) =>
     void navigate({
       search: (current) => {
         const next: Record<string, unknown> = { ...current, ...changes };
@@ -336,11 +343,7 @@ function Filters({ categories }: { categories: readonly Category[] }) {
         onChange={(event) => set({ category: event.target.value })}
       >
         <option value="">Every Category</option>
-        {categories.map((category) => (
-          <option key={category.id} value={category.id}>
-            {category.name}
-          </option>
-        ))}
+        <CategoryOptions categories={categories} />
       </select>
       <label>
         <input
@@ -358,6 +361,7 @@ function Filters({ categories }: { categories: readonly Category[] }) {
 
 function BulkBar({
   count,
+  deleting,
   categories,
   onAvailable,
   onAddTo,
@@ -365,6 +369,7 @@ function BulkBar({
   onDelete,
 }: {
   count: number;
+  deleting: boolean;
   categories: readonly Category[];
   onAvailable: (available: boolean) => void;
   onAddTo: (categoryId: string) => void;
@@ -382,11 +387,7 @@ function BulkBar({
       }}
     >
       <option value="">{label}…</option>
-      {categories.map((category) => (
-        <option key={category.id} value={category.id}>
-          {category.name}
-        </option>
-      ))}
+      <CategoryOptions categories={categories} />
     </select>
   );
 
@@ -404,8 +405,13 @@ function BulkBar({
       </button>
       {categoryAction("Add to Category", onAddTo)}
       {categoryAction("Remove from Category", onRemoveFrom)}
-      <button type="button" className="danger" disabled={none} onClick={onDelete}>
-        Delete
+      <button
+        type="button"
+        className="danger"
+        disabled={none || deleting}
+        onClick={onDelete}
+      >
+        {deleting ? "Deleting…" : "Delete"}
       </button>
     </fieldset>
   );
@@ -434,7 +440,6 @@ function Grid({
   onDuplicate: (key: string) => void;
   onOpen: (row: DraftRow) => void;
 }) {
-  const table = useRef<HTMLTableElement>(null);
   const allTicked = rows.every((row) => ticked.has(row.key));
 
   // Spreadsheet keys, read off the cell that has focus.
@@ -452,22 +457,11 @@ function Grid({
         ticked,
       );
       if (fill) onFillDown(field, fill.from, fill.to);
-    } else if (event.key === "Enter" && cell.tagName === "INPUT") {
-      event.preventDefault();
-      const next = index + (event.shiftKey ? -1 : 1);
-      table.current
-        ?.querySelector<HTMLElement>(`[data-row="${next}"][data-field="${field}"]`)
-        ?.focus();
     }
   }
 
   return (
-    <table
-      ref={table}
-      className="products-grid"
-      aria-label="Products"
-      onKeyDown={onKeyDown}
-    >
+    <table className="products-grid" aria-label="Products" onKeyDown={onKeyDown}>
       <thead data-tour="grid-header">
         <tr>
           <th scope="col">
@@ -475,14 +469,15 @@ function Grid({
               type="checkbox"
               aria-label="Tick every row shown"
               checked={allTicked}
-              onChange={() => {
-                const next = new Set(ticked);
-                for (const row of rows) {
-                  if (allTicked) next.delete(row.key);
-                  else next.add(row.key);
-                }
-                onTick(next);
-              }}
+              onChange={() =>
+                onTick(
+                  toggled(
+                    ticked,
+                    rows.map((row) => row.key),
+                    !allTicked,
+                  ),
+                )
+              }
             />
           </th>
           <th scope="col">{LABEL.name}</th>
@@ -511,12 +506,7 @@ function Grid({
             result={results.get(row.key)}
             ticked={ticked.has(row.key)}
             open={row.key === openKey}
-            onTick={(on) => {
-              const next = new Set(ticked);
-              if (on) next.add(row.key);
-              else next.delete(row.key);
-              onTick(next);
-            }}
+            onTick={(on) => onTick(toggled(ticked, [row.key], on))}
             onEdit={(edits) => onEdit(row.key, edits)}
             onDuplicate={() => onDuplicate(row.key)}
             onOpen={() => onOpen(row)}
@@ -579,7 +569,8 @@ function GridRow({
     </td>
   );
 
-  const at = (field: GridField) => ({
+  /** What every cell's control carries: where it is, for Ctrl+D, and its name. */
+  const cellProps = (field: GridField) => ({
     "data-row": index,
     "data-field": field,
     "aria-label": `${LABEL[field]} of ${title}`,
@@ -603,7 +594,7 @@ function GridRow({
       {cell(
         "name",
         <input
-          {...at("name")}
+          {...cellProps("name")}
           type="text"
           value={values.name}
           onChange={(event) => onEdit({ name: event.target.value })}
@@ -611,50 +602,32 @@ function GridRow({
       )}
       {cell(
         "priceType",
-        <select
-          {...at("priceType")}
+        <PriceTypeSelect
+          {...cellProps("priceType")}
           value={values.priceType}
-          onChange={(event) => onEdit({ priceType: event.target.value as PriceType })}
-        >
-          {PRICE_TYPES.map((type) => (
-            <option key={type.value} value={type.value}>
-              {type.label}
-            </option>
-          ))}
-        </select>,
+          onChange={(priceType) => onEdit({ priceType })}
+        />,
       )}
       {cell(
         "price",
-        <span className="affixed">
-          ₱
-          <input
-            {...at("price")}
-            type="text"
-            inputMode="decimal"
-            size={8}
-            value={values.price}
-            onChange={(event) => onEdit({ price: event.target.value })}
-          />
-          <span>{values.priceType === "per_unit" ? "each" : "/ kg"}</span>
-        </span>,
+        <PriceInput
+          {...cellProps("price")}
+          priceType={values.priceType}
+          value={values.price}
+          onChange={(price) => onEdit({ price })}
+        />,
       )}
       {(["step", "tolerance"] as const).map((field) =>
-        relevant(values, field) ? (
+        hasCell(values, field) ? (
           <Fragment key={field}>
             {cell(
               field,
-              <span className="affixed">
-                {field === "tolerance" && "±"}
-                <input
-                  {...at(field)}
-                  type="text"
-                  inputMode="numeric"
-                  size={5}
-                  value={values[field]}
-                  onChange={(event) => onEdit({ [field]: event.target.value })}
-                />
-                <span>{field === "step" ? "g steps" : "g"}</span>
-              </span>,
+              <GramsInput
+                {...cellProps(field)}
+                field={field}
+                value={values[field]}
+                onChange={(grams) => onEdit({ [field]: grams })}
+              />,
             )}
           </Fragment>
         ) : (
@@ -666,7 +639,7 @@ function GridRow({
       {cell(
         "available",
         <input
-          {...at("available")}
+          {...cellProps("available")}
           type="checkbox"
           checked={values.available}
           onChange={(event) => onEdit({ available: event.target.checked })}
@@ -675,7 +648,7 @@ function GridRow({
       {cell(
         "categoryIds",
         <CategoryPicker
-          {...at("categoryIds")}
+          {...cellProps("categoryIds")}
           categories={categories}
           chosen={values.categoryIds}
           onChange={(categoryIds) => onEdit({ categoryIds })}
@@ -715,9 +688,96 @@ function RowStatus({
   if (result.status === "failed") {
     return <span className="notice">Not saved: {result.message}</span>;
   }
+  if (result.status === "categoriesFailed") {
+    return (
+      <span className="notice">Saved, but its Categories were not: {result.message}</span>
+    );
+  }
   return Object.keys(errors).length > 0 ? (
     <span className="notice">Not saved: fix the marked cells</span>
   ) : null;
+}
+
+function PriceTypeSelect({
+  value,
+  onChange,
+  ...select
+}: {
+  value: PriceType;
+  onChange: (priceType: PriceType) => void;
+} & Omit<ComponentProps<"select">, "value" | "onChange">) {
+  return (
+    <select
+      {...select}
+      value={value}
+      onChange={(event) => onChange(event.target.value as PriceType)}
+    >
+      {PRICE_TYPES.map((type) => (
+        <option key={type.value} value={type.value}>
+          {type.label}
+        </option>
+      ))}
+    </select>
+  );
+}
+
+type TextInputProps = {
+  value: string;
+  onChange: (value: string) => void;
+} & Omit<ComponentProps<"input">, "value" | "onChange">;
+
+/** The price, between "₱" and "each" or "/ kg", so it reads as it will be shown. */
+function PriceInput({
+  priceType,
+  value,
+  onChange,
+  ...input
+}: TextInputProps & { priceType: PriceType }) {
+  return (
+    <span className="affixed">
+      ₱
+      <input
+        {...input}
+        type="text"
+        inputMode="decimal"
+        size={8}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+      />
+      <span>{priceUnit(priceType)}</span>
+    </span>
+  );
+}
+
+/** A step or a tolerance, in grams: "250 g steps", "±30 g". */
+function GramsInput({
+  field,
+  value,
+  onChange,
+  ...input
+}: TextInputProps & { field: "step" | "tolerance" }) {
+  return (
+    <span className="affixed">
+      {field === "tolerance" && "±"}
+      <input
+        {...input}
+        type="text"
+        inputMode="numeric"
+        size={5}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+      />
+      <span>{UNIT[field]}</span>
+    </span>
+  );
+}
+
+function CategoryOptions({ categories }: { categories: readonly Category[] }) {
+  return categories.map((category) => (
+    <option key={category.id} value={category.id}>
+      {category.name}
+    </option>
+  ));
 }
 
 /**
@@ -769,15 +829,17 @@ function CategoryPicker({
 
 /**
  * The open row in full, docked beside the grid: the long description, and the same cells
- * under the same labels and hints. It edits the same draft as the grid.
+ * under the same labels, hints and units. It edits the same draft as the grid.
  */
 function SidePanel({
   row,
+  messages: { errors, warnings },
   disabled,
   onEdit,
   onClose,
 }: {
   row: DraftRow;
+  messages: { errors: CellMessages; warnings: CellMessages };
   disabled: boolean;
   onEdit: (edits: Partial<RowValues>) => void;
   onClose: () => void;
@@ -787,34 +849,23 @@ function SidePanel({
   const { values } = row;
   const title = rowTitle(row);
   const changed = changedFields(row);
-  const read = readRow(row);
-  const warnings = read.ok ? read.warnings : {};
 
-  /** A labelled control, under the same label as its column, with a hint or warning. */
+  /** A control under the same label as its column, with its error, warning or hint. */
   const field = (name: GridField, control: (id: string) => ReactNode, hint?: string) => {
     const id = `side-panel-${name}`;
+    const message = errors[name] ?? warnings[name];
     return (
       <div className={`panel-field${changed.includes(name) ? " changed" : ""}`}>
         <label htmlFor={id}>{LABEL[name]}</label>
         {control(id)}
-        {warnings[name] ? (
-          <span className="warning">{warnings[name]}</span>
+        {message ? (
+          <span className={errors[name] ? "notice" : "warning"}>{message}</span>
         ) : (
           hint && <span className="detail">{hint}</span>
         )}
       </div>
     );
   };
-
-  const text =
-    (name: "name" | "price" | "step" | "tolerance" | "photoUrl") => (id: string) => (
-      <input
-        id={id}
-        type="text"
-        value={values[name]}
-        onChange={(event) => onEdit({ [name]: event.target.value })}
-      />
-    );
 
   return (
     <aside
@@ -833,34 +884,53 @@ function SidePanel({
           ×
         </button>
       </div>
+      {values.photoUrl && (
+        <img className="panel-photo" src={values.photoUrl} alt={title} />
+      )}
       <fieldset disabled={disabled}>
-        {field("name", text("name"))}
+        {field("name", (id) => (
+          <input
+            id={id}
+            type="text"
+            value={values.name}
+            onChange={(event) => onEdit({ name: event.target.value })}
+          />
+        ))}
         {field("priceType", (id) => (
-          <select
+          <PriceTypeSelect
             id={id}
             value={values.priceType}
-            onChange={(event) => onEdit({ priceType: event.target.value as PriceType })}
-          >
-            {PRICE_TYPES.map((type) => (
-              <option key={type.value} value={type.value}>
-                {type.label}
-              </option>
-            ))}
-          </select>
+            onChange={(priceType) => onEdit({ priceType })}
+          />
         ))}
-        {field(
-          "price",
-          text("price"),
-          values.priceType === "per_unit" ? "₱ each" : "₱ per kg",
-        )}
-        {relevant(values, "step") ? (
-          <>
-            {field("step", text("step"), `${HINT.step} In grams.`)}
-            {field("tolerance", text("tolerance"), `${HINT.tolerance} In grams.`)}
-          </>
+        {field("price", (id) => (
+          <PriceInput
+            id={id}
+            priceType={values.priceType}
+            value={values.price}
+            onChange={(price) => onEdit({ price })}
+          />
+        ))}
+        {hasCell(values, "step") ? (
+          (["step", "tolerance"] as const).map((name) => (
+            <Fragment key={name}>
+              {field(
+                name,
+                (id) => (
+                  <GramsInput
+                    id={id}
+                    field={name}
+                    value={values[name]}
+                    onChange={(grams) => onEdit({ [name]: grams })}
+                  />
+                ),
+                HINT[name],
+              )}
+            </Fragment>
+          ))
         ) : (
           <p className="detail">
-            {LABEL.step} and {LABEL.tolerance}: — (sold per unit)
+            {LABEL.step}: — · {LABEL.tolerance}: —
           </p>
         )}
         {field(
@@ -875,7 +945,6 @@ function SidePanel({
           ),
           "Optional. Shown to customers with the Product.",
         )}
-        {field("photoUrl", text("photoUrl"), "Optional. https://…")}
       </fieldset>
     </aside>
   );
@@ -905,6 +974,25 @@ function withoutSettled(
     if (next.get(key)?.status !== "invalid") next.delete(key);
   }
   return next;
+}
+
+/** The ticked rows, with these rows ticked or unticked. */
+function toggled(
+  ticked: ReadonlySet<string>,
+  keys: readonly string[],
+  on: boolean,
+): ReadonlySet<string> {
+  const next = new Set(ticked);
+  for (const key of keys) {
+    if (on) next.add(key);
+    else next.delete(key);
+  }
+  return next;
+}
+
+/** The Product a row's Save left it tied to, if Save got as far as making one. */
+function productIdOf(result: RowResult | undefined): string | null {
+  return result && result.status !== "invalid" ? result.productId : null;
 }
 
 /** What a row is called in labels: its saved name, so a label holds still while typing. */

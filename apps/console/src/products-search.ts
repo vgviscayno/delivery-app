@@ -2,10 +2,14 @@
  * What `/catalog/products` keeps in its URL, so a refresh or a pasted link opens the
  * same view: the Product open in the side panel and the filters. Never draft edits.
  */
-export interface ProductsSearch {
+export interface ProductsSearch extends ProductFilters {
   /** The Product open in the side panel. */
   readonly product?: string;
-  /** Part of a Product's name. */
+}
+
+/** What the grid is narrowed to. Each is optional; together they must all match. */
+export interface ProductFilters {
+  /** Part of a Product's name, any case. */
   readonly q?: string;
   /** Only Products in this Category. */
   readonly category?: string;
@@ -19,9 +23,9 @@ export interface ProductsSearch {
  * so an old or hand-edited link still opens.
  */
 export function readProductsSearch(search: Record<string, unknown>): ProductsSearch {
-  const product = text(search.product);
-  const q = text(search.q);
-  const category = text(search.category);
+  const product = nonEmptyText(search.product);
+  const q = nonEmptyText(search.q);
+  const category = nonEmptyText(search.category);
   const unavailable = search.unavailable === 1 || search.unavailable === "1";
   return {
     ...(product && { product }),
@@ -31,7 +35,7 @@ export function readProductsSearch(search: Record<string, unknown>): ProductsSea
   };
 }
 
-function text(value: unknown): string | undefined {
+function nonEmptyText(value: unknown): string | undefined {
   if (typeof value === "number") return String(value);
   if (typeof value === "string" && value.trim() !== "") return value;
   return undefined;
