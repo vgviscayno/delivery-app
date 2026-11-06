@@ -9,12 +9,7 @@ import {
   View,
 } from "react-native";
 import type { RememberedDriver } from "./remembered-drivers";
-
-type Step =
-  | { readonly kind: "pick" }
-  | { readonly kind: "password"; readonly driver: RememberedDriver }
-  | { readonly kind: "someone-else" }
-  | { readonly kind: "first-time" };
+import { type Step, stepShown } from "./sign-in-steps";
 
 export interface SignInProps {
   readonly remembered: readonly RememberedDriver[];
@@ -38,9 +33,9 @@ export function SignIn({
   onAcceptInvite,
   onForget,
 }: SignInProps) {
-  const [step, setStep] = useState<Step>(
-    remembered.length > 0 ? { kind: "pick" } : { kind: "someone-else" },
-  );
+  const [chosen, setStep] = useState<Step>({ kind: "pick" });
+  // Worked out on every render, so removing the last name leaves the list at once.
+  const step = stepShown(chosen, remembered);
   const back = remembered.length > 0 ? () => setStep({ kind: "pick" }) : undefined;
 
   return (
@@ -104,9 +99,7 @@ export function SignIn({
       {step.kind === "first-time" && (
         <InviteForm
           busy={busy}
-          onBack={() =>
-            setStep(remembered.length > 0 ? { kind: "pick" } : { kind: "someone-else" })
-          }
+          onBack={() => setStep({ kind: "pick" })}
           onSubmit={onAcceptInvite}
         />
       )}
