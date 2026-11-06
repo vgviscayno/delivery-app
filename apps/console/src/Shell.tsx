@@ -1,9 +1,10 @@
 import type { CourierClient, Dispatcher } from "@courier/api-client";
 import { useState } from "react";
+import { Catalog } from "./Catalog.js";
 import { Settings } from "./Settings.js";
 import { ShopClock } from "./ShopClock.js";
 
-const MODES = ["Dispatch", "Packing bench", "Settings"] as const;
+const MODES = ["Dispatch", "Packing bench", "Catalog", "Settings"] as const;
 type Mode = (typeof MODES)[number];
 
 export interface ShellProps {
@@ -12,7 +13,7 @@ export interface ShellProps {
   readonly onSignOut: () => void;
 }
 
-/** The signed-in console: the three modes. Only Settings has anything in it yet. */
+/** The signed-in console: its modes, kept in memory. A mode with no content yet says so. */
 export function Shell({ client, dispatcher, onSignOut }: ShellProps) {
   const [mode, setMode] = useState<Mode>("Dispatch");
 
@@ -40,7 +41,9 @@ export function Shell({ client, dispatcher, onSignOut }: ShellProps) {
       </header>
       <main aria-label={mode}>
         <h1>{mode}</h1>
-        {mode === "Settings" ? (
+        {mode === "Catalog" ? (
+          <Catalog client={client} />
+        ) : mode === "Settings" ? (
           <Settings client={client} />
         ) : (
           <p className="detail">Nothing here yet.</p>
