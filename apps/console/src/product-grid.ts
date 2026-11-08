@@ -69,6 +69,36 @@ export function addRow(draft: Draft): Draft {
   return { rows: [...draft.rows, newRow(added, BLANK_ROW)], added };
 }
 
+/** The key of the row the Products tour adds to demonstrate on. Never a `new-` key. */
+export const TOUR_ROW_KEY = "tour-row";
+
+/** What the tour's row holds: a per-weight Product, so every column has a value. */
+const TOUR_ROW: RowValues = {
+  ...BLANK_ROW,
+  name: "Sample Product",
+  priceType: "per_weight",
+  price: "450.00",
+  step: "250",
+  tolerance: "30",
+};
+
+/** Appends the tour's own row, unless it is already there. */
+export function addTourRow(draft: Draft): Draft {
+  if (draft.rows.some((row) => row.key === TOUR_ROW_KEY)) return draft;
+  const row: DraftRow = {
+    key: TOUR_ROW_KEY,
+    productId: null,
+    saved: null,
+    values: TOUR_ROW,
+  };
+  return { ...draft, rows: [...draft.rows, row] };
+}
+
+/** The draft as the dispatcher made it: what Save writes and what counts as unsaved. */
+export function withoutTourRow(draft: Draft): Draft {
+  return removeRows(draft, [TOUR_ROW_KEY]);
+}
+
 /** Copies a row, all but its name and photo, into a new row directly below it. */
 export function duplicateRow(draft: Draft, key: string): Draft {
   const added = draft.added + 1;

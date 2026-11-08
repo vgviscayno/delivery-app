@@ -9,6 +9,7 @@ import { createMemoryHistory, RouterProvider } from "@tanstack/react-router";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createConsoleRouter } from "./router.js";
+import { markTourSeen } from "./tours.js";
 import { clearActivity, recordActivity } from "./use-idle-sign-out.js";
 
 const catalog: Catalog = {
@@ -70,6 +71,9 @@ function renderCategories() {
 
 beforeEach(() => {
   recordActivity();
+  // The Catalog tours start on a first visit; catalog-tour.test.tsx covers them.
+  markTourSeen("products");
+  markTourSeen("categories");
   vi.spyOn(window, "scrollTo").mockImplementation(() => {});
 });
 

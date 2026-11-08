@@ -17,6 +17,7 @@ import {
 import { Profiler } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createConsoleRouter } from "./router.js";
+import { markTourSeen } from "./tours.js";
 import { clearActivity, recordActivity } from "./use-idle-sign-out.js";
 
 const catalog: Catalog = {
@@ -90,6 +91,9 @@ const grid = () => screen.findByRole("table", { name: "Products" });
 
 beforeEach(() => {
   recordActivity();
+  // The Catalog tours start on a first visit; catalog-tour.test.tsx covers them.
+  markTourSeen("products");
+  markTourSeen("categories");
   vi.spyOn(window, "scrollTo").mockImplementation(() => {});
 });
 

@@ -4,6 +4,7 @@ import { createMemoryHistory, RouterProvider } from "@tanstack/react-router";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createConsoleRouter } from "./router.js";
+import { markTourSeen } from "./tours.js";
 import { clearActivity, recordActivity } from "./use-idle-sign-out.js";
 
 // The console's only way out to the server. Stubbed at the package boundary, so these
@@ -59,6 +60,9 @@ function renderAt(path: string) {
 
 beforeEach(() => {
   recordActivity();
+  // The Catalog tours start on a first visit; catalog-tour.test.tsx covers them.
+  markTourSeen("products");
+  markTourSeen("categories");
   // jsdom has no layout, and the router resets scroll on every navigation.
   vi.spyOn(window, "scrollTo").mockImplementation(() => {});
 });

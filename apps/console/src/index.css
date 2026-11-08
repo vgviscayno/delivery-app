@@ -817,3 +817,77 @@ body {
   clip-path: inset(50%);
   white-space: nowrap;
 }
+
+/* The Catalog's sections, with "Show me around" at the far end of the same line. */
+.catalog-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid color-mix(in srgb, currentColor 20%, transparent);
+}
+
+.catalog-head .sub-tabs {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+/* The walkthrough's popover, in the page's own colours, light or dark. */
+.tour-popover.driver-popover {
+  font-family: inherit;
+  color: CanvasText;
+  background-color: Canvas;
+  border: 1px solid var(--line);
+  max-width: 22rem;
+}
+
+.tour-popover .driver-popover-title {
+  font-size: 1rem;
+}
+
+.tour-popover .driver-popover-progress-text,
+.tour-popover .driver-popover-close-btn {
+  color: var(--muted);
+}
+
+.tour-popover .driver-popover-close-btn:hover,
+.tour-popover .driver-popover-close-btn:focus-visible {
+  color: CanvasText;
+}
+
+.tour-popover .driver-popover-footer-btn {
+  color: CanvasText;
+  background-color: Canvas;
+  border-color: var(--line);
+  font-size: 0.875rem;
+  padding: var(--space-1) var(--space-2);
+}
+
+.tour-popover .driver-popover-footer-btn:hover,
+.tour-popover .driver-popover-footer-btn:focus {
+  background-color: var(--tint);
+}
+
+.tour-popover .driver-popover-footer-btn:focus-visible,
+.tour-popover .driver-popover-close-btn:focus-visible {
+  outline: 2px solid Highlight;
+  outline-offset: 2px;
+}
+
+.tour-popover .driver-popover-arrow-side-left {
+  border-left-color: Canvas;
+}
+
+.tour-popover .driver-popover-arrow-side-right {
+  border-right-color: Canvas;
+}
+
+.tour-popover .driver-popover-arrow-side-top {
+  border-top-color: Canvas;
+}
+
+.tour-popover .driver-popover-arrow-side-bottom {
+  border-bottom-color: Canvas;
+}

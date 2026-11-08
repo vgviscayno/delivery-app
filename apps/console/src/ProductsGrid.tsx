@@ -36,6 +36,7 @@ import { applyResults, type GridWrites, type RowResult, saveDraft } from "./grid
 import {
   addRow,
   addToCategory,
+  addTourRow,
   type CellMessages,
   changedFields,
   type Draft,
@@ -54,9 +55,13 @@ import {
   removeRows,
   sortRows,
   syncDraft,
+  TOUR_ROW_KEY,
   visibleRows,
+  withoutTourRow,
 } from "./product-grid.js";
 import type { ProductFilters, ProductsSort, SortColumn } from "./products-search.js";
+import { useTour } from "./Tour.js";
+import { TOUR_ROW, type TourScene } from "./tours.js";
 import { Failure, useWrite } from "./write.js";
 
 const route = getRouteApi("/catalog/products");
@@ -122,6 +127,14 @@ export function ProductsSection() {
   const saving = useWrite(onSaved);
   const deleting = useWrite(onSaved);
   const busy = saving.busy || deleting.busy;
+  /** What the tour has the page show for its current step. */
+  const [scene, setScene] = useState<TourScene | null>(null);
+  // The tour demonstrates on a row of its own, and takes it away however it ends.
+  useTour("products", {
+    onStart: () => setDraft(addTourRow),
+    onEnd: () => setDraft(withoutTourRow),
+    onScene: setScene,
+  });
 
   // Each read of the catalog — after Save, after Delete — is folded into the draft.
   useEffect(() => setDraft((current) => syncDraft(current, catalog)), [catalog]);
@@ -134,7 +147,7 @@ export function ProductsSection() {
     }
   }, [search.product, catalog, navigate]);
 
-  const dirty = isDirty(draft);
+  const dirty = isDirty(withoutTourRow(draft));
   // In-app navigation asks in the page; a refresh or a closed tab gets the browser's own
   // prompt. Both only while there is something unsaved.
   const blocker = useBlocker({
@@ -147,9 +160,11 @@ export function ProductsSection() {
   const rows = sortRows(visibleRows(draft, search), search.sort);
   const open =
     draft.rows.find((row) =>
-      openUnsaved !== null
-        ? row.key === openUnsaved
-        : search.product !== undefined && row.productId === search.product,
+      scene === "details"
+        ? row.key === TOUR_ROW_KEY
+        : openUnsaved !== null
+          ? row.key === openUnsaved
+          : search.product !== undefined && row.productId === search.product,
     ) ?? null;
 
   const edit = useCallback((key: string, edits: Partial<RowValues>) => {
@@ -169,7 +184,7 @@ export function ProductsSection() {
   async function save() {
     let savedOpenId: string | null = null;
     const ok = await saving.run(async () => {
-      const saved = await saveDraft(draft, catalog, writesFor(client));
+      const saved = await saveDraft(withoutTourRow(draft), catalog, writesFor(client));
       setDraft((current) => applyResults(current, saved));
       setResults(saved);
       if (openUnsaved !== null) savedOpenId = productIdOf(saved.get(openUnsaved));
@@ -749,6 +764,7 @@ function Grid({
                   key={header.id}
                   scope="col"
                   className={`col-${header.column.id}`}
+                  data-tour={`column-${header.column.id}`}
                   style={widths(header.column.columnDef)}
                   aria-sort={sorted ? ARIA_SORT[sorted] : undefined}
                 >
@@ -768,6 +784,7 @@ function Grid({
               aria-label={view.title}
               className={view.row.saved === null ? "new" : undefined}
               data-selected={view.row.key === openKey || undefined}
+              data-tour={view.row.key === TOUR_ROW_KEY ? TOUR_ROW : undefined}
             >
               {row.getVisibleCells().map((cell) => {
                 const id = cell.column.id;
