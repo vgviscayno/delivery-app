@@ -641,6 +641,7 @@ const COLUMNS: ColumnDef<RowView, unknown>[] = [
         <button
           type="button"
           aria-label={`Duplicate ${view.title}`}
+          data-tour={view.row.key === TOUR_ROW_KEY ? "duplicate" : undefined}
           onClick={view.onDuplicate}
         >
           Duplicate

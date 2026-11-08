@@ -19,7 +19,7 @@ import {
 import { useOptimisticOrder } from "./reorder.js";
 import { SubTabs } from "./SubTabs.js";
 import { SortableList, useSortableRow } from "./sortable.js";
-import { TourReplays, useTour } from "./Tour.js";
+import { ShowMeAround, TourHost, useTour, useTourHost } from "./Tour.js";
 import { useClient } from "./use-client.js";
 import { Failure, messageOf, useWrite } from "./write.js";
 
@@ -51,7 +51,7 @@ export function useCatalog(): SectionProps {
 export function Catalog() {
   const client = useClient();
   const [load, setLoad] = useState<Load>({ state: "loading" });
-  const [replays, setReplays] = useState(0);
+  const tours = useTourHost();
 
   const reload = useCallback(async () => {
     try {
@@ -75,14 +75,7 @@ export function Catalog() {
             { label: "Categories", to: "/catalog/categories" },
           ]}
         />
-        {/* Replays the tour of whichever section is open. */}
-        <button
-          type="button"
-          disabled={load.state !== "ready"}
-          onClick={() => setReplays((count) => count + 1)}
-        >
-          Show me around
-        </button>
+        <ShowMeAround host={tours} disabled={load.state !== "ready"} />
       </div>
       {load.state === "loading" ? (
         <p className="detail">Loading the catalog…</p>
@@ -94,9 +87,9 @@ export function Catalog() {
         <CatalogContext.Provider
           value={{ client, catalog: load.catalog, onSaved: reload }}
         >
-          <TourReplays value={replays}>
+          <TourHost value={tours.value}>
             <Outlet />
-          </TourReplays>
+          </TourHost>
         </CatalogContext.Provider>
       )}
     </div>

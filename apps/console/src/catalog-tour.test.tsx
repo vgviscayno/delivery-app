@@ -65,13 +65,13 @@ const client = {
   },
 } as unknown as CourierClient;
 
-function renderAt(path: string) {
+function renderAt(path: string, { strict = false } = {}) {
   const router = createConsoleRouter({
     client,
     idleTimeoutMs: 30 * 60_000,
     history: createMemoryHistory({ initialEntries: [path] }),
   });
-  render(<RouterProvider router={router} />);
+  render(<RouterProvider router={router} />, { reactStrictMode: strict });
   return router;
 }
 
@@ -86,6 +86,19 @@ const press = async (key: "ArrowRight" | "ArrowLeft") => {
   await frame();
   fireEvent.keyUp(window, { key });
 };
+const showMeAround = () => screen.getByRole("button", { name: "Show me around" });
+/** Presses "Show me around", once the open section has named its tour to it. */
+const pressShowMeAround = async () => {
+  await waitFor(() => expect(showMeAround()).toHaveProperty("disabled", false));
+  fireEvent.click(showMeAround());
+};
+/** Opens the topic menu and picks one. */
+const pick = async (topic: string) => {
+  await pressShowMeAround();
+  fireEvent.click(screen.getByRole("menuitem", { name: topic }));
+};
+const progress = (text: string) =>
+  expect(within(screen.getByRole("dialog")).getByText(text)).toBeTruthy();
 const next = () =>
   fireEvent.click(
     within(screen.getByRole("dialog")).getByRole("button", { name: /Next|Done/ }),
@@ -121,6 +134,11 @@ describe("the Products tour", () => {
     noTour();
   });
 
+  it("starts on the first visit under StrictMode, as the app renders", async () => {
+    renderAt("/catalog/products", { strict: true });
+    await step("Add row");
+  });
+
   it("counts as seen once started, even if the dispatcher leaves part-way", async () => {
     renderAt("/catalog/products");
     await step("Add row");
@@ -140,7 +158,7 @@ describe("the Products tour", () => {
     expect(save.closest("[inert]")).not.toBeNull();
 
     await press("ArrowRight");
-    await step("Tick rows");
+    await step("Duplicate");
     expect(save.closest("[inert]")).toBeNull();
     pressEscape();
     await waitFor(noTour);
@@ -180,6 +198,7 @@ describe("the Products tour", () => {
       "Fill down",
       "Changes are highlighted",
       "Save",
+      "Duplicate",
       "Tick rows",
       "Change ticked rows",
     ]) {
@@ -188,6 +207,7 @@ describe("the Products tour", () => {
     }
     await press("ArrowRight");
     await step("Details");
+    progress("12 of 13");
     expect(screen.getByRole("complementary", { name: "Sample Product" })).toBeTruthy();
 
     // Back closes the panel the step opened.
@@ -197,6 +217,9 @@ describe("the Products tour", () => {
     await press("ArrowRight");
     await step("Details");
 
+    await press("ArrowRight");
+    await step("Pick a topic");
+    expect(screen.queryByRole("complementary")).toBeNull();
     next();
     await waitFor(noTour);
     expect(screen.queryByRole("complementary")).toBeNull();
@@ -212,9 +235,7 @@ describe("the Products tour", () => {
     markTourSeen("products");
     renderAt("/catalog/products?product=p-ribeye");
     await screen.findByRole("complementary", { name: "Ribeye" });
-    fireEvent.click(screen.getByRole("button", { name: "Show me around" }));
-    await step("Add row");
-    for (let i = 0; i < 10; i++) await press("ArrowRight");
+    await pick("Details");
     await step("Details");
     await screen.findByRole("complementary", { name: "Sample Product" });
 
@@ -225,15 +246,81 @@ describe("the Products tour", () => {
     expect(screen.getByRole("complementary", { name: "Ribeye" })).toBeTruthy();
   });
 
-  it("replays from Show me around, after it has been seen", async () => {
+  it("is closed to Show me around while it runs", async () => {
+    renderAt("/catalog/products");
+    await step("Add row");
+    expect(showMeAround()).toHaveProperty("disabled", true);
+    pressEscape();
+    await waitFor(noTour);
+    expect(showMeAround()).toHaveProperty("disabled", false);
+  });
+
+  it("offers the whole tour or one topic from Show me around", async () => {
     markTourSeen("products");
     renderAt("/catalog/products");
     await screen.findByRole("table", { name: "Products" });
     noTour();
 
-    fireEvent.click(screen.getByRole("button", { name: "Show me around" }));
+    await pressShowMeAround();
+    const menu = screen.getByRole("menu", { name: "Show me around" });
+    expect(
+      within(menu)
+        .getAllByRole("menuitem")
+        .map((item) => item.textContent),
+    ).toEqual([
+      "The whole tour",
+      "Add a Product",
+      "Edit Products",
+      "Duplicate a row",
+      "Change several at once",
+      "Details",
+    ]);
+    expect(document.activeElement).toBe(
+      within(menu).getByRole("menuitem", { name: "The whole tour" }),
+    );
+    fireEvent.keyDown(document.activeElement ?? document.body, { key: "ArrowDown" });
+    expect(document.activeElement).toBe(
+      within(menu).getByRole("menuitem", { name: "Add a Product" }),
+    );
+
+    fireEvent.click(within(menu).getByRole("menuitem", { name: "The whole tour" }));
+    expect(screen.queryByRole("menu")).toBeNull();
     await step("Add row");
+    progress("1 of 13");
     expect(screen.getByRole("row", { name: "Sample Product" })).toBeTruthy();
+  });
+
+  it("closes the topic menu on Esc, back on the button", async () => {
+    markTourSeen("products");
+    renderAt("/catalog/products");
+    await screen.findByRole("table", { name: "Products" });
+    await pressShowMeAround();
+    fireEvent.keyDown(screen.getByRole("menuitem", { name: "Details" }), {
+      key: "Escape",
+    });
+    expect(screen.queryByRole("menu")).toBeNull();
+    expect(document.activeElement).toBe(showMeAround());
+    noTour();
+  });
+
+  it("runs only the picked topic, counting its own steps", async () => {
+    markTourSeen("products");
+    renderAt("/catalog/products");
+    await screen.findByRole("table", { name: "Products" });
+
+    await pick("Add a Product");
+    await step("Add row");
+    progress("1 of 6");
+    pressEscape();
+    await waitFor(noTour);
+
+    await pick("Details");
+    await step("Details");
+    progress("1 of 1");
+    expect(screen.getByRole("complementary", { name: "Sample Product" })).toBeTruthy();
+    next();
+    await waitFor(noTour);
+    expect(screen.queryByRole("complementary")).toBeNull();
   });
 });
 
@@ -266,7 +353,8 @@ describe("the Categories tour", () => {
     await screen.findByRole("list", { name: "Categories" });
     noTour();
 
-    fireEvent.click(screen.getByRole("button", { name: "Show me around" }));
+    await pressShowMeAround();
+    expect(screen.queryByRole("menu")).toBeNull();
     await step("Categories");
   });
 });

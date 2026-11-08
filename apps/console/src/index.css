@@ -834,6 +834,41 @@ body {
   border-bottom: 0;
 }
 
+/* "Show me around" and the topics it offers, dropped down under its right edge. */
+.show-me-around {
+  position: relative;
+}
+
+.tour-menu {
+  position: absolute;
+  inset-inline-end: 0;
+  top: calc(100% + var(--space-1, 0.25rem));
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  min-width: 14rem;
+  padding: var(--space-1, 0.25rem);
+  color: CanvasText;
+  background-color: Canvas;
+  border: 1px solid var(--line);
+  border-radius: 0.375rem;
+  box-shadow: 0 0.5rem 1.5rem color-mix(in srgb, CanvasText 15%, transparent);
+}
+
+.tour-menu [role="menuitem"] {
+  text-align: start;
+  border: 0;
+  background: none;
+  padding: 0.4rem 0.6rem;
+}
+
+.tour-menu [role="menuitem"]:hover,
+.tour-menu [role="menuitem"]:focus-visible {
+  background-color: var(--tint);
+  outline: 2px solid Highlight;
+  outline-offset: -2px;
+}
+
 /* The walkthrough's popover, in the page's own colours, light or dark. */
 .tour-popover.driver-popover {
   font-family: inherit;
