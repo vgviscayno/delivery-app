@@ -19,6 +19,7 @@ import {
 import { useOptimisticOrder } from "./reorder.js";
 import { SubTabs } from "./SubTabs.js";
 import { SortableList, useSortableRow } from "./sortable.js";
+import { ShowMeAround, TourHost, useTour, useTourHost } from "./Tour.js";
 import { useClient } from "./use-client.js";
 import { Failure, messageOf, useWrite } from "./write.js";
 
@@ -50,6 +51,7 @@ export function useCatalog(): SectionProps {
 export function Catalog() {
   const client = useClient();
   const [load, setLoad] = useState<Load>({ state: "loading" });
+  const tours = useTourHost();
 
   const reload = useCallback(async () => {
     try {
@@ -65,13 +67,16 @@ export function Catalog() {
 
   return (
     <div className="surface catalog">
-      <SubTabs
-        label="Catalog sections"
-        tabs={[
-          { label: "Products", to: "/catalog/products" },
-          { label: "Categories", to: "/catalog/categories" },
-        ]}
-      />
+      <div className="catalog-head">
+        <SubTabs
+          label="Catalog sections"
+          tabs={[
+            { label: "Products", to: "/catalog/products" },
+            { label: "Categories", to: "/catalog/categories" },
+          ]}
+        />
+        <ShowMeAround host={tours} disabled={load.state !== "ready"} />
+      </div>
       {load.state === "loading" ? (
         <p className="detail">Loading the catalog…</p>
       ) : load.state === "error" ? (
@@ -82,7 +87,9 @@ export function Catalog() {
         <CatalogContext.Provider
           value={{ client, catalog: load.catalog, onSaved: reload }}
         >
-          <Outlet />
+          <TourHost value={tours.value}>
+            <Outlet />
+          </TourHost>
         </CatalogContext.Provider>
       )}
     </div>
@@ -111,6 +118,8 @@ export function CategoriesSection() {
     categories.findIndex((category) => category.id === openId),
   );
   const open = categories[openIndex];
+  // The tour only points: it neither drags nor moves anything.
+  useTour("categories");
 
   async function add(event: FormEvent) {
     event.preventDefault();
@@ -124,7 +133,7 @@ export function CategoriesSection() {
         How customers browse the catalog, in this order. A Product can be in several.
       </p>
       <div className="categories-split">
-        <div className="categories-list">
+        <div className="categories-list" data-tour="category-list">
           {categories.length === 0 ? (
             <p className="detail">No Categories yet.</p>
           ) : (
@@ -204,6 +213,7 @@ function CategoryRow({
       ref={row.ref}
       className={row.isDragging ? "category-row dragging" : "category-row"}
       data-open={open ? "" : undefined}
+      data-tour={index === 0 ? "category-row" : undefined}
     >
       {row.handle}
       <button
@@ -285,7 +295,7 @@ function CategoryDetail({
           )}
         </div>
         <div className="row-actions">
-          <span className="move-pair">
+          <span className="move-pair" data-tour="category-move">
             <button
               type="button"
               aria-label={`Move ${category.name} up`}
@@ -350,7 +360,11 @@ function CategoryDetail({
         <p className="detail">No Products in this Category.</p>
       ) : (
         <SortableList onDrop={(from, to) => void drop(from, to)}>
-          <ol className="category-products" aria-label={`Products in ${category.name}`}>
+          <ol
+            className="category-products"
+            aria-label={`Products in ${category.name}`}
+            data-tour="category-products"
+          >
             {products.map((product, productIndex) => (
               <ProductItem
                 key={product.id}
