@@ -27,18 +27,19 @@ const supabaseEntry = path.join(
   supabaseManifest.bin.supabase,
 );
 
+/** The argv, after `process.execPath`, that runs the Supabase CLI against the repo root. */
+export function supabaseArgv(args) {
+  return [supabaseEntry, "--workdir", repoRoot, ...args];
+}
+
 /** Runs the Supabase CLI against the project at the repo root, wherever we were invoked from. */
 export function supabase(args, options = {}) {
-  const result = spawnSync(
-    process.execPath,
-    [supabaseEntry, "--workdir", repoRoot, ...args],
-    {
-      stdio: options.stdio ?? "inherit",
-      cwd: packageRoot,
-      shell: false,
-      encoding: "utf8",
-    },
-  );
+  const result = spawnSync(process.execPath, supabaseArgv(args), {
+    stdio: options.stdio ?? "inherit",
+    cwd: packageRoot,
+    shell: false,
+    encoding: "utf8",
+  });
   if (result.error) throw result.error;
   if (options.allowFailure !== true && result.status !== 0) {
     process.exit(result.status ?? 1);
