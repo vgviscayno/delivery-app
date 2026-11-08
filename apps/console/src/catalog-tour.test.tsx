@@ -121,6 +121,39 @@ describe("the Products tour", () => {
     noTour();
   });
 
+  it("counts as seen once started, even if the dispatcher leaves part-way", async () => {
+    renderAt("/catalog/products");
+    await step("Add row");
+
+    cleanup();
+    renderAt("/catalog/products");
+    await screen.findByRole("table", { name: "Products" });
+    noTour();
+  });
+
+  it("puts what it points at out of reach, and gives it back when it moves on", async () => {
+    renderAt("/catalog/products");
+    await step("Add row");
+    for (let i = 0; i < 7; i++) await press("ArrowRight");
+    await step("Save");
+    const save = screen.getByRole("button", { name: "Save", hidden: true });
+    expect(save.closest("[inert]")).not.toBeNull();
+
+    await press("ArrowRight");
+    await step("Tick rows");
+    expect(save.closest("[inert]")).toBeNull();
+    pressEscape();
+    await waitFor(noTour);
+    expect(document.querySelector("[inert]")).toBeNull();
+  });
+
+  it("leaves its own row out of what ticked rows change", async () => {
+    renderAt("/catalog/products");
+    await step("Add row");
+    fireEvent.click(screen.getByRole("checkbox", { name: "Tick every row shown" }));
+    expect(screen.getByText("1 row ticked")).toBeTruthy();
+  });
+
   it("demonstrates on a draft row of its own, and discards it when closed", async () => {
     renderAt("/catalog/products");
     await step("Add row");

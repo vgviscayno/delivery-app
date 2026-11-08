@@ -6,15 +6,13 @@
 
 export type TourName = "products" | "categories";
 
-/** What a step needs the page to show, beyond what is there when the tour starts. */
-export type TourScene = "details";
-
 export interface TourStep {
   /** The `data-tour` value of the element the step highlights. */
   readonly target: string;
   readonly title: string;
   readonly description: string;
-  readonly scene?: TourScene;
+  /** Whether the step needs Details open on the tour's row. */
+  readonly opensDetails?: boolean;
   /** Passed over when there is nothing to point at, such as a Category list with none. */
   readonly optional?: boolean;
 }
@@ -89,7 +87,7 @@ export const TOURS: Record<TourName, readonly TourStep[]> = {
     },
     {
       target: "side-panel",
-      scene: "details",
+      opensDetails: true,
       title: "Details",
       description:
         "Details opens a row here, beside the grid, with room for the Product's description. Esc closes it.",

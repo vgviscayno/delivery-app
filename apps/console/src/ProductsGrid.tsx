@@ -61,7 +61,7 @@ import {
 } from "./product-grid.js";
 import type { ProductFilters, ProductsSort, SortColumn } from "./products-search.js";
 import { useTour } from "./Tour.js";
-import { TOUR_ROW, type TourScene } from "./tours.js";
+import { TOUR_ROW } from "./tours.js";
 import { Failure, useWrite } from "./write.js";
 
 const route = getRouteApi("/catalog/products");
@@ -127,8 +127,8 @@ export function ProductsSection() {
   const saving = useWrite(onSaved);
   const deleting = useWrite(onSaved);
   const busy = saving.busy || deleting.busy;
-  /** What the tour has the page show for its current step. */
-  const [scene, setScene] = useState<TourScene | null>(null);
+  /** Whether the tour has Details open on its own row, for the step about Details. */
+  const [tourDetails, setTourDetails] = useState(false);
   // The tour demonstrates on a row of its own, and takes it away however it ends.
   useTour("products", {
     onStart: () => setDraft(addTourRow),
@@ -136,7 +136,7 @@ export function ProductsSection() {
       setDraft(withoutTourRow);
       setTicked(({ [TOUR_ROW_KEY]: _, ...rest }) => rest);
     },
-    onScene: setScene,
+    onDetails: setTourDetails,
   });
 
   // Each read of the catalog — after Save, after Delete — is folded into the draft.
@@ -165,7 +165,7 @@ export function ProductsSection() {
   const rows = sortRows(visibleRows(draft, search), search.sort);
   const open =
     draft.rows.find((row) =>
-      scene === "details"
+      tourDetails
         ? row.key === TOUR_ROW_KEY
         : openUnsaved !== null
           ? row.key === openUnsaved
@@ -206,7 +206,7 @@ export function ProductsSection() {
   /** Deletes each ticked row on its own: those the server deletes go, even if some fail. */
   function deleteTicked() {
     setConfirmingDelete(false);
-    const doomed = draft.rows.filter((row) => ticked[row.key]);
+    const doomed = draft.rows.filter((row) => tickedRows.includes(row.key));
     void deleting.run(async () => {
       const outcomes = await Promise.allSettled(
         doomed.map(async (row) => {
@@ -227,7 +227,8 @@ export function ProductsSection() {
     });
   }
 
-  const tickedRows = tickedKeys(ticked);
+  /** The tour's row is never one of these, even when "Tick every row shown" ticks it. */
+  const tickedRows = tickedKeys(ticked).filter((key) => key !== TOUR_ROW_KEY);
   const bulk = (change: (current: Draft) => Draft) => {
     setDraft(change);
     setResults((current) => withoutSettled(current, tickedRows));
@@ -322,7 +323,7 @@ export function ProductsSection() {
           messages={messages(open, results.get(open.key))}
           disabled={busy}
           // Opened by the tour, focus stays with the tour's popover.
-          takeFocus={scene !== "details"}
+          takeFocus={!tourDetails}
           onEdit={(edits) => edit(open.key, edits)}
           onClose={() => openRow(null)}
         />
@@ -761,7 +762,7 @@ function Grid({
 
   return (
     <table className="products-grid" aria-label="Products" onKeyDown={onKeyDown}>
-      <thead data-tour="grid-header">
+      <thead>
         {table.getHeaderGroups().map((group) => (
           <tr key={group.id}>
             {group.headers.map((header) => {

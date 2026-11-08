@@ -94,7 +94,7 @@ export function Catalog() {
         <CatalogContext.Provider
           value={{ client, catalog: load.catalog, onSaved: reload }}
         >
-          <TourReplays count={replays}>
+          <TourReplays value={replays}>
             <Outlet />
           </TourReplays>
         </CatalogContext.Provider>
