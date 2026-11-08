@@ -6,6 +6,10 @@
     "node": ">=22"
   },
   "scripts": {
+    "bootstrap": "node scripts/bootstrap.mjs",
+    "console": "node scripts/dev.mjs console",
+    "customer": "node scripts/dev.mjs customer",
+    "driver": "node scripts/dev.mjs driver",
     "build": "turbo run build",
     "check": "biome check .",
     "fix": "biome check --write .",

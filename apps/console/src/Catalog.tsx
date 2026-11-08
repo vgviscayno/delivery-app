@@ -6,7 +6,7 @@ import {
   saveCategory,
   setCategoryProducts,
 } from "@courier/api-client";
-import type { Catalog as CatalogData, Category } from "@courier/domain";
+import type { Catalog as CatalogData, Category, Product } from "@courier/domain";
 import { Outlet } from "@tanstack/react-router";
 import {
   createContext,
@@ -16,7 +16,9 @@ import {
   useEffect,
   useState,
 } from "react";
+import { useOptimisticOrder } from "./reorder.js";
 import { SubTabs } from "./SubTabs.js";
+import { SortableList, useSortableRow } from "./sortable.js";
 import { useClient } from "./use-client.js";
 import { Failure, messageOf, useWrite } from "./write.js";
 
@@ -87,11 +89,28 @@ export function Catalog() {
   );
 }
 
+/**
+ * Categories down a sidebar, in the order customers browse them, and the open one's name,
+ * moves and Products beside it. Opening a Category is local to the page; the first is
+ * open until another is picked, and again after the open one is deleted.
+ */
 export function CategoriesSection() {
   const { client, catalog, onSaved } = useCatalog();
   const [name, setName] = useState("");
+  const [openId, setOpenId] = useState<string>();
   const { busy, error, run } = useWrite(onSaved);
-  const ids = catalog.categories.map((category) => category.id);
+  const { order, drop } = useOptimisticOrder(
+    catalog.categories.map((category) => category.id),
+    (ids) => run(() => reorderCategories(client, ids)),
+  );
+  const categories = order.flatMap(
+    (id) => catalog.categories.find((category) => category.id === id) ?? [],
+  );
+  const openIndex = Math.max(
+    0,
+    categories.findIndex((category) => category.id === openId),
+  );
+  const open = categories[openIndex];
 
   async function add(event: FormEvent) {
     event.preventDefault();
@@ -99,52 +118,110 @@ export function CategoriesSection() {
   }
 
   return (
-    <section aria-labelledby="categories-heading">
+    <section aria-labelledby="categories-heading" className="categories-section">
       <h2 id="categories-heading">Categories</h2>
       <p className="detail">
         How customers browse the catalog, in this order. A Product can be in several.
       </p>
-      {catalog.categories.length === 0 ? (
-        <p className="detail">No Categories yet.</p>
-      ) : (
-        <ol className="categories">
-          {catalog.categories.map((category, index) => (
-            <CategoryItem
-              // A fresh item whenever the name changes, so its input starts from it.
-              key={`${category.id}-${category.name}`}
-              client={client}
-              catalog={catalog}
-              category={category}
-              onSaved={onSaved}
-              onMove={(by) =>
-                void run(() => reorderCategories(client, moved(ids, index, by)))
-              }
-              first={index === 0}
-              last={index === ids.length - 1}
-              moving={busy}
+      <div className="categories-split">
+        <div className="categories-list">
+          {categories.length === 0 ? (
+            <p className="detail">No Categories yet.</p>
+          ) : (
+            <SortableList onDrop={(from, to) => void drop(from, to)}>
+              <ol aria-label="Categories">
+                {categories.map((category, index) => (
+                  <CategoryRow
+                    key={category.id}
+                    category={category}
+                    count={
+                      catalog.memberships.filter(
+                        (membership) => membership.categoryId === category.id,
+                      ).length
+                    }
+                    index={index}
+                    open={category === open}
+                    onOpen={() => setOpenId(category.id)}
+                    disabled={busy}
+                  />
+                ))}
+              </ol>
+            </SortableList>
+          )}
+          <Failure message={error} />
+          <form onSubmit={add} className="add-row">
+            <input
+              type="text"
+              aria-label="New Category name"
+              placeholder="New Category"
+              required
+              value={name}
+              onChange={(event) => setName(event.target.value)}
             />
-          ))}
-        </ol>
-      )}
-      <Failure message={error} />
-      <form onSubmit={add} className="closure-form">
-        <input
-          type="text"
-          aria-label="New Category name"
-          placeholder="New Category"
-          required
-          value={name}
-          onChange={(event) => setName(event.target.value)}
-        />
-        <button type="submit" disabled={busy}>
-          Add Category
-        </button>
-      </form>
+            <button type="submit" disabled={busy}>
+              Add
+            </button>
+          </form>
+        </div>
+        {open && (
+          <CategoryDetail
+            // A fresh detail whenever the name changes, so its input starts from it.
+            key={`${open.id}-${open.name}`}
+            client={client}
+            catalog={catalog}
+            category={open}
+            onSaved={onSaved}
+            onMove={(by) => void drop(openIndex, openIndex + by)}
+            first={openIndex === 0}
+            last={openIndex === categories.length - 1}
+            moving={busy}
+          />
+        )}
+      </div>
     </section>
   );
 }
 
-function CategoryItem({
+function CategoryRow({
+  category,
+  count,
+  index,
+  open,
+  onOpen,
+  disabled,
+}: {
+  category: Category;
+  count: number;
+  index: number;
+  open: boolean;
+  onOpen: () => void;
+  disabled: boolean;
+}) {
+  const row = useSortableRow({ id: category.id, name: category.name, index, disabled });
+
+  return (
+    <li
+      ref={row.ref}
+      className={row.isDragging ? "category-row dragging" : "category-row"}
+      data-open={open ? "" : undefined}
+    >
+      {row.handle}
+      <button
+        type="button"
+        className="category-open"
+        aria-current={open ? "true" : undefined}
+        onClick={onOpen}
+      >
+        <span className="category-name">{category.name}</span>
+        <span className="category-count" title={`${count} Products`}>
+          {count}
+        </span>
+      </button>
+    </li>
+  );
+}
+
+function CategoryDetail({
   client,
   catalog,
   category,
@@ -172,97 +249,78 @@ function CategoryItem({
       const product = catalog.products.find((each) => each.id === membership.productId);
       return product ? [product] : [];
     });
-  const memberIds = members.map((product) => product.id);
-  const others = catalog.products.filter((product) => !memberIds.includes(product.id));
+  const others = catalog.products.filter((product) => !members.includes(product));
+  const { order, drop } = useOptimisticOrder(
+    members.map((product) => product.id),
+    (productIds) => run(() => setCategoryProducts(client, category.id, productIds)),
+  );
+  const products = order.flatMap((id) => members.find((each) => each.id === id) ?? []);
 
   const arrange = (productIds: readonly string[]) =>
     void run(() => setCategoryProducts(client, category.id, productIds));
 
   return (
-    <li>
-      <div className="category-heading">
-        <input
-          type="text"
-          aria-label={`Name of ${category.name}`}
-          value={name}
-          onChange={(event) => setName(event.target.value)}
-        />
-        {name.trim() !== category.name && (
+    <div className="category-detail">
+      <div className="category-detail-head">
+        <div className="category-name-field">
+          <label>
+            <span className="field-label">Name</span>
+            <input
+              type="text"
+              aria-label={`Name of ${category.name}`}
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+            />
+          </label>
+          {name.trim() !== category.name && (
+            <button
+              type="button"
+              disabled={disabled || name.trim() === ""}
+              onClick={() =>
+                void run(() => saveCategory(client, category.id, name.trim()))
+              }
+            >
+              Rename
+            </button>
+          )}
+        </div>
+        <div className="row-actions">
+          <span className="move-pair">
+            <button
+              type="button"
+              aria-label={`Move ${category.name} up`}
+              disabled={disabled || first}
+              onClick={() => onMove(-1)}
+            >
+              ↑
+            </button>
+            <button
+              type="button"
+              aria-label={`Move ${category.name} down`}
+              disabled={disabled || last}
+              onClick={() => onMove(1)}
+            >
+              ↓
+            </button>
+          </span>
           <button
             type="button"
-            disabled={disabled || name.trim() === ""}
-            onClick={() => void run(() => saveCategory(client, category.id, name.trim()))}
+            className="danger"
+            disabled={disabled}
+            onClick={() => {
+              if (
+                window.confirm(`Delete the ${category.name} Category? Its Products stay.`)
+              ) {
+                void run(() => deleteCategory(client, category.id));
+              }
+            }}
           >
-            Rename
+            Delete
           </button>
-        )}
-        <button
-          type="button"
-          aria-label={`Move ${category.name} up`}
-          disabled={disabled || first}
-          onClick={() => onMove(-1)}
-        >
-          ↑
-        </button>
-        <button
-          type="button"
-          aria-label={`Move ${category.name} down`}
-          disabled={disabled || last}
-          onClick={() => onMove(1)}
-        >
-          ↓
-        </button>
-        <button
-          type="button"
-          disabled={disabled}
-          onClick={() => {
-            if (
-              window.confirm(`Delete the ${category.name} Category? Its Products stay.`)
-            ) {
-              void run(() => deleteCategory(client, category.id));
-            }
-          }}
-        >
-          Delete
-        </button>
+        </div>
       </div>
-      {members.length === 0 ? (
-        <p className="detail">No Products in this Category.</p>
-      ) : (
-        <ol className="category-products">
-          {members.map((product, index) => (
-            <li key={product.id}>
-              <span>{product.name}</span>
-              {!product.available && <span className="detail">unavailable</span>}
-              <button
-                type="button"
-                aria-label={`Move ${product.name} up in ${category.name}`}
-                disabled={disabled || index === 0}
-                onClick={() => arrange(moved(memberIds, index, -1))}
-              >
-                ↑
-              </button>
-              <button
-                type="button"
-                aria-label={`Move ${product.name} down in ${category.name}`}
-                disabled={disabled || index === members.length - 1}
-                onClick={() => arrange(moved(memberIds, index, 1))}
-              >
-                ↓
-              </button>
-              <button
-                type="button"
-                disabled={disabled}
-                onClick={() => arrange(memberIds.filter((id) => id !== product.id))}
-              >
-                Remove
-              </button>
-            </li>
-          ))}
-        </ol>
-      )}
       {others.length > 0 && (
-        <div className="closure-form">
+        <div className="add-row">
           <select
             aria-label={`Product to add to ${category.name}`}
             value={adding}
@@ -279,7 +337,7 @@ function CategoryItem({
             type="button"
             disabled={disabled || adding === ""}
             onClick={() => {
-              arrange([...memberIds, adding]);
+              arrange([...order, adding]);
               setAdding("");
             }}
           >
@@ -288,14 +346,82 @@ function CategoryItem({
         </div>
       )}
       <Failure message={error} />
-    </li>
+      {products.length === 0 ? (
+        <p className="detail">No Products in this Category.</p>
+      ) : (
+        <SortableList onDrop={(from, to) => void drop(from, to)}>
+          <ol className="category-products" aria-label={`Products in ${category.name}`}>
+            {products.map((product, productIndex) => (
+              <ProductItem
+                key={product.id}
+                product={product}
+                category={category}
+                index={productIndex}
+                last={productIndex === products.length - 1}
+                disabled={disabled}
+                onMove={(by) => void drop(productIndex, productIndex + by)}
+                onRemove={() => arrange(order.filter((id) => id !== product.id))}
+              />
+            ))}
+          </ol>
+        </SortableList>
+      )}
+    </div>
   );
 }
 
-/** The list with the item at `index` moved one place up (-1) or down (1). */
-function moved(ids: readonly string[], index: number, by: -1 | 1): string[] {
-  const next = [...ids];
-  const [item] = next.splice(index, 1);
-  if (item !== undefined) next.splice(index + by, 0, item);
-  return next;
+function ProductItem({
+  product,
+  category,
+  index,
+  last,
+  disabled,
+  onMove,
+  onRemove,
+}: {
+  product: Product;
+  category: Category;
+  index: number;
+  last: boolean;
+  disabled: boolean;
+  onMove: (by: -1 | 1) => void;
+  onRemove: () => void;
+}) {
+  const row = useSortableRow({ id: product.id, name: product.name, index, disabled });
+
+  return (
+    <li ref={row.ref} className={row.isDragging ? "product-row dragging" : "product-row"}>
+      {row.handle}
+      <span className="product-position" aria-hidden="true">
+        {index + 1}
+      </span>
+      <span className="product-name">
+        {product.name}
+        {!product.available && <span className="tag">unavailable</span>}
+      </span>
+      <span className="row-actions">
+        <span className="move-pair">
+          <button
+            type="button"
+            aria-label={`Move ${product.name} up in ${category.name}`}
+            disabled={disabled || index === 0}
+            onClick={() => onMove(-1)}
+          >
+            ↑
+          </button>
+          <button
+            type="button"
+            aria-label={`Move ${product.name} down in ${category.name}`}
+            disabled={disabled || last}
+            onClick={() => onMove(1)}
+          >
+            ↓
+          </button>
+        </span>
+        <button type="button" disabled={disabled} onClick={onRemove}>
+          Remove
+        </button>
+      </span>
+    </li>
+  );
 }

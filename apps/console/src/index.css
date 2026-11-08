@@ -1,6 +1,15 @@
 :root {
   font-family: system-ui, sans-serif;
   color-scheme: light dark;
+  /* One spacing scale. Rules move onto it as they are next edited. */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-6: 1.5rem;
+  --line: color-mix(in srgb, currentColor 14%, transparent);
+  --tint: color-mix(in srgb, currentColor 5%, transparent);
+  --muted: color-mix(in srgb, currentColor 60%, transparent);
 }
 
 body {
@@ -40,7 +49,8 @@ body {
   border-bottom: 1px solid color-mix(in srgb, currentColor 20%, transparent);
 }
 
-.shell nav {
+.shell header nav,
+.sub-tabs {
   display: flex;
   flex-wrap: wrap;
   gap: 0.25rem;
@@ -166,21 +176,280 @@ body {
   font-size: 0.9rem;
 }
 
-.categories {
-  display: grid;
-  gap: 1rem;
-  padding-left: 1.5rem;
+/* Only the handle starts a drag. Without touch-action, a touch on it scrolls the page. */
+.drag-handle {
+  cursor: grab;
+  touch-action: none;
+  padding: 0 0.25rem;
+  background: none;
+  border: none;
+  color: #6b7280;
+  font-size: 1.1rem;
+  line-height: 1;
 }
 
-.category-heading,
-.category-products li {
+.drag-handle:disabled {
+  cursor: default;
+  opacity: 0.4;
+}
+
+/*
+ * Categories: a sidebar of Categories, and the open one beside it. Its inputs and buttons
+ * get room to breathe; the rest of the console keeps browser defaults for now.
+ */
+.categories-section {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.categories-section h2,
+.categories-section > .detail {
+  margin: 0;
+}
+
+.categories-section :is(input, select, button) {
+  box-sizing: border-box;
+  min-height: 2rem;
+  padding: 0.375rem 0.625rem;
+  border: 1px solid color-mix(in srgb, currentColor 25%, transparent);
+  border-radius: 0.375rem;
+  background: Canvas;
+  color: inherit;
+  font: inherit;
+  font-size: 0.9rem;
+}
+
+.categories-section button:not(:disabled) {
+  cursor: pointer;
+}
+
+.categories-section button:not(:disabled):hover {
+  background: color-mix(in srgb, currentColor 8%, Canvas);
+}
+
+.categories-section button:disabled {
+  opacity: 0.4;
+}
+
+.categories-section button.danger {
+  color: #b00020;
+}
+
+.categories-section ol {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.categories-section .drag-handle {
+  min-height: auto;
+  padding: 0 var(--space-1);
+  border: 0;
+  background: none;
+}
+
+.categories-section button.drag-handle:not(:disabled):hover {
+  background: none;
+}
+
+.categories-section .dragging {
+  opacity: 0.6;
+}
+
+.categories-split {
+  display: grid;
+  grid-template-columns: 16rem minmax(0, 1fr);
+  align-items: start;
+}
+
+/* Space before the dividing line, so a row's tint ends rounded rather than cut. */
+.categories-list {
+  display: grid;
+  /* A column that can't grow past the sidebar, so long names end in an ellipsis. */
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-3);
+  min-width: 0;
+  padding-right: var(--space-3);
+}
+
+.categories-list ol {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 2px;
+  min-width: 0;
+}
+
+.category-row {
   display: flex;
-  gap: 0.5rem;
+  gap: var(--space-1);
   align-items: center;
+  min-height: 2.5rem;
+  padding-left: var(--space-1);
+  border-radius: 0.375rem;
+}
+
+.category-row:not([data-open]):hover {
+  background: var(--tint);
+}
+
+.category-row[data-open] {
+  background: color-mix(in srgb, #2f6fde 12%, transparent);
+  font-weight: 600;
+}
+
+/* The row carries the tint; the button inside it adds no box of its own. */
+.categories-section .category-open,
+.categories-section .category-open:not(:disabled):hover {
+  display: flex;
+  flex: 1;
+  gap: var(--space-2);
+  align-items: center;
+  min-width: 0;
+  border-color: transparent;
+  background: transparent;
+  font-weight: inherit;
+  text-align: left;
+}
+
+.category-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.category-count {
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.add-row {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.add-row :is(input, select) {
+  flex: 1;
+  min-width: 0;
+}
+
+.category-detail {
+  display: grid;
+  gap: var(--space-4);
+  min-width: 0;
+  padding: var(--space-4) var(--space-6) var(--space-6);
+  border-left: 1px solid var(--line);
+}
+
+.category-detail .add-row {
+  max-width: 28rem;
+}
+
+.category-detail-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  align-items: end;
+  justify-content: space-between;
+  padding-bottom: var(--space-4);
+  border-bottom: 1px solid var(--line);
+}
+
+.category-name-field {
+  display: flex;
+  gap: var(--space-2);
+  align-items: end;
+}
+
+.category-name-field label {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.field-label {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.categories-section .category-name-field input {
+  width: 20rem;
+  max-width: 100%;
+  min-height: 2.5rem;
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+
+.row-actions {
+  display: inline-flex;
+  gap: var(--space-3);
+  margin-left: auto;
+}
+
+.move-pair {
+  display: inline-flex;
+  gap: var(--space-1);
 }
 
 .category-products {
-  padding-left: 1.5rem;
+  display: grid;
+  gap: var(--space-2);
+}
+
+.product-row {
+  display: flex;
+  gap: var(--space-3);
+  align-items: center;
+  min-height: 3rem;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--line);
+  border-radius: 0.5rem;
+}
+
+.product-position {
+  min-width: 1.25rem;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.product-name {
+  display: inline-flex;
+  flex: 1;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+  min-width: 0;
+}
+
+.tag {
+  padding: 0.0625rem 0.375rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, #8a5300 14%, transparent);
+  color: #8a5300;
+  font-size: 0.75rem;
+}
+
+/* Too narrow for a sidebar: the list sits above the open Category. */
+@media (max-width: 40rem) {
+  .categories-split {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-4);
+  }
+
+  .categories-list {
+    padding-right: 0;
+  }
+
+  .category-detail {
+    padding: var(--space-4) 0 0;
+    border-top: 1px solid var(--line);
+    border-left: 0;
+  }
+
+  .product-row {
+    flex-wrap: wrap;
+  }
 }
 
 .drivers th {
