@@ -88,6 +88,22 @@ describe("the Categories section", () => {
     }
   });
 
+  it("opens the first Category, and another when it is picked", async () => {
+    renderCategories();
+
+    const beef = await screen.findByRole("button", { name: /^Beef/ });
+    expect(beef.getAttribute("aria-current")).toBe("true");
+    expect(screen.getByRole("textbox", { name: "Name of Beef" })).toBeTruthy();
+    expect(screen.getByRole("list", { name: "Products in Beef" })).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: /^Pork/ }));
+
+    expect(await screen.findByRole("textbox", { name: "Name of Pork" })).toBeTruthy();
+    expect(screen.getByText("No Products in this Category.")).toBeTruthy();
+    expect(screen.queryByRole("list", { name: "Products in Beef" })).toBeNull();
+    expect(beef.getAttribute("aria-current")).toBeNull();
+  });
+
   it("still moves Categories and Products with the ↑/↓ buttons", async () => {
     renderCategories();
 
