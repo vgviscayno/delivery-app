@@ -6,7 +6,7 @@ import {
   saveCategory,
   setCategoryProducts,
 } from "@courier/api-client";
-import type { Catalog as CatalogData, Category } from "@courier/domain";
+import type { Catalog as CatalogData, Category, Product } from "@courier/domain";
 import { Outlet } from "@tanstack/react-router";
 import {
   createContext,
@@ -16,7 +16,9 @@ import {
   useEffect,
   useState,
 } from "react";
+import { useOptimisticOrder } from "./reorder.js";
 import { SubTabs } from "./SubTabs.js";
+import { SortableList, useSortableRow } from "./sortable.js";
 import { useClient } from "./use-client.js";
 import { Failure, messageOf, useWrite } from "./write.js";
 
@@ -91,7 +93,13 @@ export function CategoriesSection() {
   const { client, catalog, onSaved } = useCatalog();
   const [name, setName] = useState("");
   const { busy, error, run } = useWrite(onSaved);
-  const ids = catalog.categories.map((category) => category.id);
+  const { order, drop } = useOptimisticOrder(
+    catalog.categories.map((category) => category.id),
+    (ids) => run(() => reorderCategories(client, ids)),
+  );
+  const categories = order.flatMap(
+    (id) => catalog.categories.find((category) => category.id === id) ?? [],
+  );
 
   async function add(event: FormEvent) {
     event.preventDefault();
@@ -104,27 +112,27 @@ export function CategoriesSection() {
       <p className="detail">
         How customers browse the catalog, in this order. A Product can be in several.
       </p>
-      {catalog.categories.length === 0 ? (
+      {categories.length === 0 ? (
         <p className="detail">No Categories yet.</p>
       ) : (
-        <ol className="categories">
-          {catalog.categories.map((category, index) => (
-            <CategoryItem
-              // A fresh item whenever the name changes, so its input starts from it.
-              key={`${category.id}-${category.name}`}
-              client={client}
-              catalog={catalog}
-              category={category}
-              onSaved={onSaved}
-              onMove={(by) =>
-                void run(() => reorderCategories(client, moved(ids, index, by)))
-              }
-              first={index === 0}
-              last={index === ids.length - 1}
-              moving={busy}
-            />
-          ))}
-        </ol>
+        <SortableList onDrop={(from, to) => void drop(from, to)}>
+          <ol className="categories">
+            {categories.map((category, index) => (
+              <CategoryItem
+                // A fresh item whenever the name changes, so its input starts from it.
+                key={`${category.id}-${category.name}`}
+                client={client}
+                catalog={catalog}
+                category={category}
+                onSaved={onSaved}
+                index={index}
+                onMove={(by) => void drop(index, index + by)}
+                last={index === categories.length - 1}
+                moving={busy}
+              />
+            ))}
+          </ol>
+        </SortableList>
       )}
       <Failure message={error} />
       <form onSubmit={add} className="closure-form">
@@ -149,14 +157,14 @@ function CategoryItem({
   catalog,
   category,
   onSaved,
+  index,
   onMove,
-  first,
   last,
   moving,
 }: SectionProps & {
   category: Category;
+  index: number;
   onMove: (by: -1 | 1) => void;
-  first: boolean;
   last: boolean;
   moving: boolean;
 }) {
@@ -172,15 +180,27 @@ function CategoryItem({
       const product = catalog.products.find((each) => each.id === membership.productId);
       return product ? [product] : [];
     });
-  const memberIds = members.map((product) => product.id);
-  const others = catalog.products.filter((product) => !memberIds.includes(product.id));
+  const others = catalog.products.filter((product) => !members.includes(product));
+  const { order, drop } = useOptimisticOrder(
+    members.map((product) => product.id),
+    (productIds) => run(() => setCategoryProducts(client, category.id, productIds)),
+  );
+  const products = order.flatMap((id) => members.find((each) => each.id === id) ?? []);
 
   const arrange = (productIds: readonly string[]) =>
     void run(() => setCategoryProducts(client, category.id, productIds));
 
+  const row = useSortableRow({
+    id: category.id,
+    name: category.name,
+    index,
+    disabled,
+  });
+
   return (
-    <li>
+    <li ref={row.ref} className={row.isDragging ? "dragging" : undefined}>
       <div className="category-heading">
+        {row.handle}
         <input
           type="text"
           aria-label={`Name of ${category.name}`}
@@ -199,7 +219,7 @@ function CategoryItem({
         <button
           type="button"
           aria-label={`Move ${category.name} up`}
-          disabled={disabled || first}
+          disabled={disabled || index === 0}
           onClick={() => onMove(-1)}
         >
           ↑
@@ -226,40 +246,25 @@ function CategoryItem({
           Delete
         </button>
       </div>
-      {members.length === 0 ? (
+      {products.length === 0 ? (
         <p className="detail">No Products in this Category.</p>
       ) : (
-        <ol className="category-products">
-          {members.map((product, index) => (
-            <li key={product.id}>
-              <span>{product.name}</span>
-              {!product.available && <span className="detail">unavailable</span>}
-              <button
-                type="button"
-                aria-label={`Move ${product.name} up in ${category.name}`}
-                disabled={disabled || index === 0}
-                onClick={() => arrange(moved(memberIds, index, -1))}
-              >
-                ↑
-              </button>
-              <button
-                type="button"
-                aria-label={`Move ${product.name} down in ${category.name}`}
-                disabled={disabled || index === members.length - 1}
-                onClick={() => arrange(moved(memberIds, index, 1))}
-              >
-                ↓
-              </button>
-              <button
-                type="button"
+        <SortableList onDrop={(from, to) => void drop(from, to)}>
+          <ol className="category-products">
+            {products.map((product, productIndex) => (
+              <ProductItem
+                key={product.id}
+                product={product}
+                category={category}
+                index={productIndex}
+                last={productIndex === products.length - 1}
                 disabled={disabled}
-                onClick={() => arrange(memberIds.filter((id) => id !== product.id))}
-              >
-                Remove
-              </button>
-            </li>
-          ))}
-        </ol>
+                onMove={(by) => void drop(productIndex, productIndex + by)}
+                onRemove={() => arrange(order.filter((id) => id !== product.id))}
+              />
+            ))}
+          </ol>
+        </SortableList>
       )}
       {others.length > 0 && (
         <div className="closure-form">
@@ -279,7 +284,7 @@ function CategoryItem({
             type="button"
             disabled={disabled || adding === ""}
             onClick={() => {
-              arrange([...memberIds, adding]);
+              arrange([...order, adding]);
               setAdding("");
             }}
           >
@@ -292,10 +297,49 @@ function CategoryItem({
   );
 }
 
-/** The list with the item at `index` moved one place up (-1) or down (1). */
-function moved(ids: readonly string[], index: number, by: -1 | 1): string[] {
-  const next = [...ids];
-  const [item] = next.splice(index, 1);
-  if (item !== undefined) next.splice(index + by, 0, item);
-  return next;
+function ProductItem({
+  product,
+  category,
+  index,
+  last,
+  disabled,
+  onMove,
+  onRemove,
+}: {
+  product: Product;
+  category: Category;
+  index: number;
+  last: boolean;
+  disabled: boolean;
+  onMove: (by: -1 | 1) => void;
+  onRemove: () => void;
+}) {
+  const row = useSortableRow({ id: product.id, name: product.name, index, disabled });
+
+  return (
+    <li ref={row.ref} className={row.isDragging ? "dragging" : undefined}>
+      {row.handle}
+      <span>{product.name}</span>
+      {!product.available && <span className="detail">unavailable</span>}
+      <button
+        type="button"
+        aria-label={`Move ${product.name} up in ${category.name}`}
+        disabled={disabled || index === 0}
+        onClick={() => onMove(-1)}
+      >
+        ↑
+      </button>
+      <button
+        type="button"
+        aria-label={`Move ${product.name} down in ${category.name}`}
+        disabled={disabled || last}
+        onClick={() => onMove(1)}
+      >
+        ↓
+      </button>
+      <button type="button" disabled={disabled} onClick={onRemove}>
+        Remove
+      </button>
+    </li>
+  );
 }

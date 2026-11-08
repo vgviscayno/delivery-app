@@ -183,6 +183,28 @@ body {
   padding-left: 1.5rem;
 }
 
+/* Only the handle starts a drag. Without touch-action, a touch on it scrolls the page. */
+.drag-handle {
+  cursor: grab;
+  touch-action: none;
+  padding: 0 0.25rem;
+  background: none;
+  border: none;
+  color: #6b7280;
+  font-size: 1.1rem;
+  line-height: 1;
+}
+
+.drag-handle:disabled {
+  cursor: default;
+  opacity: 0.4;
+}
+
+.categories .dragging,
+.category-products .dragging {
+  opacity: 0.6;
+}
+
 .drivers th {
   text-align: left;
   padding-right: 1rem;
