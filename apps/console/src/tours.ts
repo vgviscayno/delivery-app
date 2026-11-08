@@ -49,7 +49,7 @@ export const TOURS: Record<TourName, readonly TourStep[]> = {
       target: "column-step",
       title: "Ordered in",
       description:
-        "For a per-weight Product, the steps customers order in. The ? beside each heading explains its column.",
+        "For a per-weight Product, the steps customers order in. The ? beside Ordered in and Weight tolerance explains each one.",
     },
     {
       target: "column-tolerance",
@@ -126,7 +126,7 @@ export const TOURS: Record<TourName, readonly TourStep[]> = {
 };
 
 /** Where the browser remembers a tour was seen: per browser, not per account. */
-const seenKey = (name: TourName) => `courier-ops.tour-seen.${name}`;
+const seenKey = (name: TourName) => `courier.console.tourSeen.${name}`;
 
 /**
  * Whether this browser has finished or closed the tour. Storage that is blocked or

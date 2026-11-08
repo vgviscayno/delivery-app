@@ -86,7 +86,9 @@ function runTour(name: TourName, hooks: () => TourHooks): () => void {
     doneBtnText: "Done",
     closeBtnLabel: "Close the tour",
     popoverClass: "tour-popover",
-    // The tour only points. It never lets a click through to Save, Delete or a cell.
+    // The tour only points. driver.css turns off pointer events inside the highlighted
+    // element, and its Tab trap skips whatever has them off, so neither a click nor Tab
+    // reaches Save, Delete or a cell.
     disableActiveInteraction: true,
     // Next and Back, by button or arrow key, set the page up for the step first.
     onNextClick: () => go((tour.getActiveIndex() ?? 0) + 1),

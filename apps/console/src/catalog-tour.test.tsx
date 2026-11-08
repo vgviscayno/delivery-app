@@ -175,6 +175,23 @@ describe("the Products tour", () => {
     noTour();
   });
 
+  it("leaves the dispatcher's own open Product as it was, after Details and Esc", async () => {
+    markTourSeen("products");
+    renderAt("/catalog/products?product=p-ribeye");
+    await screen.findByRole("complementary", { name: "Ribeye" });
+    fireEvent.click(screen.getByRole("button", { name: "Show me around" }));
+    await step("Add row");
+    for (let i = 0; i < 10; i++) await press("ArrowRight");
+    await step("Details");
+    await screen.findByRole("complementary", { name: "Sample Product" });
+
+    // Esc as the keyboard sends it: down where focus is, then up.
+    fireEvent.keyDown(document.activeElement ?? document.body, { key: "Escape" });
+    pressEscape();
+    await waitFor(noTour);
+    expect(screen.getByRole("complementary", { name: "Ribeye" })).toBeTruthy();
+  });
+
   it("replays from Show me around, after it has been seen", async () => {
     markTourSeen("products");
     renderAt("/catalog/products");

@@ -132,7 +132,10 @@ export function ProductsSection() {
   // The tour demonstrates on a row of its own, and takes it away however it ends.
   useTour("products", {
     onStart: () => setDraft(addTourRow),
-    onEnd: () => setDraft(withoutTourRow),
+    onEnd: () => {
+      setDraft(withoutTourRow);
+      setTicked(({ [TOUR_ROW_KEY]: _, ...rest }) => rest);
+    },
     onScene: setScene,
   });
 
@@ -147,7 +150,9 @@ export function ProductsSection() {
     }
   }, [search.product, catalog, navigate]);
 
-  const dirty = isDirty(withoutTourRow(draft));
+  /** The draft as the dispatcher made it, without the tour's row: what Save writes. */
+  const ownDraft = withoutTourRow(draft);
+  const dirty = isDirty(ownDraft);
   // In-app navigation asks in the page; a refresh or a closed tab gets the browser's own
   // prompt. Both only while there is something unsaved.
   const blocker = useBlocker({
@@ -184,7 +189,7 @@ export function ProductsSection() {
   async function save() {
     let savedOpenId: string | null = null;
     const ok = await saving.run(async () => {
-      const saved = await saveDraft(withoutTourRow(draft), catalog, writesFor(client));
+      const saved = await saveDraft(ownDraft, catalog, writesFor(client));
       setDraft((current) => applyResults(current, saved));
       setResults(saved);
       if (openUnsaved !== null) savedOpenId = productIdOf(saved.get(openUnsaved));
@@ -316,6 +321,8 @@ export function ProductsSection() {
           row={open}
           messages={messages(open, results.get(open.key))}
           disabled={busy}
+          // Opened by the tour, focus stays with the tour's popover.
+          takeFocus={scene !== "details"}
           onEdit={(edits) => edit(open.key, edits)}
           onClose={() => openRow(null)}
         />
@@ -1088,17 +1095,22 @@ function SidePanel({
   row,
   messages: { errors, warnings },
   disabled,
+  takeFocus,
   onEdit,
   onClose,
 }: {
   row: DraftRow;
   messages: { errors: CellMessages; warnings: CellMessages };
   disabled: boolean;
+  takeFocus: boolean;
   onEdit: (edits: Partial<RowValues>) => void;
   onClose: () => void;
 }) {
   const heading = useRef<HTMLHeadingElement>(null);
-  useEffect(() => heading.current?.focus(), []);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: only as the panel opens
+  useEffect(() => {
+    if (takeFocus) heading.current?.focus();
+  }, []);
   const { values } = row;
   const title = rowTitle(row);
   const changed = changedFields(row);

@@ -73,7 +73,7 @@ export function addRow(draft: Draft): Draft {
 export const TOUR_ROW_KEY = "tour-row";
 
 /** What the tour's row holds: a per-weight Product, so every column has a value. */
-const TOUR_ROW: RowValues = {
+const TOUR_ROW_VALUES: RowValues = {
   ...BLANK_ROW,
   name: "Sample Product",
   priceType: "per_weight",
@@ -89,7 +89,7 @@ export function addTourRow(draft: Draft): Draft {
     key: TOUR_ROW_KEY,
     productId: null,
     saved: null,
-    values: TOUR_ROW,
+    values: TOUR_ROW_VALUES,
   };
   return { ...draft, rows: [...draft.rows, row] };
 }
