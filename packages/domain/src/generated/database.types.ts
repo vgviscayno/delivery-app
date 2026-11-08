@@ -32,13 +32,13 @@ export type Database = {
                   ]
                 },"catalog_products": {
                   Row: {
-                    "description": string | null,"id": string | null,"name": string | null,"photo_url": string | null,"price_per_kg_centavos": number | null,"price_type": string | null,"tolerance_grams": number | null,"unit_price_centavos": number | null,"weight_step_grams": number | null
+                    "description": string | null,"id": string | null,"name": string | null,"photo_path": string | null,"price_per_kg_centavos": number | null,"price_type": string | null,"tolerance_grams": number | null,"unit_price_centavos": number | null,"weight_step_grams": number | null
                   }
                   Insert: {
-                           "description"?: string | null,"id"?: string | null,"name"?: string | null,"photo_url"?: string | null,"price_per_kg_centavos"?: number | null,"price_type"?: never,"tolerance_grams"?: number | null,"unit_price_centavos"?: number | null,"weight_step_grams"?: number | null
+                           "description"?: string | null,"id"?: string | null,"name"?: string | null,"photo_path"?: string | null,"price_per_kg_centavos"?: number | null,"price_type"?: never,"tolerance_grams"?: number | null,"unit_price_centavos"?: number | null,"weight_step_grams"?: number | null
                          }
                         Update: {
-                           "description"?: string | null,"id"?: string | null,"name"?: string | null,"photo_url"?: string | null,"price_per_kg_centavos"?: number | null,"price_type"?: never,"tolerance_grams"?: number | null,"unit_price_centavos"?: number | null,"weight_step_grams"?: number | null
+                           "description"?: string | null,"id"?: string | null,"name"?: string | null,"photo_path"?: string | null,"price_per_kg_centavos"?: number | null,"price_type"?: never,"tolerance_grams"?: number | null,"unit_price_centavos"?: number | null,"weight_step_grams"?: number | null
                          }
                         Relationships: [
                     
@@ -75,7 +75,7 @@ export type Database = {
                            },
 "dispatcher_products":
 { Args: Record<PropertyKey, never>; Returns: {
-              "available": boolean,"description": string,"id": string,"name": string,"photo_url": string,"price_per_kg_centavos": number,"price_type": string,"tolerance_grams": number,"unit_price_centavos": number,"updated_at": string,"weight_step_grams": number
+              "available": boolean,"description": string,"id": string,"name": string,"photo_path": string,"price_per_kg_centavos": number,"price_type": string,"tolerance_grams": number,"unit_price_centavos": number,"updated_at": string,"weight_step_grams": number
             }[]
                            },
 "driver_profile":
@@ -108,7 +108,7 @@ export type Database = {
 { Args: { "id": string,"name": string }; Returns: string
                            },
 "save_product":
-{ Args: { "description": string,"id": string,"name": string,"photo_url": string,"price_per_kg_centavos": number,"price_type": string,"tolerance_grams": number,"unit_price_centavos": number,"weight_step_grams": number }; Returns: string
+{ Args: { "description": string,"id": string,"name": string,"photo_path": string,"price_per_kg_centavos": number,"price_type": string,"tolerance_grams": number,"unit_price_centavos": number,"weight_step_grams": number }; Returns: string
                            },
 "server_clock":
 { Args: Record<PropertyKey, never>; Returns: {

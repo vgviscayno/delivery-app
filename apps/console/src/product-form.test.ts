@@ -6,7 +6,7 @@ const ribeye: Product = {
   id: "p-ribeye",
   name: "Ribeye",
   description: "Grain-fed, cut to order.",
-  photoUrl: null,
+  photoPath: null,
   available: true,
   price: {
     type: "per_weight",
@@ -20,7 +20,7 @@ const tocino: Product = {
   id: "p-tocino",
   name: "Pork tocino, 450 g pack",
   description: null,
-  photoUrl: "https://example.com/tocino.jpg",
+  photoPath: "t0c1/large.webp",
   available: false,
   price: { type: "per_unit", unitPriceCentavos: 16500 },
 };
@@ -33,7 +33,7 @@ describe("the Product form", () => {
     expect(formFromProduct(ribeye)).toEqual({
       name: "Ribeye",
       description: "Grain-fed, cut to order.",
-      photoUrl: "",
+      photoPath: null,
       priceType: "per_weight",
       unitPricePesos: "",
       pricePerKgPesos: "1200.50",
@@ -110,7 +110,6 @@ describe("the Product form", () => {
     ["a step in fractions of a gram", { weightStepGrams: "250.5" }, "weightStepGrams"],
     ["a free cut", { pricePerKgPesos: "0" }, "pricePerKgPesos"],
     ["a negative tolerance", { toleranceGrams: "-50" }, "toleranceGrams"],
-    ["a photo that is not a web address", { photoUrl: "ribeye.jpg" }, "photoUrl"],
   ])("refuses %s", (_, fields, field) => {
     expect(perWeight(fields)).toMatchObject({
       ok: false,
@@ -126,10 +125,10 @@ describe("the Product form", () => {
     });
   });
 
-  it("reads a blank description and photo as none", () => {
-    expect(perWeight({ description: "  ", photoUrl: "" })).toMatchObject({
+  it("reads a blank description as none", () => {
+    expect(perWeight({ description: "  " })).toMatchObject({
       ok: true,
-      edits: { description: null, photoUrl: null },
+      edits: { description: null },
     });
   });
 });

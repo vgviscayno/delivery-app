@@ -4,6 +4,7 @@ import {
   reorderCategories,
   saveProduct,
   setCategoryProducts,
+  uploadProductPhoto,
 } from "@courier/api-client";
 import type { Catalog } from "@courier/domain";
 import { createMemoryHistory, RouterProvider } from "@tanstack/react-router";
@@ -26,7 +27,7 @@ const catalog: Catalog = {
       id: "p-ribeye",
       name: "Ribeye",
       description: null,
-      photoUrl: null,
+      photoPath: null,
       available: true,
       price: {
         type: "per_weight",
@@ -51,6 +52,7 @@ vi.mock("@courier/api-client", async (importOriginal) => ({
   fetchServerClock: vi.fn(() => new Promise(() => {})),
   fetchDispatcherCatalog: vi.fn(async () => catalog),
   saveProduct: vi.fn(async () => "p-new"),
+  uploadProductPhoto: vi.fn(async () => "upload/large.webp"),
   deleteProduct: vi.fn(async () => {}),
   setProductAvailable: vi.fn(async () => {}),
   setCategoryProducts: vi.fn(async () => {}),
@@ -58,6 +60,10 @@ vi.mock("@courier/api-client", async (importOriginal) => ({
   saveCategory: vi.fn(async () => "c-new"),
   deleteCategory: vi.fn(async () => {}),
 }));
+
+// jsdom has no object URLs; the grid shows a dropped photo through one.
+URL.createObjectURL = () => "blob:dropped";
+URL.revokeObjectURL = () => {};
 
 const client = {
   auth: {
@@ -152,7 +158,7 @@ describe("the Products tour", () => {
   it("puts what it points at out of reach, and gives it back when it moves on", async () => {
     renderAt("/catalog/products");
     await step("Add row");
-    for (let i = 0; i < 7; i++) await press("ArrowRight");
+    for (let i = 0; i < 8; i++) await press("ArrowRight");
     await step("Save");
     const save = screen.getByRole("button", { name: "Save", hidden: true });
     expect(save.closest("[inert]")).not.toBeNull();
@@ -163,6 +169,27 @@ describe("the Products tour", () => {
     pressEscape();
     await waitFor(noTour);
     expect(document.querySelector("[inert]")).toBeNull();
+  });
+
+  it("points at its own row's photo cell, and a photo dropped there goes nowhere", async () => {
+    markTourSeen("products");
+    renderAt("/catalog/products");
+    await screen.findByRole("table", { name: "Products" });
+    await pick("Add a Product");
+    await step("Add row");
+    for (let i = 0; i < 5; i++) await press("ArrowRight");
+    await step("Drop a photo here");
+
+    const target = document.querySelector('[data-tour="photo"]');
+    const row = screen.getByRole("row", { name: "Sample Product", hidden: true });
+    expect(target && row.contains(target)).toBe(true);
+    const photo = new File(["jpeg"], "sample.jpg", { type: "image/jpeg" });
+    fireEvent.drop(target as Element, { dataTransfer: { files: [photo] } });
+    pressEscape();
+    await waitFor(noTour);
+
+    expect(uploadProductPhoto).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: "Save" })).toHaveProperty("disabled", true);
   });
 
   it("leaves its own row out of what ticked rows change", async () => {
@@ -195,6 +222,7 @@ describe("the Products tour", () => {
       "Price",
       "Ordered in",
       "Weight tolerance",
+      "Drop a photo here",
       "Fill down",
       "Changes are highlighted",
       "Save",
@@ -207,7 +235,7 @@ describe("the Products tour", () => {
     }
     await press("ArrowRight");
     await step("Details");
-    progress("12 of 13");
+    progress("13 of 14");
     expect(screen.getByRole("complementary", { name: "Sample Product" })).toBeTruthy();
 
     // Back closes the panel the step opened.
@@ -286,7 +314,7 @@ describe("the Products tour", () => {
     fireEvent.click(within(menu).getByRole("menuitem", { name: "The whole tour" }));
     expect(screen.queryByRole("menu")).toBeNull();
     await step("Add row");
-    progress("1 of 13");
+    progress("1 of 14");
     expect(screen.getByRole("row", { name: "Sample Product" })).toBeTruthy();
   });
 
@@ -310,7 +338,7 @@ describe("the Products tour", () => {
 
     await pick("Add a Product");
     await step("Add row");
-    progress("1 of 6");
+    progress("1 of 7");
     pressEscape();
     await waitFor(noTour);
 

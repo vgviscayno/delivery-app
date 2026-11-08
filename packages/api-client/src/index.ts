@@ -45,6 +45,13 @@ export {
   inviteDriver,
 } from "./drivers.js";
 export {
+  type ProductPhotoFiles,
+  type ProductPhotoUrls,
+  productPhotoUrls,
+  removeProductPhoto,
+  uploadProductPhoto,
+} from "./product-photos.js";
+export {
   addShopClosure,
   fetchShopSettings,
   removeShopClosure,

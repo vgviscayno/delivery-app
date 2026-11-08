@@ -3,6 +3,7 @@ import {
   type CourierClient,
   fetchDispatcherCatalog,
   saveProduct,
+  uploadProductPhoto,
 } from "@courier/api-client";
 import type { Catalog } from "@courier/domain";
 import { createMemoryHistory, RouterProvider } from "@tanstack/react-router";
@@ -26,7 +27,7 @@ const catalog: Catalog = {
       id: "p-ribeye",
       name: "Ribeye",
       description: "Grain-fed, cut to order.",
-      photoUrl: null,
+      photoPath: null,
       available: true,
       price: {
         type: "per_weight",
@@ -39,7 +40,7 @@ const catalog: Catalog = {
       id: "p-tocino",
       name: "Pork tocino",
       description: null,
-      photoUrl: null,
+      photoPath: null,
       available: false,
       price: { type: "per_unit", unitPriceCentavos: 24500 },
     },
@@ -61,7 +62,24 @@ vi.mock("@courier/api-client", async (importOriginal) => ({
   saveProduct: vi.fn(async (_client: unknown, id: string | null) => id ?? "p-new"),
   setProductAvailable: vi.fn(async () => {}),
   setCategoryProducts: vi.fn(async () => {}),
+  uploadProductPhoto: vi.fn(async () => "upload/large.webp"),
+  removeProductPhoto: vi.fn(async () => {}),
+  productPhotoUrls: vi.fn((_client: unknown, path: string) => ({
+    large: `https://photos.test/${path}`,
+    thumb: `https://photos.test/thumb/${path}`,
+  })),
 }));
+
+// jsdom has neither a canvas that encodes nor createImageBitmap.
+const resized = {
+  large: new Blob(["large"], { type: "image/webp" }),
+  thumb: new Blob(["thumb"], { type: "image/webp" }),
+};
+vi.mock("./photo-resize.js", () => ({ resizePhoto: vi.fn(async () => resized) }));
+
+// jsdom has no object URLs either; the grid shows a dropped photo through one.
+URL.createObjectURL = () => "blob:dropped";
+URL.revokeObjectURL = () => {};
 
 const client = {
   auth: {
@@ -298,6 +316,52 @@ describe("the Products grid", () => {
     );
   });
 
+  it("narrows to the Products with no photo, from the URL too", async () => {
+    vi.mocked(fetchDispatcherCatalog).mockResolvedValueOnce({
+      ...catalog,
+      products: catalog.products.map((product) =>
+        product.id === "p-ribeye" ? { ...product, photoPath: "r1/large.webp" } : product,
+      ),
+    });
+    const router = renderAt("/catalog/products?nophoto=1");
+    const table = await grid();
+
+    expect(within(table).queryByRole("row", { name: /Ribeye/ })).toBeNull();
+    expect(within(table).getByRole("row", { name: /Pork tocino/ })).toBeTruthy();
+    const filter = screen.getByRole("checkbox", { name: "No photo" });
+    expect(filter).toHaveProperty("checked", true);
+
+    fireEvent.click(filter);
+    await waitFor(() => expect(router.state.location.search).toEqual({}));
+    const ribeye = within(table).getByRole("row", { name: /Ribeye/ });
+    expect(within(ribeye).getByRole("img")).toHaveProperty(
+      "src",
+      "https://photos.test/thumb/r1/large.webp",
+    );
+  });
+
+  it("shows a dropped photo at once, and uploads it only on Save", async () => {
+    renderAt("/catalog/products");
+    await grid();
+
+    const cell = screen.getByLabelText("Photo of Ribeye").closest(".photo-cell");
+    const photo = new File(["jpeg"], "ribeye.jpg", { type: "image/jpeg" });
+    fireEvent.drop(cell as Element, { dataTransfer: { files: [photo] } });
+
+    const ribeye = screen.getByRole("row", { name: /Ribeye/ });
+    expect(within(ribeye).getByRole("img")).toHaveProperty("src", "blob:dropped");
+    expect(uploadProductPhoto).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    expect(await within(ribeye).findByText("Saved")).toBeTruthy();
+    expect(uploadProductPhoto).toHaveBeenCalledWith(client, resized);
+    expect(saveProduct).toHaveBeenCalledWith(
+      client,
+      "p-ribeye",
+      expect.objectContaining({ photoPath: "upload/large.webp" }),
+    );
+  });
+
   it("puts a new Product open in the side panel into the URL once it is saved", async () => {
     const router = renderAt("/catalog/products");
     await grid();
@@ -315,7 +379,7 @@ describe("the Products grid", () => {
       id: "p-new",
       name: "Chorizo",
       description: null,
-      photoUrl: null,
+      photoPath: null,
       available: true,
       price: { type: "per_unit", unitPriceCentavos: 22000 },
     } as const;

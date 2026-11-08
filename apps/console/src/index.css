@@ -696,6 +696,27 @@ body {
   border-radius: 0.25rem;
 }
 
+.photo-cell {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  min-inline-size: 0;
+  margin: 0;
+  padding: 0.125rem;
+  border: 1px dashed transparent;
+  border-radius: 0.25rem;
+}
+
+.photo-cell label {
+  cursor: pointer;
+}
+
+.photo-cell.over,
+.photo-cell:focus-within {
+  border-color: currentColor;
+}
+
 .products-grid .col-actions {
   white-space: nowrap;
 }

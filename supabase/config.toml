@@ -126,6 +126,11 @@ file_size_limit = "2MiB"
 allowed_mime_types = ["image/png", "image/jpeg", "image/webp"]
 objects_path = "./seed/shop"
 
+[storage.buckets.product-photos]
+public = true
+file_size_limit = "2MiB"
+allowed_mime_types = ["image/webp", "image/jpeg"]
+
 # Allow connections via S3 compatible clients
 [storage.s3_protocol]
 enabled = true

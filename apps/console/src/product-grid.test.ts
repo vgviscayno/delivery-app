@@ -24,7 +24,7 @@ const ribeye: Product = {
   id: "p-ribeye",
   name: "Ribeye",
   description: "Grain-fed, cut to order.",
-  photoUrl: "https://example.com/ribeye.jpg",
+  photoPath: "r1b3/large.webp",
   available: true,
   price: {
     type: "per_weight",
@@ -38,7 +38,7 @@ const tocino: Product = {
   id: "p-tocino",
   name: "Pork tocino, 450 g pack",
   description: null,
-  photoUrl: null,
+  photoPath: null,
   available: false,
   price: { type: "per_unit", unitPriceCentavos: 16500 },
 };
@@ -77,7 +77,7 @@ describe("the Products grid draft", () => {
         available: true,
         categoryIds: ["c-beef"],
         description: "Grain-fed, cut to order.",
-        photoUrl: "https://example.com/ribeye.jpg",
+        photo: { path: "r1b3/large.webp" },
       },
       {
         name: "Pork tocino, 450 g pack",
@@ -88,7 +88,7 @@ describe("the Products grid draft", () => {
         available: false,
         categoryIds: ["c-pork"],
         description: "",
-        photoUrl: "",
+        photo: null,
       },
     ]);
     expect(draft.rows.map((row) => changedFields(row))).toEqual([[], []]);
@@ -136,8 +136,13 @@ describe("the Products grid draft", () => {
     expect(draft.rows[1]?.values).toEqual({
       ...draft.rows[0]?.values,
       name: "",
-      photoUrl: "",
+      photo: null,
     });
+  });
+
+  it("never fills a photo down, so no two Products share its files", () => {
+    const draft = fillDown(draftFromCatalog(catalog), "photo", "p-ribeye", ["p-tocino"]);
+    expect(draft.rows[1]?.values.photo).toBeNull();
   });
 
   it("fills a price down into other rows", () => {
@@ -178,7 +183,7 @@ describe("the Products grid draft", () => {
       edits: {
         name: ribeye.name,
         description: ribeye.description,
-        photoUrl: ribeye.photoUrl,
+        photoPath: ribeye.photoPath,
         price: ribeye.price,
       },
       warnings: {},
@@ -245,6 +250,17 @@ describe("the Products grid draft", () => {
       const draft = draftFromCatalog(catalog);
       expect(keys(draft, { category: "c-beef" })).toEqual(["p-ribeye"]);
       expect(keys(draft, { unavailable: 1 })).toEqual(["p-tocino"]);
+    });
+
+    it("filters to the Products with no photo", () => {
+      expect(keys(draftFromCatalog(catalog), { nophoto: 1 })).toEqual(["p-tocino"]);
+    });
+
+    it("keeps a row in the no-photo view while a photo is dropped on it", () => {
+      const draft = editRows(draftFromCatalog(catalog), ["p-tocino"], {
+        photo: { file: new File([""], "tocino.jpg"), preview: "blob:tocino" },
+      });
+      expect(keys(draft, { nophoto: 1 })).toEqual(["p-tocino"]);
     });
 
     it("filters on what was saved, so a row being edited stays in view", () => {

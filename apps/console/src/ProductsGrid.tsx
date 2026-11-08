@@ -1,9 +1,12 @@
 import {
   type CourierClient,
   deleteProduct,
+  productPhotoUrls,
+  removeProductPhoto,
   saveProduct,
   setCategoryProducts,
   setProductAvailable,
+  uploadProductPhoto,
 } from "@courier/api-client";
 import type { Category, PriceType } from "@courier/domain";
 import { getRouteApi, useBlocker } from "@tanstack/react-router";
@@ -33,6 +36,7 @@ import {
 import { useCatalog } from "./Catalog.js";
 import { Dialog } from "./Dialog.js";
 import { applyResults, type GridWrites, type RowResult, saveDraft } from "./grid-save.js";
+import { resizePhoto } from "./photo-resize.js";
 import {
   addRow,
   addToCategory,
@@ -42,6 +46,7 @@ import {
   type Draft,
   type DraftRow,
   draftFromCatalog,
+  droppedPhoto,
   duplicateRow,
   editRows,
   fillDown,
@@ -49,11 +54,13 @@ import {
   type GridField,
   hasCell,
   isDirty,
+  type RowPhoto,
   type RowValues,
   readRow,
   removeFromCategory,
   removeRows,
   sortRows,
+  storedPath,
   syncDraft,
   TOUR_ROW_KEY,
   visibleRows,
@@ -75,7 +82,7 @@ const LABEL = {
   tolerance: "Weight tolerance",
   available: "Available",
   categoryIds: "Categories",
-  photoUrl: "Photo",
+  photo: "Photo",
   description: "Description",
 } as const satisfies Record<GridField, string>;
 
@@ -138,6 +145,33 @@ export function ProductsSection() {
     },
     onDetails: setTourDetails,
   });
+
+  // A dropped photo is shown from an object URL, which holds the whole file in memory
+  // until revoked. Each is let go once no row holds it: saved, replaced or discarded.
+  const previews = useRef(new Set<string>());
+  useEffect(() => {
+    const held = new Set(
+      draft.rows.flatMap(({ values }) => droppedPhoto(values.photo)?.preview ?? []),
+    );
+    for (const url of previews.current) {
+      if (!held.has(url)) URL.revokeObjectURL(url);
+    }
+    previews.current = held;
+  }, [draft]);
+  useEffect(
+    () => () => {
+      for (const url of previews.current) URL.revokeObjectURL(url);
+    },
+    [],
+  );
+
+  /** Where to show a row's photo from: the dropped file's preview, or Storage. */
+  const photoSrc = (photo: RowPhoto | null, size: "large" | "thumb") => {
+    const path = storedPath(photo);
+    return path
+      ? productPhotoUrls(client, path)[size]
+      : (droppedPhoto(photo)?.preview ?? null);
+  };
 
   // Each read of the catalog — after Save, after Delete — is folded into the draft.
   useEffect(() => setDraft((current) => syncDraft(current, catalog)), [catalog]);
@@ -292,6 +326,7 @@ export function ProductsSection() {
             <Grid
               rows={rows}
               categories={catalog.categories}
+              thumbOf={(photo) => photoSrc(photo, "thumb")}
               results={results}
               ticked={ticked}
               sort={search.sort}
@@ -320,6 +355,7 @@ export function ProductsSection() {
           // A fresh panel for each row, so it takes focus as it opens.
           key={open.key}
           row={open}
+          photo={photoSrc(open.values.photo, "large")}
           messages={messages(open, results.get(open.key))}
           disabled={busy}
           // Opened by the tour, focus stays with the tour's popover.
@@ -404,6 +440,16 @@ function Filters({ categories }: { categories: readonly Category[] }) {
         />{" "}
         Unavailable only
       </label>
+      <label>
+        <input
+          type="checkbox"
+          checked={search.nophoto === 1}
+          onChange={(event) =>
+            set(event.target.checked ? { nophoto: 1 } : { nophoto: undefined })
+          }
+        />{" "}
+        No photo
+      </label>
     </div>
   );
 }
@@ -477,6 +523,8 @@ interface RowView {
   readonly warnings: CellMessages;
   readonly result: RowResult | undefined;
   readonly categories: readonly Category[];
+  /** Where the photo cell shows the row's photo from; null for none. */
+  readonly thumb: string | null;
   readonly onEdit: (edits: Partial<RowValues>) => void;
   readonly onDuplicate: () => void;
   readonly onOpen: () => void;
@@ -494,6 +542,7 @@ const VALUE_CELLS: ReadonlySet<string> = new Set<GridField>([
   "tolerance",
   "available",
   "categoryIds",
+  "photo",
 ]);
 
 /** What every cell's control carries: where it is, for Ctrl+D, and its name. */
@@ -617,14 +666,9 @@ const COLUMNS: ColumnDef<RowView, unknown>[] = [
     ),
   },
   {
-    id: "photoUrl",
-    header: LABEL.photoUrl,
-    cell: ({ row: { original: view } }) =>
-      view.row.values.photoUrl ? (
-        <img className="thumb" src={view.row.values.photoUrl} alt={view.title} />
-      ) : (
-        <span className="detail">No photo</span>
-      ),
+    id: "photo",
+    header: LABEL.photo,
+    cell: ({ row: { original: view } }) => <PhotoCell view={view} />,
   },
   {
     id: "actions",
@@ -687,9 +731,11 @@ function Grid({
   onFillDown,
   onDuplicate,
   onOpen,
+  thumbOf,
 }: {
   rows: readonly DraftRow[];
   categories: readonly Category[];
+  thumbOf: (photo: RowPhoto | null) => string | null;
   results: ReadonlyMap<string, RowResult>;
   ticked: RowSelectionState;
   sort: ProductsSort | undefined;
@@ -711,6 +757,7 @@ function Grid({
       ...messages(row, result),
       result,
       categories,
+      thumb: thumbOf(row.values.photo),
       onEdit: (edits) => onEdit(row.key, edits),
       onDuplicate: () => onDuplicate(row.key),
       onOpen: () => onOpen(row),
@@ -823,6 +870,66 @@ function Grid({
         })}
       </tbody>
     </table>
+  );
+}
+
+/**
+ * A row's photo: drop an image on it, or click to pick one. The dropped file is shown
+ * from the browser's copy and only uploaded when Save writes the row.
+ */
+function PhotoCell({ view }: { view: RowView }) {
+  const [over, setOver] = useState(false);
+  const { photo } = view.row.values;
+  const take = (files: FileList | readonly File[] | null) => {
+    const file = Array.from(files ?? []).find((each) => each.type.startsWith("image/"));
+    if (file) view.onEdit({ photo: { file, preview: URL.createObjectURL(file) } });
+  };
+  return (
+    <fieldset
+      aria-label={`Drop a photo for ${view.title}`}
+      className={`photo-cell${over ? " over" : ""}`}
+      data-tour={view.row.key === TOUR_ROW_KEY ? "photo" : undefined}
+      onDragOver={(event) => {
+        event.preventDefault();
+        setOver(true);
+      }}
+      onDragLeave={() => setOver(false)}
+      onDrop={(event) => {
+        event.preventDefault();
+        setOver(false);
+        // Saving disables the grid, and this with it, but a drop still arrives.
+        if (event.currentTarget.matches(":disabled")) return;
+        take(event.dataTransfer.files);
+      }}
+    >
+      <label>
+        {view.thumb ? (
+          <img className="thumb" src={view.thumb} alt={view.title} />
+        ) : (
+          <span className="detail">No photo</span>
+        )}
+        <input
+          {...cellProps(view, "photo")}
+          className="visually-hidden"
+          type="file"
+          accept="image/*"
+          onChange={(event) => {
+            take(event.target.files);
+            event.target.value = "";
+          }}
+        />
+      </label>
+      {photo !== null && (
+        <button
+          type="button"
+          className="photo-remove"
+          aria-label={`Remove the photo of ${view.title}`}
+          onClick={() => view.onEdit({ photo: null })}
+        >
+          ×
+        </button>
+      )}
+    </fieldset>
   );
 }
 
@@ -1095,6 +1202,7 @@ function CategoryPicker({
  */
 function SidePanel({
   row,
+  photo,
   messages: { errors, warnings },
   disabled,
   takeFocus,
@@ -1102,6 +1210,8 @@ function SidePanel({
   onClose,
 }: {
   row: DraftRow;
+  /** The large photo, or the dropped file's preview. */
+  photo: string | null;
   messages: { errors: CellMessages; warnings: CellMessages };
   disabled: boolean;
   takeFocus: boolean;
@@ -1154,9 +1264,7 @@ function SidePanel({
           ×
         </button>
       </div>
-      {values.photoUrl && (
-        <img className="panel-photo" src={values.photoUrl} alt={title} />
-      )}
+      {photo && <img className="panel-photo" src={photo} alt={title} />}
       <fieldset disabled={disabled}>
         {field("name", (id) => (
           <input
@@ -1264,6 +1372,8 @@ function plural(count: number, noun: string): string {
 function writesFor(client: CourierClient): GridWrites {
   return {
     saveProduct: (id, edits) => saveProduct(client, id, edits),
+    uploadPhoto: async (file) => uploadProductPhoto(client, await resizePhoto(file)),
+    removePhoto: (path) => removeProductPhoto(client, path),
     setProductAvailable: (id, available) => setProductAvailable(client, id, available),
     setCategoryProducts: (categoryId, productIds) =>
       setCategoryProducts(client, categoryId, productIds),

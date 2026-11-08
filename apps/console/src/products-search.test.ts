@@ -4,8 +4,14 @@ import { readProductsSearch } from "./products-search.js";
 describe("the Products view's search params", () => {
   it("reads the open Product and every filter", () => {
     expect(
-      readProductsSearch({ product: "p-1", q: "rib", category: "c-1", unavailable: 1 }),
-    ).toEqual({ product: "p-1", q: "rib", category: "c-1", unavailable: 1 });
+      readProductsSearch({
+        product: "p-1",
+        q: "rib",
+        category: "c-1",
+        unavailable: 1,
+        nophoto: "1",
+      }),
+    ).toEqual({ product: "p-1", q: "rib", category: "c-1", unavailable: 1, nophoto: 1 });
   });
 
   it("reads a search that the URL parsed as a number as text", () => {
@@ -24,7 +30,13 @@ describe("the Products view's search params", () => {
 
   it("drops what it does not understand, and empty values", () => {
     expect(
-      readProductsSearch({ q: "", category: ["c-1"], unavailable: "yes", page: 2 }),
+      readProductsSearch({
+        q: "",
+        category: ["c-1"],
+        unavailable: "yes",
+        nophoto: true,
+        page: 2,
+      }),
     ).toEqual({});
   });
 });

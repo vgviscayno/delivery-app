@@ -87,6 +87,13 @@ export const TOURS: Record<TourName, readonly TourStep[]> = {
         "How far a per-weight Product's packed weight may differ from what the customer ordered before they must approve the new price.",
     },
     {
+      target: "photo",
+      topics: ["add"],
+      title: "Drop a photo here",
+      description:
+        "Drop a photo on a row, or click to pick one. It shows here straight away, and is resized and uploaded only when you press Save.",
+    },
+    {
       target: TOUR_ROW,
       topics: ["edit"],
       title: "Fill down",

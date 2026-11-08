@@ -26,7 +26,7 @@ const longganisaRow = {
   id: "p-longganisa",
   name: "Garlic longganisa, 500 g pack",
   description: "Sweet, garlicky, made in-house.",
-  photo_url: null,
+  photo_path: null,
   price_type: "per_unit",
   unit_price_centavos: 18500,
   price_per_kg_centavos: null,
@@ -38,7 +38,7 @@ const ribeyeRow = {
   id: "p-ribeye",
   name: "Ribeye",
   description: null,
-  photo_url: "https://example.com/ribeye.jpg",
+  photo_path: "a1b2/large.webp",
   price_type: "per_weight",
   unit_price_centavos: null,
   price_per_kg_centavos: 120000,
@@ -99,7 +99,7 @@ describe("fetchCatalog", () => {
           id: "p-longganisa",
           name: "Garlic longganisa, 500 g pack",
           description: "Sweet, garlicky, made in-house.",
-          photoUrl: null,
+          photoPath: null,
           available: true,
           price: { type: "per_unit", unitPriceCentavos: 18500 },
         },
@@ -107,7 +107,7 @@ describe("fetchCatalog", () => {
           id: "p-ribeye",
           name: "Ribeye",
           description: null,
-          photoUrl: "https://example.com/ribeye.jpg",
+          photoPath: "a1b2/large.webp",
           available: true,
           price: {
             type: "per_weight",
@@ -175,7 +175,7 @@ describe("fetchDispatcherCatalog", () => {
 });
 
 describe("saveProduct", () => {
-  const details = { name: "Ribeye", description: null, photoUrl: null };
+  const details = { name: "Ribeye", description: null, photoPath: null };
 
   it("adds a per-unit Product with no weight fields", async () => {
     const { client, rpc } = fakeClient({ rpc: { save_product: ok("p-new") } });
@@ -192,7 +192,7 @@ describe("saveProduct", () => {
       id: null,
       name: "Tocino",
       description: null,
-      photo_url: null,
+      photo_path: null,
       price_type: "per_unit",
       unit_price_centavos: 16500,
       price_per_kg_centavos: null,
@@ -218,7 +218,7 @@ describe("saveProduct", () => {
       id: "p-ribeye",
       name: "Ribeye",
       description: null,
-      photo_url: null,
+      photo_path: null,
       price_type: "per_weight",
       unit_price_centavos: null,
       price_per_kg_centavos: 120000,

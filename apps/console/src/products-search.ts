@@ -31,6 +31,8 @@ export interface ProductFilters {
   readonly category?: string;
   /** Only unavailable Products. */
   readonly unavailable?: 1;
+  /** Only Products with no photo, to find the ones still to photograph. */
+  readonly nophoto?: 1;
 }
 
 /**
@@ -43,12 +45,14 @@ export function readProductsSearch(search: Record<string, unknown>): ProductsSea
   const q = nonEmptyText(search.q);
   const category = nonEmptyText(search.category);
   const unavailable = search.unavailable === 1 || search.unavailable === "1";
+  const nophoto = search.nophoto === 1 || search.nophoto === "1";
   const sort = readSort(search.sort);
   return {
     ...(product && { product }),
     ...(q && { q }),
     ...(category && { category }),
     ...(unavailable && { unavailable: 1 }),
+    ...(nophoto && { nophoto: 1 }),
     ...(sort && { sort }),
   };
 }

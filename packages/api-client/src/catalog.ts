@@ -91,7 +91,7 @@ export async function saveProduct(
     id,
     name: edits.name,
     description: edits.description,
-    photo_url: edits.photoUrl,
+    photo_path: edits.photoPath,
     price_type: price.type,
     unit_price_centavos: price.type === "per_unit" ? price.unitPriceCentavos : null,
     price_per_kg_centavos: price.type === "per_weight" ? price.pricePerKgCentavos : null,

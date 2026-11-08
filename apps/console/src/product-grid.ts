@@ -20,7 +20,34 @@ export interface RowValues {
   readonly available: boolean;
   readonly categoryIds: readonly string[];
   readonly description: string;
-  readonly photoUrl: string;
+  readonly photo: RowPhoto | null;
+}
+
+/**
+ * A row's photo: one already in Storage, or one dropped on the row and shown from the
+ * browser's copy until Save uploads it.
+ */
+export type RowPhoto = StoredPhoto | DroppedPhoto;
+
+export interface StoredPhoto {
+  /** Where the large photo is in the `product-photos` bucket. */
+  readonly path: string;
+}
+
+export interface DroppedPhoto {
+  readonly file: File;
+  /** An object URL for the dropped file. */
+  readonly preview: string;
+}
+
+/** The path of a photo already in Storage; null for none, or one not yet uploaded. */
+export function storedPath(photo: RowPhoto | null): string | null {
+  return photo !== null && "path" in photo ? photo.path : null;
+}
+
+/** A photo dropped on the row and not yet uploaded, if that is what it holds. */
+export function droppedPhoto(photo: RowPhoto | null): DroppedPhoto | null {
+  return photo !== null && "file" in photo ? photo : null;
 }
 
 export type GridField = keyof RowValues;
@@ -99,13 +126,16 @@ export function withoutTourRow(draft: Draft): Draft {
   return removeRows(draft, [TOUR_ROW_KEY]);
 }
 
-/** Copies a row, all but its name and photo, into a new row directly below it. */
+/**
+ * Copies a row, all but its name and photo, into a new row directly below it. Two
+ * Products never share photo files: replacing one's photo removes the old files.
+ */
 export function duplicateRow(draft: Draft, key: string): Draft {
   const added = draft.added + 1;
   return {
     rows: draft.rows.flatMap((row) =>
       row.key === key
-        ? [row, newRow(added, { ...row.values, name: "", photoUrl: "" })]
+        ? [row, newRow(added, { ...row.values, name: "", photo: null })]
         : [row],
     ),
     added,
@@ -114,7 +144,8 @@ export function duplicateRow(draft: Draft, key: string): Draft {
 
 /**
  * Copies one cell of the `from` row into the same cell of each `to` row. A per-unit row
- * is skipped for step and tolerance, since it has neither.
+ * is skipped for step and tolerance, since it has neither. A photo is never copied, for
+ * the reason `duplicateRow` gives.
  */
 export function fillDown(
   draft: Draft,
@@ -123,7 +154,7 @@ export function fillDown(
   to: readonly string[],
 ): Draft {
   const source = draft.rows.find((row) => row.key === from);
-  if (!source) return draft;
+  if (!source || field === "photo") return draft;
   const value = source.values[field];
   return {
     ...draft,
@@ -137,14 +168,15 @@ export function fillDown(
 
 /**
  * Reads a row into the Product it would save, with each error or warning on the cell it
- * is about. The rules are the Product form's.
+ * is about. The rules are the Product form's. A photo not yet uploaded reads as none:
+ * Save uploads it and puts its path in.
  */
 export function readRow(row: DraftRow): RowRead {
   const { values } = row;
   const read = readProductForm({
     name: values.name,
     description: values.description,
-    photoUrl: values.photoUrl,
+    photoPath: storedPath(values.photo),
     priceType: values.priceType,
     unitPricePesos: values.price,
     pricePerKgPesos: values.price,
@@ -160,7 +192,7 @@ export function readRow(row: DraftRow): RowRead {
 const CELL: Record<keyof ProductForm, GridField> = {
   name: "name",
   description: "description",
-  photoUrl: "photoUrl",
+  photoPath: "photo",
   priceType: "priceType",
   unitPricePesos: "price",
   pricePerKgPesos: "price",
@@ -248,6 +280,7 @@ export function visibleRows(draft: Draft, filters: ProductFilters): DraftRow[] {
     if (q !== "" && !saved.name.toLowerCase().includes(q)) return false;
     if (filters.category && !saved.categoryIds.includes(filters.category)) return false;
     if (filters.unavailable && saved.available) return false;
+    if (filters.nophoto && saved.photo !== null) return false;
     return true;
   });
 }
@@ -417,7 +450,7 @@ function valuesFromForm(
     available,
     categoryIds,
     description: form.description,
-    photoUrl: form.photoUrl,
+    photo: form.photoPath === null ? null : { path: form.photoPath },
   };
 }
 
@@ -425,5 +458,11 @@ function sameValue(a: RowValues[GridField], b: RowValues[GridField]): boolean {
   if (Array.isArray(a) && Array.isArray(b)) {
     return a.length === b.length && a.every((id) => b.includes(id));
   }
+  // A stored photo is the same photo by path; a dropped one only as the same drop.
+  if (isStored(a) && isStored(b)) return a.path === b.path;
   return a === b;
+}
+
+function isStored(value: RowValues[GridField]): value is StoredPhoto {
+  return typeof value === "object" && value !== null && "path" in value;
 }

@@ -14,7 +14,8 @@ const STEP_ERROR = "Enter the step in whole grams.";
 export interface ProductForm {
   readonly name: string;
   readonly description: string;
-  readonly photoUrl: string;
+  /** Not typed in: the path of a photo already in Storage, carried through as it is. */
+  readonly photoPath: string | null;
   readonly priceType: PriceType;
   readonly unitPricePesos: string;
   /** Per kilogram. */
@@ -40,7 +41,7 @@ export function formFromProduct(product: Product | null): ProductForm {
   return {
     name: product?.name ?? "",
     description: product?.description ?? "",
-    photoUrl: product?.photoUrl ?? "",
+    photoPath: product?.photoPath ?? null,
     priceType: price?.type ?? "per_unit",
     unitPricePesos: price?.type === "per_unit" ? pesos(price.unitPriceCentavos) : "",
     pricePerKgPesos: price?.type === "per_weight" ? pesos(price.pricePerKgCentavos) : "",
@@ -65,7 +66,6 @@ export function readProductForm(form: ProductForm): ProductFormResult {
 
   const name = form.name.trim();
   if (name === "") errors.name = "A Product needs a name.";
-  const photoUrl = check("photoUrl", parsePhotoUrl(form.photoUrl));
 
   let price: Price | undefined;
   if (form.priceType === "per_unit") {
@@ -99,7 +99,7 @@ export function readProductForm(form: ProductForm): ProductFormResult {
     }
   }
 
-  if (Object.keys(errors).length > 0 || price === undefined || photoUrl === undefined) {
+  if (Object.keys(errors).length > 0 || price === undefined) {
     return { ok: false, errors };
   }
 
@@ -115,7 +115,7 @@ export function readProductForm(form: ProductForm): ProductFormResult {
     edits: {
       name,
       description: form.description.trim() || null,
-      photoUrl,
+      photoPath: form.photoPath,
       price,
     },
     warnings,
@@ -145,18 +145,6 @@ function notBlank<T>(parsed: Parsed<T | null>, error: string): Parsed<T> {
   if (!parsed.ok) return parsed;
   if (parsed.value === null) return { ok: false, error };
   return { ok: true, value: parsed.value };
-}
-
-function parsePhotoUrl(text: string): Parsed<string | null> {
-  const cleaned = text.trim();
-  if (cleaned === "") return { ok: true, value: null };
-  if (!/^https?:\/\/\S+$/.test(cleaned)) {
-    return {
-      ok: false,
-      error: "Enter a web address starting with https://, or leave it blank.",
-    };
-  }
-  return { ok: true, value: cleaned };
 }
 
 /** Whole centavos as pesos to two places: `120050` → `1200.50`. */

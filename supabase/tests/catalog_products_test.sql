@@ -12,7 +12,7 @@ select set_config('t.sausages', public.save_product(
   id => null,
   name => 'Garlic longganisa, 500 g pack',
   description => 'Sweet, garlicky, made in-house.',
-  photo_url => null,
+  photo_path => null,
   price_type => 'per_unit',
   unit_price_centavos => 18500,
   price_per_kg_centavos => null,

@@ -4,34 +4,49 @@ import {
   changedFields,
   type Draft,
   type DraftRow,
+  droppedPhoto,
+  editRows,
   type GridField,
   linkProduct,
   markSaved,
   readRow,
+  storedPath,
 } from "./product-grid.js";
 import { messageOf } from "./write.js";
 
 /** The server writes a Save is made of: the existing RPCs, one row at a time. */
 export interface GridWrites {
   saveProduct(id: string | null, edits: ProductEdits): Promise<string>;
+  /** Resizes and stores a dropped photo; returns the path to save the Product with. */
+  uploadPhoto(file: File): Promise<string>;
+  /** Removes a stored photo no Product points at any more. */
+  removePhoto(path: string): Promise<void>;
   setProductAvailable(id: string, available: boolean): Promise<void>;
   setCategoryProducts(categoryId: string, productIds: readonly string[]): Promise<void>;
 }
 
 /** How Save went for one row. Rows Save had nothing to write for have none. */
 export type RowResult =
-  | { readonly status: "saved"; readonly productId: string }
+  | {
+      readonly status: "saved";
+      readonly productId: string;
+      /** Where a photo dropped on the row was stored, when there was one. */
+      readonly photoPath?: string;
+    }
   | { readonly status: "invalid"; readonly errors: CellMessages }
   | {
       readonly status: "failed";
       /** Set when the Product itself was saved and a later write for it failed. */
       readonly productId: string | null;
+      /** Where its dropped photo was stored, if the Product was saved with it. */
+      readonly photoPath?: string;
       readonly message: string;
     }
   | {
       /** The Product and its availability were saved; its Category moves were not. */
       readonly status: "categoriesFailed";
       readonly productId: string;
+      readonly photoPath?: string;
       readonly message: string;
     };
 
@@ -43,7 +58,7 @@ const PRODUCT_FIELDS: readonly GridField[] = [
   "step",
   "tolerance",
   "description",
-  "photoUrl",
+  "photo",
 ];
 
 /**
@@ -76,7 +91,14 @@ export async function saveDraft(
       } catch (error) {
         const message = messageOf(error);
         for (const { key, productId } of list.movedBy) {
-          results.set(key, { status: "categoriesFailed", productId, message });
+          const saved = results.get(key);
+          const photoPath = saved?.status === "saved" ? saved.photoPath : undefined;
+          results.set(key, {
+            status: "categoriesFailed",
+            productId,
+            ...withPhoto(photoPath),
+            message,
+          });
         }
       }
     }),
@@ -96,6 +118,10 @@ export function applyResults(
 ): Draft {
   let next = draft;
   for (const [key, result] of results) {
+    // The dropped file was uploaded: the row now holds it as stored, like the server.
+    if ("photoPath" in result && result.photoPath !== undefined) {
+      next = editRows(next, [key], { photo: { path: result.photoPath } });
+    }
     if (result.status === "saved") next = markSaved(next, key, result.productId);
     else if (result.status === "categoriesFailed") {
       next = markSaved(next, key, result.productId, { except: "categoryIds" });
@@ -165,16 +191,66 @@ async function saveRow(row: DraftRow, writes: GridWrites): Promise<RowResult> {
 
   const changed = changedFields(row);
   let productId = row.productId;
+  let photoPath: string | undefined;
   try {
     if (productId === null || changed.some((field) => PRODUCT_FIELDS.includes(field))) {
-      productId = await writes.saveProduct(productId, read.edits);
+      ({ productId, photoPath } = await writeProduct(row, read.edits, writes));
     }
     // A new Product starts available, so only an unavailable new row needs the switch.
     if (changed.includes("available")) {
       await writes.setProductAvailable(productId, row.values.available);
     }
-    return { status: "saved", productId };
+    return { status: "saved", productId, ...withPhoto(photoPath) };
   } catch (error) {
-    return { status: "failed", productId, message: messageOf(error) };
+    return {
+      status: "failed",
+      productId,
+      ...withPhoto(photoPath),
+      message: messageOf(error),
+    };
+  }
+}
+
+/**
+ * Saves a row's Product, and its photo with it. A dropped photo is uploaded only now,
+ * once the row is known to be valid. The photo it replaced is removed only after the
+ * save, when nothing points at it.
+ *
+ * A failed save removes nothing, not even its own upload: the save may have reached the
+ * server with only the answer lost, and then the Product points at that upload. An
+ * orphaned file costs a little storage; a removed one is a Product with a broken photo.
+ */
+async function writeProduct(
+  row: DraftRow,
+  edits: ProductEdits,
+  writes: GridWrites,
+): Promise<{ productId: string; photoPath?: string }> {
+  const dropped = droppedPhoto(row.values.photo);
+  const uploaded = dropped ? await writes.uploadPhoto(dropped.file) : undefined;
+  const productId = await writes.saveProduct(row.productId, {
+    ...edits,
+    photoPath: uploaded ?? edits.photoPath,
+  });
+
+  // If removing the old files fails they are merely orphaned, which is no reason to
+  // report a save that worked as failed.
+  const replaced = changedFields(row).includes("photo")
+    ? storedPath(row.saved?.photo ?? null)
+    : null;
+  if (replaced !== null) await ignoreFailure(writes.removePhoto(replaced));
+
+  return { productId, ...withPhoto(uploaded) };
+}
+
+/** The `photoPath` of a result, present only when a photo was uploaded. */
+function withPhoto(photoPath: string | undefined): { photoPath?: string } {
+  return photoPath === undefined ? {} : { photoPath };
+}
+
+async function ignoreFailure(write: Promise<void>): Promise<void> {
+  try {
+    await write;
+  } catch {
+    // Left orphaned in Storage; see the caller.
   }
 }

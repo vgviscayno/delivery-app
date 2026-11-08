@@ -26,7 +26,8 @@ export type PriceType = Price["type"];
 export interface ProductEdits {
   readonly name: string;
   readonly description: string | null;
-  readonly photoUrl: string | null;
+  /** Where the large photo is in the `product-photos` bucket. Null for no photo. */
+  readonly photoPath: string | null;
   readonly price: Price;
 }
 
@@ -75,7 +76,7 @@ export function toProduct(row: ProductRow & { available?: boolean | null }): Pro
     id: required(row.id, `the id of ${name}`),
     name,
     description: row.description,
-    photoUrl: row.photo_url,
+    photoPath: row.photo_path,
     available: row.available ?? true,
     price: toPrice(name, row),
   };
