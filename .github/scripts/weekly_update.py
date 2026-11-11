@@ -1,8 +1,13 @@
 """Draft the weekly client update as an issue labelled weekly-update.
 
 The top half is the draft to send the client; the bottom half is internal
-pace tracking against the estimate in .scratch/client-estimate/estimate.html.
-Run with --dry-run to print the body instead of opening the issue.
+pacing. Run with --dry-run to print the body instead of opening the issue.
+
+Each milestone carries two dates. The GitHub due date is the internal one, the
+date to aim the work at. The client date, written as "Client date: YYYY-MM-DD"
+in the milestone description, is what the client was told, about 10 days
+later. The client draft shows only client dates. Milestones with no due date
+(Polish) are left out of both tables.
 """
 
 import json
@@ -14,22 +19,8 @@ from datetime import date, datetime, timedelta, timezone
 
 START = date(2026, 9, 26)
 BREAK = (date(2026, 12, 21), date(2027, 1, 3))  # inclusive
-BUILD_DEADLINE = date(2027, 5, 22)  # committed go-live early June minus 2 weeks client testing
 
-TARGET_HOURS_PER_WEEK = 12
-TARGET_HOURS_PER_POINT = 2.5 * 1.15  # incl. 15% for fixes and deploying
-LATE_HOURS_PER_POINT = 4
-
-# Sizes from the ticket survey on 2026-09-24: S=1, M=2, L=3, XL=5.
-POINTS = {
-    55: 5, 57: 2, 58: 2, 59: 2, 60: 2, 61: 3, 62: 2, 63: 1, 64: 3,
-    65: 3, 66: 2, 67: 2, 68: 3, 69: 3, 70: 3, 71: 3, 72: 5, 73: 5, 74: 2,
-    75: 3, 76: 3, 77: 3, 78: 3, 79: 5, 80: 3, 81: 3, 82: 3, 83: 1, 84: 1,
-    85: 2, 86: 3, 104: 3,
-}
-TOTAL_POINTS = sum(POINTS.values())
-
-HOURS_RE = re.compile(r"^\s*hours:\s*([0-9]+(?:\.[0-9]+)?)", re.IGNORECASE | re.MULTILINE)
+CLIENT_DATE_RE = re.compile(r"client date:\s*(\d{4}-\d{2}-\d{2})", re.IGNORECASE)
 
 
 def gh(*args):
@@ -37,24 +28,29 @@ def gh(*args):
     return json.loads(out)
 
 
-def working_weeks(start, end):
-    """Weeks between start and end, not counting the holiday break."""
-    if end <= start:
-        return 0.0
-    days = (end - start).days
-    overlap = (min(end, BREAK[1] + timedelta(days=1)) - max(start, BREAK[0])).days
-    return (days - max(overlap, 0)) / 7
-
-
 def parse_ts(ts):
     return datetime.fromisoformat(ts.replace("Z", "+00:00"))
+
+
+def working_days(start, end):
+    """Days from start up to end, not counting the holiday break."""
+    return [start + timedelta(days=d) for d in range((end - start).days)
+            if not BREAK[0] <= start + timedelta(days=d) <= BREAK[1]]
+
+
+def halfway(start, end):
+    days = working_days(start, end)
+    return days[len(days) // 2] if days else end
+
+
+def fmt(d):
+    return d.strftime("%d %b %Y") if d else "-"
 
 
 def main():
     dry_run = "--dry-run" in sys.argv
     today = date.today()
-    now = datetime.now(timezone.utc)
-    week_ago = now - timedelta(days=7)
+    week_ago = datetime.now(timezone.utc) - timedelta(days=7)
     if today < START:
         print("Work hasn't started yet; skipping.")
         return
@@ -67,29 +63,24 @@ def main():
         print(f"Week {week_no} update already exists; skipping.")
         return
 
-    issues = gh("issue", "list", "--state", "all", "--limit", "300",
-                "--json", "number,title,state,closedAt,milestone,labels")
-    tickets = [i for i in issues if i["number"] in POINTS]
-    closed = [i for i in tickets if i["state"] == "CLOSED"]
-    closed_this_week = [i for i in closed if i["closedAt"] and parse_ts(i["closedAt"]) >= week_ago]
+    issues = gh("issue", "list", "--state", "closed", "--limit", "300",
+                "--json", "title,closedAt,milestone,stateReason")
+    closed_this_week = [i for i in issues
+                        if i["milestone"] and i["stateReason"] != "NOT_PLANNED"
+                        and i["closedAt"] and parse_ts(i["closedAt"]) >= week_ago]
 
-    hours_total = hours_week = 0.0
-    points_with_hours = 0
-    for i in closed:
-        view = gh("issue", "view", str(i["number"]), "--json", "body,comments")
-        entries = [(view["body"] or "", None)] + [(c["body"], c["createdAt"]) for c in view["comments"]]
-        logged = False
-        for body, created in entries:
-            for h in HOURS_RE.findall(body):
-                logged = True
-                hours_total += float(h)
-                if created and parse_ts(created) >= week_ago:
-                    hours_week += float(h)
-        if logged:
-            points_with_hours += POINTS[i["number"]]
-    needs_hours = [i for i in closed if any(l["name"] == "needs-hours" for l in i["labels"])]
-
-    milestones = gh("api", "repos/{owner}/{repo}/milestones?state=all&sort=due_on&direction=asc")
+    milestones = []
+    for m in gh("api", "repos/{owner}/{repo}/milestones?state=all&sort=due_on&direction=asc"):
+        if not m["due_on"]:
+            continue
+        found = CLIENT_DATE_RE.search(m["description"] or "")
+        milestones.append({
+            "title": m["title"],
+            "due": date.fromisoformat(m["due_on"][:10]),
+            "client": date.fromisoformat(found.group(1)) if found else None,
+            "done": m["closed_issues"],
+            "open": m["open_issues"],
+        })
 
     # --- client draft ---
     lines = [f"Draft for the client, week {week_no}. Edit, send, then close this issue.", "",
@@ -97,40 +88,39 @@ def main():
     lines += [f"- {i['title']}" for i in closed_this_week] or ["- (nothing closed this week)"]
     lines += ["", "**Milestones**", "", "| Milestone | Expected | Progress | Status |", "|---|---|---|---|"]
     for m in milestones:
-        due = date.fromisoformat(m["due_on"][:10]) if m["due_on"] else None
-        done, total = m["closed_issues"], m["open_issues"] + m["closed_issues"]
-        if total and done == total:
+        total = m["done"] + m["open"]
+        if total and not m["open"]:
             status = "Done"
-        elif due and due < today:
+        elif m["client"] and m["client"] < today:
             status = "**Overdue**"
-        elif due and (due - today).days <= 7:
+        elif m["client"] and (m["client"] - today).days <= 7:
             status = "Due this week"
         else:
-            status = "On track" if done else "Not started"
-        lines.append(f"| {m['title']} | {due.strftime('%d %b %Y') if due else '-'} | {done}/{total} | {status} |")
+            status = "In progress" if m["done"] else "Not started"
+        lines.append(f"| {m['title']} | {fmt(m['client'])} | {m['done']}/{total} | {status} |")
 
-    # --- internal pace ---
-    done_points = sum(POINTS[i["number"]] for i in closed)
-    weeks = working_weeks(START, today)
-    target_points = min(TOTAL_POINTS, weeks * TARGET_HOURS_PER_WEEK / TARGET_HOURS_PER_POINT)
-    committed_points = min(TOTAL_POINTS, weeks * TOTAL_POINTS / working_weeks(START, BUILD_DEADLINE))
-    if done_points >= target_points:
-        verdict = "On or ahead of the target pace (late March go-live)."
-    elif done_points >= committed_points:
-        verdict = "Behind target, but on pace for the committed date (early June)."
-    else:
-        verdict = "**Behind the committed pace. Raise it with the client now.**"
-
-    lines += ["", "---", "", "## Internal, do not send", "",
-              f"- Points done: **{done_points}/{TOTAL_POINTS}**",
-              f"- Target pace expects: {target_points:.1f} · committed pace expects: {committed_points:.1f}",
-              f"- {verdict}",
-              f"- Hours logged this week: {hours_week:g} · total: {hours_total:g}"]
-    if points_with_hours:
-        per_point = hours_total / points_with_hours
-        lines.append(f"- Measured: {per_point:.2f} h/point (plan: 2.5 likely, {LATE_HOURS_PER_POINT} late)")
-    if needs_hours:
-        lines.append("- Missing hours: " + ", ".join(f"#{i['number']}" for i in needs_hours))
+    # --- internal pacing ---
+    lines += ["", "---", "", "## Internal, do not send", ""]
+    window_start = START
+    for m in milestones:
+        start, window_start = window_start, m["due"]
+        total = m["done"] + m["open"]
+        if not m["open"] or today < start:
+            continue
+        mid = halfway(start, m["due"])
+        head = f"- **{m['title']}**: {m['open']} of {total} open, aim for {fmt(m['due'])}"
+        if m["client"] and today > m["client"]:
+            lines.append(f"{head}. **Past the client date ({fmt(m['client'])}). Tell the client.**")
+        elif today > m["due"]:
+            left = (m["client"] - today).days if m["client"] else 0
+            lines.append(f"{head}. Past the aim date, {left} days of buffer left before the client date.")
+        elif today >= mid and m["open"] * 2 > total:
+            lines.append(f"{head}. **Halfway check failed: more than half still open after {fmt(mid)}."
+                         " Decide now whether to tell the client.**")
+        else:
+            lines.append(f"{head}. Halfway point {fmt(mid)}.")
+        if not m["client"]:
+            lines.append(f"  - No `Client date:` in the {m['title']} description.")
 
     body = "\n".join(lines)
     if dry_run:
