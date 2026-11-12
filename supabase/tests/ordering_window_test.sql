@@ -2,7 +2,7 @@
 -- when. Every signed-in actor reads them; only an active dispatcher changes them.
 
 begin;
-select plan(11);
+select plan(12);
 
 select set_config('t.dispatcher', tests.create_user('dispatcher')::text, true);
 select set_config('t.customer', tests.create_user('customer')::text, true);
@@ -37,6 +37,12 @@ select results_eq(
   $$ select weekday from public.ordering_window() $$,
   $$ values (1), (2), (3), (4), (5), (6) $$,
   'a weekday given no hours is closed'
+);
+select public.set_ordering_day(7, '10:00', '14:00');
+select results_eq(
+  $$ select weekday, opens_at, closes_at from public.ordering_window() where weekday = 7 $$,
+  $$ values (7, '10:00'::time, '14:00'::time) $$,
+  'a closed weekday opens again once given hours'
 );
 
 select throws_ok(

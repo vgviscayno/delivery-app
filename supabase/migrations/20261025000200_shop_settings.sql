@@ -9,6 +9,8 @@
 -- morning cut-off, which weekdays are open and from when -- are left empty, and the seed
 -- fills in placeholders for local and preview work. A rule that needs an empty setting
 -- has nothing to judge against, which is the honest answer until someone decides.
+-- (The radius, fee, cut-off and weekdays were agreed later and are set by
+-- 20261112000100_agreed_shop_rules.sql.)
 
 create table app.shop_settings (
   -- Exactly one row: the shop has one set of rules.
