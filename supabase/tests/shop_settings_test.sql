@@ -2,17 +2,24 @@
 -- `public.shop_settings()`; only an active dispatcher changes them.
 
 begin;
-select plan(12);
+select plan(13);
 
 select set_config('t.customer', tests.create_user('customer')::text, true);
 
 -- The values the business agreed on are there from the migration, before any seed.
 select tests.authenticate_as(current_setting('t.customer')::uuid);
 select results_eq(
-  $$ select same_day_cutoff_buffer_minutes, end_of_day, dark_threshold_minutes
+  $$ select same_day_cutoff_buffer_minutes, end_of_day, dark_threshold_minutes,
+            delivery_radius_meters, delivery_fee_centavos, time_confirmation_cutoff
      from public.shop_settings() $$,
-  $$ values (30, '16:00'::time, 10) $$,
+  $$ values (30, '16:00'::time, 10, 5000, 5000, '10:00'::time) $$,
   'a customer reads the agreed defaults'
+);
+-- Nobody has supplied these yet, so production starts without them.
+select results_eq(
+  $$ select shop_phone, qr_ph_image_path from public.shop_settings() $$,
+  $$ values (null::text, null::text) $$,
+  'the Shop phone and QR Ph image wait for someone to supply them'
 );
 reset role;
 

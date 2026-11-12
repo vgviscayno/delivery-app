@@ -8,34 +8,34 @@ select set_config('t.dispatcher', tests.create_user('dispatcher')::text, true);
 select set_config('t.customer', tests.create_user('customer')::text, true);
 select set_config('t.driver', tests.create_user('driver')::text, true);
 
--- No weekday is open until someone says it is: the hours are not agreed yet.
+-- The hours the client agreed on are there from the migration: every day, 08:00-16:00.
 select tests.authenticate_as(current_setting('t.customer')::uuid);
-select is_empty(
-  $$ select * from public.ordering_window() $$,
-  'no weekday is open before the dispatcher opens one'
+select results_eq(
+  $$ select weekday, opens_at, closes_at from public.ordering_window() $$,
+  $$ select weekday, '08:00'::time, '16:00'::time from generate_series(1, 7) as weekday $$,
+  'every weekday, Sunday too, is open 08:00-16:00 before anyone changes it'
 );
 reset role;
 
 select tests.authenticate_as(current_setting('t.dispatcher')::uuid);
-select public.set_ordering_day(1, '08:00', '16:00');
 select public.set_ordering_day(6, '09:00', '12:00');
 select public.set_ordering_day(6, '09:00', '13:00');
 reset role;
 
 select tests.authenticate_as(current_setting('t.customer')::uuid);
 select results_eq(
-  $$ select weekday, opens_at, closes_at from public.ordering_window() order by weekday $$,
-  $$ values (1, '08:00'::time, '16:00'::time), (6, '09:00'::time, '13:00'::time) $$,
-  'a customer reads the open weekdays, each with its latest hours'
+  $$ select weekday, opens_at, closes_at from public.ordering_window() where weekday in (5, 6) $$,
+  $$ values (5, '08:00'::time, '16:00'::time), (6, '09:00'::time, '13:00'::time) $$,
+  'a customer reads each weekday with its latest hours'
 );
 reset role;
 
 -- Closing a weekday is setting it to no hours.
 select tests.authenticate_as(current_setting('t.dispatcher')::uuid);
-select public.set_ordering_day(6, null, null);
+select public.set_ordering_day(7, null, null);
 select results_eq(
   $$ select weekday from public.ordering_window() $$,
-  $$ values (1) $$,
+  $$ values (1), (2), (3), (4), (5), (6) $$,
   'a weekday given no hours is closed'
 );
 
