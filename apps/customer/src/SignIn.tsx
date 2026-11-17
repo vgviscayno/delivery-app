@@ -1,5 +1,5 @@
 import type { CustomerCredentials, CustomerSignUp } from "@courier/api-client";
-import { PHILIPPINE_PHONE_EXAMPLE, parsePhilippinePhone } from "@courier/domain";
+import { PHILIPPINE_PHONE_HINT, parsePhilippinePhone } from "@courier/domain";
 import { useState } from "react";
 import { Text, View } from "react-native";
 import { Field, formStyles, Link, Submit } from "./form";
@@ -29,7 +29,7 @@ export function SignIn({ notice, busy, onSignIn, onSignUp }: SignInProps) {
       return;
     }
     if (!parsePhilippinePhone(accountPhone)) {
-      setPhoneError(PHILIPPINE_PHONE_EXAMPLE);
+      setPhoneError(PHILIPPINE_PHONE_HINT);
       return;
     }
     setPhoneError(undefined);

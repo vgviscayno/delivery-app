@@ -1,5 +1,5 @@
 import {
-  PHILIPPINE_PHONE_EXAMPLE,
+  PHILIPPINE_PHONE_HINT,
   parsePhilippinePhone,
   type ShopSettings,
   type ShopSettingsEdits,
@@ -93,9 +93,7 @@ function parseShopPhone(text: string): Parsed<string | null> {
   if (text.trim() === "") return { ok: true, value: null };
 
   const e164 = parsePhilippinePhone(text);
-  return e164
-    ? { ok: true, value: e164 }
-    : { ok: false, error: PHILIPPINE_PHONE_EXAMPLE };
+  return e164 ? { ok: true, value: e164 } : { ok: false, error: PHILIPPINE_PHONE_HINT };
 }
 
 /** Kilometres, as typed, into whole metres. */

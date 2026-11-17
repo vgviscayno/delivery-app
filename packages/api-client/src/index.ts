@@ -2,6 +2,7 @@ import type { ServerClock } from "@courier/domain";
 import { toServerClock } from "@courier/domain";
 import { ApiError, type CourierClient } from "./client.js";
 
+export { type AppStateSource, onSignedOut, refreshWhileActive } from "./app-session.js";
 export {
   deleteCategory,
   deleteProduct,

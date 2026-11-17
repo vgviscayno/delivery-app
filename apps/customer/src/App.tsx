@@ -4,6 +4,8 @@ import {
   type CustomerCredentials,
   type CustomerSignUp,
   createCourierClient,
+  onSignedOut,
+  refreshWhileActive,
   resumeCustomerSession,
   signInAsCustomer,
   signOutAsCustomer,
@@ -69,16 +71,7 @@ function Session({
   const [busy, setBusy] = useState(false);
   const [tab, setTab] = useState<Tab>("Shop");
 
-  // supabase-js refreshes the token on a timer, which a backgrounded app cannot keep.
-  // Run it only while the app is in front, as Supabase advises for React Native.
-  useEffect(() => {
-    if (AppState.currentState === "active") void client.auth.startAutoRefresh();
-    const subscription = AppState.addEventListener("change", (state) => {
-      if (state === "active") void client.auth.startAutoRefresh();
-      else void client.auth.stopAutoRefresh();
-    });
-    return () => subscription.remove();
-  }, [client]);
+  useEffect(() => refreshWhileActive(client, AppState), [client]);
 
   // The session survives a relaunch: it is read back from SecureStore here.
   useEffect(() => {
@@ -95,17 +88,17 @@ function Session({
     };
   }, [client]);
 
-  // A refresh token that stops working signs supabase-js out; the screen follows.
-  useEffect(() => {
-    const { data } = client.auth.onAuthStateChange((event) => {
-      if (event === "SIGNED_OUT") {
+  // The server can end the session (deactivation, signing out everywhere); the screen
+  // follows supabase-js when it lets go.
+  useEffect(
+    () =>
+      onSignedOut(client, () =>
         setSession((current) =>
           current.status === "customer" ? { status: "signed-out" } : current,
-        );
-      }
-    });
-    return () => data.subscription.unsubscribe();
-  }, [client]);
+        ),
+      ),
+    [client],
+  );
 
   const enter = useCallback(async (attempt: () => Promise<CustomerAccess>) => {
     setBusy(true);

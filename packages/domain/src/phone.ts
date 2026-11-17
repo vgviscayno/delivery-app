@@ -16,5 +16,5 @@ export function parsePhilippinePhone(text: string): string | null {
 }
 
 /** What to tell someone whose number `parsePhilippinePhone` refused. */
-export const PHILIPPINE_PHONE_EXAMPLE =
+export const PHILIPPINE_PHONE_HINT =
   "Enter a Philippine number, such as 0917 123 4567 or (02) 8123 4567.";

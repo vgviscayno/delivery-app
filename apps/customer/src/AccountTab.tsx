@@ -3,7 +3,7 @@ import {
   type CustomerAccount,
   updateAccountPhone,
 } from "@courier/api-client";
-import { PHILIPPINE_PHONE_EXAMPLE, parsePhilippinePhone } from "@courier/domain";
+import { PHILIPPINE_PHONE_HINT, parsePhilippinePhone } from "@courier/domain";
 import { useState } from "react";
 import { Text, View } from "react-native";
 import { Field, formStyles, Link, Submit } from "./form";
@@ -34,7 +34,7 @@ export function AccountTab({
   const save = async () => {
     setSaved(false);
     if (!parsePhilippinePhone(phone)) {
-      setError(PHILIPPINE_PHONE_EXAMPLE);
+      setError(PHILIPPINE_PHONE_HINT);
       return;
     }
     setError(undefined);

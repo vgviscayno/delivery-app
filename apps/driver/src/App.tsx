@@ -5,6 +5,8 @@ import {
   type DriverAccess,
   type DriverCredentials,
   type DriverInvite,
+  onSignedOut,
+  refreshWhileActive,
   resumeDriverSession,
   signInAsDriver,
   signOutAsDriver,
@@ -78,16 +80,7 @@ function Session({
   const [busy, setBusy] = useState(false);
   const [signOutError, setSignOutError] = useState<string>();
 
-  // supabase-js refreshes the token on a timer, which a backgrounded app cannot keep.
-  // Run it only while the app is in front, as Supabase advises for React Native.
-  useEffect(() => {
-    if (AppState.currentState === "active") void client.auth.startAutoRefresh();
-    const subscription = AppState.addEventListener("change", (state) => {
-      if (state === "active") void client.auth.startAutoRefresh();
-      else void client.auth.stopAutoRefresh();
-    });
-    return () => subscription.remove();
-  }, [client]);
+  useEffect(() => refreshWhileActive(client, AppState), [client]);
 
   useEffect(() => {
     let live = true;
@@ -107,18 +100,17 @@ function Session({
     };
   }, [client]);
 
-  // Deactivation ends this driver's sessions on the server, so the next refresh fails
-  // and supabase-js signs out here too. The screen must not outlive the session.
-  useEffect(() => {
-    const { data } = client.auth.onAuthStateChange((event) => {
-      if (event === "SIGNED_OUT") {
+  // The server can end the session (deactivation, signing out everywhere); the screen
+  // follows supabase-js when it lets go.
+  useEffect(
+    () =>
+      onSignedOut(client, () =>
         setSession((current) =>
           current.status === "driver" ? { status: "signed-out" } : current,
-        );
-      }
-    });
-    return () => data.subscription.unsubscribe();
-  }, [client]);
+        ),
+      ),
+    [client],
+  );
 
   const enter = useCallback(async (attempt: () => Promise<DriverAccess>) => {
     setBusy(true);
