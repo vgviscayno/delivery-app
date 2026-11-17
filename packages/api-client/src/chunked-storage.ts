@@ -1,5 +1,5 @@
 /**
- * Session storage for supabase-js on the driver's phone, backed by `expo-secure-store`.
+ * Session storage for supabase-js on a phone, backed by `expo-secure-store`.
  *
  * SecureStore encrypts each value with a key held in the Android Keystore, which is
  * what keeps the refresh token encrypted at rest. But it caps a value at 2048 bytes,

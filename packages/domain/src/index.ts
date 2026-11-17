@@ -18,6 +18,7 @@ export { ServerClockError, toServerClock } from "./clock.js";
 export type { DutyState } from "./duty.js";
 export { describeDuty } from "./duty.js";
 export type { Database, Json } from "./generated/database.types.js";
+export { PHILIPPINE_PHONE_EXAMPLE, parsePhilippinePhone } from "./phone.js";
 export type {
   OrderingDay,
   ShopClosure,

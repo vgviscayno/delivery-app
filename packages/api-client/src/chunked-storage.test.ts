@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createChunkedStorage, type KeyValueStore } from "./chunked-storage";
+import { createChunkedStorage, type KeyValueStore } from "./chunked-storage.js";
 
 /** SecureStore's shape, in memory, refusing any value over its 2048-byte limit. */
 function memoryStore(): KeyValueStore & { keys(): string[] } {

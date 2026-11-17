@@ -1,5 +1,5 @@
+import { createChunkedStorage } from "@courier/api-client";
 import * as SecureStore from "expo-secure-store";
-import { createChunkedStorage } from "./chunked-storage";
 import { parseRememberedDrivers, type RememberedDriver } from "./remembered-drivers";
 
 // The device's own Keystore-backed storage. `AFTER_FIRST_UNLOCK` so a session survives

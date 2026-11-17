@@ -1,4 +1,9 @@
-import type { ShopSettings, ShopSettingsEdits } from "@courier/domain";
+import {
+  PHILIPPINE_PHONE_EXAMPLE,
+  parsePhilippinePhone,
+  type ShopSettings,
+  type ShopSettingsEdits,
+} from "@courier/domain";
 import { type Parsed, parsePesos } from "./parse.js";
 
 /**
@@ -83,24 +88,14 @@ export function readSettingsForm(form: SettingsForm): SettingsFormResult {
   };
 }
 
-/**
- * A Philippine number however it is written — `0917 123 4567`, `+63 917-123-4567`,
- * `(02) 8123 4567` — into E.164, `+639171234567`, which is how it is stored.
- */
+/** The Shop phone, however it is written, into E.164. Blank is not agreed yet. */
 function parseShopPhone(text: string): Parsed<string | null> {
-  const cleaned = text.replace(/[\s\-().]/g, "");
-  if (cleaned === "") return { ok: true, value: null };
+  if (text.trim() === "") return { ok: true, value: null };
 
-  const national = /^(?:\+63|63|0)(\d+)$/.exec(cleaned)?.[1];
-  // A mobile number has 10 digits after the country code, a landline 9.
-  if (!national || national.length < 9 || national.length > 10 || national[0] === "0") {
-    return {
-      ok: false,
-      error: "Enter a Philippine number, such as 0917 123 4567 or (02) 8123 4567.",
-    };
-  }
-
-  return { ok: true, value: `+63${national}` };
+  const e164 = parsePhilippinePhone(text);
+  return e164
+    ? { ok: true, value: e164 }
+    : { ok: false, error: PHILIPPINE_PHONE_EXAMPLE };
 }
 
 /** Kilometres, as typed, into whole metres. */

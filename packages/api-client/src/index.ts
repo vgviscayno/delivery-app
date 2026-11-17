@@ -14,6 +14,11 @@ export {
   setProductAvailable,
 } from "./catalog.js";
 export {
+  type AsyncStorage,
+  createChunkedStorage,
+  type KeyValueStore,
+} from "./chunked-storage.js";
+export {
   ApiError,
   type CourierClient,
   type CourierClientOptions,
@@ -27,6 +32,17 @@ export {
   signInToConsole,
   signOutOfConsole,
 } from "./console-access.js";
+export {
+  type CustomerAccess,
+  type CustomerAccount,
+  type CustomerCredentials,
+  type CustomerSignUp,
+  resumeCustomerSession,
+  signInAsCustomer,
+  signOutAsCustomer,
+  signUpAsCustomer,
+  updateAccountPhone,
+} from "./customer-access.js";
 export {
   acceptDriverInvite,
   type Driver,
