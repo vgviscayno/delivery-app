@@ -2,7 +2,7 @@ import type { CustomerCredentials, CustomerSignUp } from "@courier/api-client";
 import { PHILIPPINE_PHONE_HINT, parsePhilippinePhone } from "@courier/domain";
 import { useState } from "react";
 import { Text, View } from "react-native";
-import { Field, formStyles, Link, Submit } from "./form";
+import { Field, formStyles, Link, PhoneField, Submit } from "./form";
 
 export interface SignInProps {
   readonly notice: string | undefined;
@@ -47,18 +47,7 @@ export function SignIn({ notice, busy, onSignIn, onSignUp }: SignInProps) {
       <Field label="Email" value={email} onChange={setEmail} kind="email" />
       <Field label="Password" value={password} onChange={setPassword} kind="password" />
       {signingUp ? (
-        <>
-          <Field
-            label="Account phone"
-            value={accountPhone}
-            onChange={setAccountPhone}
-            kind="phone"
-            error={phoneError}
-          />
-          <Text style={formStyles.hint}>
-            The number the shop and your driver call about your orders.
-          </Text>
-        </>
+        <PhoneField value={accountPhone} onChange={setAccountPhone} error={phoneError} />
       ) : null}
       <Submit
         label={signingUp ? "Open Account" : "Sign in"}

@@ -3,10 +3,14 @@ import {
   type CustomerAccount,
   updateAccountPhone,
 } from "@courier/api-client";
-import { PHILIPPINE_PHONE_HINT, parsePhilippinePhone } from "@courier/domain";
+import {
+  formatPhilippinePhone,
+  PHILIPPINE_PHONE_HINT,
+  parsePhilippinePhone,
+} from "@courier/domain";
 import { useState } from "react";
 import { Text, View } from "react-native";
-import { Field, formStyles, Link, Submit } from "./form";
+import { formStyles, Link, PhoneField, Submit } from "./form";
 
 export interface AccountTabProps {
   readonly client: CourierClient;
@@ -24,7 +28,7 @@ export function AccountTab({
   signingOut,
   onSignOut,
 }: AccountTabProps) {
-  const [phone, setPhone] = useState(account.accountPhone);
+  const [phone, setPhone] = useState(formatPhilippinePhone(account.accountPhone));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string>();
   const [saved, setSaved] = useState(false);
@@ -42,7 +46,7 @@ export function AccountTab({
     try {
       const updated = await updateAccountPhone(client, phone);
       onAccountChange(updated);
-      setPhone(updated.accountPhone);
+      setPhone(formatPhilippinePhone(updated.accountPhone));
       setSaved(true);
     } catch (failure) {
       setError(failure instanceof Error ? failure.message : String(failure));
@@ -60,14 +64,12 @@ export function AccountTab({
           {account.email}
         </Text>
       </View>
-      <Field
-        label="Account phone"
+      <PhoneField
         value={phone}
         onChange={(value) => {
           setSaved(false);
           setPhone(value);
         }}
-        kind="phone"
         error={error}
       />
       {saved ? <Text style={formStyles.hint}>Saved.</Text> : null}
