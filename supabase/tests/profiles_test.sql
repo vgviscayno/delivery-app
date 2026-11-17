@@ -4,7 +4,7 @@
 begin;
 select plan(11);
 
-select set_config('t.customer', tests.sign_up('{}')::text, true);
+select set_config('t.customer', tests.sign_up('{"account_phone": "+639171234567"}')::text, true);
 select set_config('t.driver', tests.create_user('driver')::text, true);
 
 select results_eq(

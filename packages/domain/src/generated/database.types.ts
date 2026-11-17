@@ -54,6 +54,14 @@ export type Database = {
               "email": string,"id": string
             }[]
                            },
+"customer_account":
+{ Args: Record<PropertyKey, never>; Returns: {
+              "account_phone": string,"email": string,"id": string
+            }[]
+                           },
+"customer_account_phone":
+{ Args: { "customer_id": string }; Returns: string
+                           },
 "deactivate_driver":
 { Args: { "driver_id": string }; Returns: undefined
                            },
@@ -135,6 +143,11 @@ export type Database = {
 "shop_settings":
 { Args: Record<PropertyKey, never>; Returns: {
               "dark_threshold_minutes": number,"delivery_fee_centavos": number,"delivery_radius_meters": number,"end_of_day": string,"qr_ph_image_path": string,"same_day_cutoff_buffer_minutes": number,"shop_phone": string,"time_confirmation_cutoff": string,"updated_at": string
+            }[]
+                           },
+"update_account_phone":
+{ Args: { "phone": string }; Returns: {
+              "account_phone": string,"email": string,"id": string
             }[]
                            },
 "update_shop_settings":

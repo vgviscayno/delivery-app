@@ -37,7 +37,12 @@ begin
         case when create_user.role = 'driver' then 'Test driver' end
       )
     )),
-    '{}'::jsonb
+    -- Every customer gives an Account phone at sign-up; one a test did not choose gets
+    -- a placeholder.
+    case when create_user.role = 'customer'
+      then '{"account_phone": "+639170000000"}'::jsonb
+      else '{}'::jsonb
+    end
   );
   return user_id;
 end
