@@ -14,8 +14,8 @@
 --   * catalog                -- ticket 59 (below)
 --   * one dispatcher         -- ticket 57 (below)
 --   * two drivers            -- ticket 61 (below)
---   * a customer with        -- tickets 60, 64
---     sample Addresses
+--   * a customer             -- ticket 60 (below)
+--     with sample Addresses  -- ticket 64
 
 do $$
 begin
@@ -97,6 +97,44 @@ select
   'email', app.now(), app.now(), app.now()
 from auth.users u
 where u.id in ('d1500000-0000-4000-8000-000000000101', 'd1500000-0000-4000-8000-000000000102')
+on conflict (provider_id, provider) do nothing;
+
+-- One customer, created as a sign-up through the customer app creates one: no role in
+-- app metadata, and the Account phone in their own metadata. Signs in to the customer
+-- app as customer@courier.local / customer-demo. The phone is made up.
+insert into auth.users (
+  instance_id, id, aud, role, email, encrypted_password, email_confirmed_at,
+  raw_app_meta_data, raw_user_meta_data, created_at, updated_at,
+  confirmation_token, recovery_token, email_change_token_new, email_change
+)
+values (
+  '00000000-0000-0000-0000-000000000000',
+  'd1500000-0000-4000-8000-000000000201',
+  'authenticated',
+  'authenticated',
+  'customer@courier.local',
+  extensions.crypt('customer-demo', extensions.gen_salt('bf')),
+  app.now(),
+  '{"provider": "email", "providers": ["email"]}',
+  '{"account_phone": "+639171234567"}',
+  app.now(),
+  app.now(),
+  '', '', '', ''
+)
+on conflict (id) do nothing;
+
+insert into auth.identities (
+  provider_id, user_id, identity_data, provider, last_sign_in_at, created_at, updated_at
+)
+values (
+  'd1500000-0000-4000-8000-000000000201',
+  'd1500000-0000-4000-8000-000000000201',
+  '{"sub": "d1500000-0000-4000-8000-000000000201", "email": "customer@courier.local", "email_verified": true}',
+  'email',
+  app.now(),
+  app.now(),
+  app.now()
+)
 on conflict (provider_id, provider) do nothing;
 
 -- Shop settings. The migrations already hold the values the business agreed on (the
