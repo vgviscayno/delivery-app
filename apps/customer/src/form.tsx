@@ -13,9 +13,11 @@ import { Tooltip } from "./Tooltip";
 export function EmailField({
   value,
   onChange,
+  error,
 }: {
   value: string;
   onChange: (value: string) => void;
+  error?: string | undefined;
 }) {
   return (
     <View style={formStyles.field}>
@@ -30,6 +32,7 @@ export function EmailField({
         keyboardType="email-address"
         autoComplete="email"
       />
+      <FieldError error={error} />
     </View>
   );
 }

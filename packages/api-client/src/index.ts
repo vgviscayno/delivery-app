@@ -24,6 +24,7 @@ export {
   type CourierClient,
   type CourierClientOptions,
   createCourierClient,
+  NETWORK_FAILURE,
 } from "./client.js";
 export {
   type ConsoleAccess,
@@ -38,6 +39,8 @@ export {
   type CustomerAccount,
   type CustomerCredentials,
   type CustomerSignUp,
+  EMAIL_CONFIRMATION_REQUIRED,
+  INVALID_ACCOUNT_PHONE,
   resumeCustomerSession,
   signInAsCustomer,
   signOutAsCustomer,

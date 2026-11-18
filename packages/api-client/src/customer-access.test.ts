@@ -90,7 +90,10 @@ describe("signUpAsCustomer", () => {
 
     await expect(
       signUpAsCustomer(client, { ...signUp, accountPhone: "(02) 8123 4567" }),
-    ).rejects.toThrow("Enter your mobile number");
+    ).rejects.toMatchObject({
+      code: "invalid_account_phone",
+      message: expect.stringContaining("Enter your mobile number"),
+    });
     expect(auth.signUp).not.toHaveBeenCalled();
   });
 
@@ -102,15 +105,19 @@ describe("signUpAsCustomer", () => {
       },
     });
 
-    await expect(signUpAsCustomer(client, signUp)).rejects.toThrow(
-      "User already registered",
-    );
+    await expect(signUpAsCustomer(client, signUp)).rejects.toMatchObject({
+      code: "user_already_exists",
+      message: expect.stringContaining("User already registered"),
+    });
   });
 
   it("says to confirm the email when Auth opens the Account without a session", async () => {
     const { client } = fakeClient({ signUp: { data: { session: null }, error: null } });
 
-    await expect(signUpAsCustomer(client, signUp)).rejects.toThrow(/confirm your email/i);
+    await expect(signUpAsCustomer(client, signUp)).rejects.toMatchObject({
+      code: "email_confirmation_required",
+      message: expect.stringMatching(/confirm your email/i),
+    });
   });
 });
 
@@ -131,6 +138,22 @@ describe("signInAsCustomer", () => {
       status: "refused",
     });
     expect(auth.signOut).toHaveBeenCalledWith({ scope: "local" });
+  });
+
+  it("says when the server could not be reached", async () => {
+    const { client } = fakeClient({
+      signIn: {
+        error: {
+          name: "AuthRetryableFetchError",
+          message: "Network request failed",
+          status: 0,
+        },
+      },
+    });
+
+    await expect(signInAsCustomer(client, credentials)).rejects.toMatchObject({
+      code: "network_failure",
+    });
   });
 
   it("passes on wrong credentials", async () => {
@@ -183,6 +206,21 @@ describe("resumeCustomerSession", () => {
 });
 
 describe("updateAccountPhone", () => {
+  it("says when the server could not be reached", async () => {
+    const { client } = fakeClient({
+      rpc: {
+        update_account_phone: {
+          data: null,
+          error: { message: "TypeError: Network request failed", code: "" },
+        },
+      },
+    });
+
+    await expect(updateAccountPhone(client, "0918 987 6543")).rejects.toMatchObject({
+      code: "network_failure",
+    });
+  });
+
   it("stores the number in E.164 and returns the Account as it now is", async () => {
     const { client, rpc } = fakeClient({
       rpc: { update_account_phone: accountRow("+639189876543") },

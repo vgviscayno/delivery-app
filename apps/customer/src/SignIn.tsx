@@ -2,6 +2,7 @@ import type { CustomerCredentials, CustomerSignUp } from "@courier/api-client";
 import { PHILIPPINE_MOBILE_HINT, parsePhilippineMobile } from "@courier/domain";
 import { useState } from "react";
 import { Text, View } from "react-native";
+import { looksLikeEmail } from "./customer-message";
 import { EmailField, formStyles, Link, PasswordField, PhoneField, Submit } from "./form";
 import { typedMobile } from "./mobile-field";
 
@@ -16,6 +17,7 @@ export interface SignInProps {
 }
 
 interface SignUpErrors {
+  readonly email?: string;
   readonly password?: string;
   readonly confirmation?: string;
   readonly phone?: string;
@@ -42,6 +44,9 @@ export function SignIn({ notice, busy, onSignIn, onSignUp }: SignInProps) {
       return;
     }
     const found: SignUpErrors = {
+      ...(!looksLikeEmail(email.trim()) && {
+        email: "Enter a valid email address, such as lia@example.com.",
+      }),
       ...(password.length < MINIMUM_PASSWORD_LENGTH && {
         password: `Use at least ${MINIMUM_PASSWORD_LENGTH} characters.`,
       }),
@@ -63,7 +68,7 @@ export function SignIn({ notice, busy, onSignIn, onSignUp }: SignInProps) {
           {notice}
         </Text>
       ) : null}
-      <EmailField value={email} onChange={setEmail} />
+      <EmailField value={email} onChange={setEmail} error={errors.email} />
       <PasswordField
         label="Password"
         value={password}

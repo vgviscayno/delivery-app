@@ -6,6 +6,7 @@ import {
 import { PHILIPPINE_MOBILE_HINT, parsePhilippineMobile } from "@courier/domain";
 import { useState } from "react";
 import { Text, View } from "react-native";
+import { customerMessage } from "./customer-message";
 import { formStyles, Link, PhoneField, Submit } from "./form";
 import { mobileFieldOf, typedMobile } from "./mobile-field";
 
@@ -46,7 +47,7 @@ export function AccountTab({
       setPhone(mobileFieldOf(updated.accountPhone));
       setSaved(true);
     } catch (failure) {
-      setError(failure instanceof Error ? failure.message : String(failure));
+      setError(customerMessage(failure));
     } finally {
       setSaving(false);
     }

@@ -5,6 +5,11 @@ import {
 } from "@courier/domain";
 import { ApiError, type CourierClient } from "./client.js";
 
+/** `ApiError.code` when Auth opened the Account but wants the email confirmed first. */
+export const EMAIL_CONFIRMATION_REQUIRED = "email_confirmation_required";
+/** `ApiError.code` when the typed Account phone is not a Philippine mobile. */
+export const INVALID_ACCOUNT_PHONE = "invalid_account_phone";
+
 const SIGN_UP = "sign_up";
 const SIGN_IN = "sign_in";
 const CUSTOMER_ACCOUNT = "customer_account";
@@ -63,7 +68,10 @@ export async function signUpAsCustomer(
   if (error) throw new ApiError(SIGN_UP, error);
   // Only when Auth requires email confirmation, which this project turns off.
   if (!data.session) {
-    throw new ApiError(SIGN_UP, { message: "Confirm your email, then sign in." });
+    throw new ApiError(SIGN_UP, {
+      code: EMAIL_CONFIRMATION_REQUIRED,
+      message: "Confirm your email, then sign in.",
+    });
   }
 
   return askAsCustomer(client);
@@ -142,7 +150,12 @@ async function askAsCustomer(client: CourierClient): Promise<CustomerAccess> {
 
 function toE164(operation: string, typed: string): string {
   const phone = parsePhilippineMobile(typed);
-  if (!phone) throw new ApiError(operation, { message: PHILIPPINE_MOBILE_HINT });
+  if (!phone) {
+    throw new ApiError(operation, {
+      code: INVALID_ACCOUNT_PHONE,
+      message: PHILIPPINE_MOBILE_HINT,
+    });
+  }
   return phone;
 }
 

@@ -18,6 +18,7 @@ import { AppState, StyleSheet, Text, View } from "react-native";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import { AccountTab } from "./AccountTab";
 import { readAppBackend } from "./backend";
+import { customerMessage } from "./customer-message";
 import { sessionStorage } from "./device-storage";
 import { ShopClock } from "./ShopClock";
 import { ShopMap } from "./ShopMap";
@@ -78,7 +79,10 @@ function Session({
     let live = true;
     void resumeCustomerSession(client)
       .catch(
-        (error): SessionState => ({ status: "signed-out", notice: messageOf(error) }),
+        (error): SessionState => ({
+          status: "signed-out",
+          notice: customerMessage(error),
+        }),
       )
       .then((access) => {
         if (live) setSession(withRefusedNotice(access));
@@ -106,7 +110,7 @@ function Session({
       setTab("Shop");
       setSession(withRefusedNotice(await attempt()));
     } catch (error) {
-      setSession({ status: "signed-out", notice: messageOf(error) });
+      setSession({ status: "signed-out", notice: customerMessage(error) });
     } finally {
       setBusy(false);
     }
@@ -167,6 +171,7 @@ function withRefusedNotice(access: SessionState): SessionState {
   return access.status === "refused" ? { ...access, notice: REFUSED_NOTICE } : access;
 }
 
+/** Only for a build missing its configuration, which only a developer sees. */
 function messageOf(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
