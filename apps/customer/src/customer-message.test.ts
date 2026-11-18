@@ -14,6 +14,7 @@ describe("customerMessage", () => {
     ["over_request_rate_limit", "Too many tries. Wait a minute, then try again."],
     ["over_email_send_rate_limit", "Too many tries. Wait a minute, then try again."],
     ["email_confirmation_required", "Confirm your email, then sign in."],
+    ["invalid_email", "Enter a valid email address, such as lia@example.com."],
     ["invalid_account_phone", "Enter your mobile number, such as 0917 123 4567."],
   ])("words %s for the customer", (code, words) => {
     expect(customerMessage(failed(code))).toBe(words);
@@ -52,6 +53,8 @@ describe("looksLikeEmail", () => {
     "lia@mail",
     "lia@mail..com",
     "lia@@mail.com",
+    "lia@a,`sd.com",
+    "lia@mail.c_m",
   ])("refuses %j", (text) => {
     expect(looksLikeEmail(text)).toBe(false);
   });

@@ -2,7 +2,7 @@ import type { CustomerCredentials, CustomerSignUp } from "@courier/api-client";
 import { PHILIPPINE_MOBILE_HINT, parsePhilippineMobile } from "@courier/domain";
 import { useState } from "react";
 import { Text, View } from "react-native";
-import { looksLikeEmail } from "./customer-message";
+import { INVALID_EMAIL_HINT, looksLikeEmail } from "./customer-message";
 import { EmailField, formStyles, Link, PasswordField, PhoneField, Submit } from "./form";
 import { typedMobile } from "./mobile-field";
 
@@ -45,7 +45,7 @@ export function SignIn({ notice, busy, onSignIn, onSignUp }: SignInProps) {
     }
     const found: SignUpErrors = {
       ...(!looksLikeEmail(email.trim()) && {
-        email: "Enter a valid email address, such as lia@example.com.",
+        email: INVALID_EMAIL_HINT,
       }),
       ...(password.length < MINIMUM_PASSWORD_LENGTH && {
         password: `Use at least ${MINIMUM_PASSWORD_LENGTH} characters.`,

@@ -41,6 +41,7 @@ export {
   type CustomerSignUp,
   EMAIL_CONFIRMATION_REQUIRED,
   INVALID_ACCOUNT_PHONE,
+  INVALID_EMAIL,
   resumeCustomerSession,
   signInAsCustomer,
   signOutAsCustomer,

@@ -97,6 +97,22 @@ describe("signUpAsCustomer", () => {
     expect(auth.signUp).not.toHaveBeenCalled();
   });
 
+  it("names an email Auth could not validate, since that is all sign-up leaves it to check", async () => {
+    const { client } = fakeClient({
+      signUp: {
+        data: { session: null },
+        error: {
+          message: "Unable to validate email address: invalid format",
+          code: "validation_failed",
+        },
+      },
+    });
+
+    await expect(signUpAsCustomer(client, signUp)).rejects.toMatchObject({
+      code: "invalid_email",
+    });
+  });
+
   it("passes on what Auth refused, such as an email already in use", async () => {
     const { client } = fakeClient({
       signUp: {

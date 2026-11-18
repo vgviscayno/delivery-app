@@ -7,6 +7,8 @@ import { ApiError, type CourierClient } from "./client.js";
 
 /** `ApiError.code` when Auth opened the Account but wants the email confirmed first. */
 export const EMAIL_CONFIRMATION_REQUIRED = "email_confirmation_required";
+/** `ApiError.code` when Auth could not validate the email. */
+export const INVALID_EMAIL = "invalid_email";
 /** `ApiError.code` when the typed Account phone is not a Philippine mobile. */
 export const INVALID_ACCOUNT_PHONE = "invalid_account_phone";
 
@@ -65,6 +67,11 @@ export async function signUpAsCustomer(
     password,
     options: { data: { account_phone: phone } },
   });
+  // Auth's validation_failed names no field; the phone is checked above and the
+  // password's only rule is its length, so at sign-up it can only mean the email.
+  if (error?.code === "validation_failed") {
+    throw new ApiError(SIGN_UP, { ...error, code: INVALID_EMAIL });
+  }
   if (error) throw new ApiError(SIGN_UP, error);
   // Only when Auth requires email confirmation, which this project turns off.
   if (!data.session) {
