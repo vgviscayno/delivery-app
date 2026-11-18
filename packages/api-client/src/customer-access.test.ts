@@ -85,6 +85,15 @@ describe("signUpAsCustomer", () => {
     expect(auth.signUp).not.toHaveBeenCalled();
   });
 
+  it("refuses a landline before asking the server: the Account phone is a mobile", async () => {
+    const { client, auth } = fakeClient({});
+
+    await expect(
+      signUpAsCustomer(client, { ...signUp, accountPhone: "(02) 8123 4567" }),
+    ).rejects.toThrow("Enter your mobile number");
+    expect(auth.signUp).not.toHaveBeenCalled();
+  });
+
   it("passes on what Auth refused, such as an email already in use", async () => {
     const { client } = fakeClient({
       signUp: {

@@ -1,14 +1,14 @@
 -- Customer Account: the Account phone.
 --
--- Every customer gives one at sign-up. It is how a driver or the dispatcher reaches
--- them about an order, so it is required, but never SMS-verified (ADR 0005). Stored
--- E.164 and Philippine only: the customer app normalises what was typed (`0917 …`,
--- `+63 917-…`, a landline), and the server only checks the result. The customer reads
+-- Every customer gives one at sign-up. It is the number the dispatcher rings for a
+-- Price approval, so it is required, but never SMS-verified (ADR 0005). Stored E.164
+-- and a Philippine mobile only (`+639…`): the customer app normalises what was typed
+-- (`0917 …`, `+63 917-…`), and the server only checks the result. The customer reads
 -- and changes their own; a dispatcher may read it but never change it.
 
 alter table app.profiles
   add column account_phone text
-    constraint profiles_account_phone_is_e164 check (account_phone ~ '^\+63[1-9][0-9]{8,9}$'),
+    constraint profiles_account_phone_is_e164 check (account_phone ~ '^\+639[0-9]{9}$'),
   add constraint profiles_account_phone_is_a_customers
     check (account_phone is null or role = 'customer');
 

@@ -1,7 +1,7 @@
 import {
   type Database,
-  PHILIPPINE_PHONE_HINT,
-  parsePhilippinePhone,
+  PHILIPPINE_MOBILE_HINT,
+  parsePhilippineMobile,
 } from "@courier/domain";
 import { ApiError, type CourierClient } from "./client.js";
 
@@ -141,8 +141,8 @@ async function askAsCustomer(client: CourierClient): Promise<CustomerAccess> {
 }
 
 function toE164(operation: string, typed: string): string {
-  const phone = parsePhilippinePhone(typed);
-  if (!phone) throw new ApiError(operation, { message: PHILIPPINE_PHONE_HINT });
+  const phone = parsePhilippineMobile(typed);
+  if (!phone) throw new ApiError(operation, { message: PHILIPPINE_MOBILE_HINT });
   return phone;
 }
 

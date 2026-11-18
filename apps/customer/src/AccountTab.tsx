@@ -3,14 +3,11 @@ import {
   type CustomerAccount,
   updateAccountPhone,
 } from "@courier/api-client";
-import {
-  formatPhilippinePhone,
-  PHILIPPINE_PHONE_HINT,
-  parsePhilippinePhone,
-} from "@courier/domain";
+import { PHILIPPINE_MOBILE_HINT, parsePhilippineMobile } from "@courier/domain";
 import { useState } from "react";
 import { Text, View } from "react-native";
 import { formStyles, Link, PhoneField, Submit } from "./form";
+import { mobileFieldOf, typedMobile } from "./mobile-field";
 
 export interface AccountTabProps {
   readonly client: CourierClient;
@@ -28,25 +25,25 @@ export function AccountTab({
   signingOut,
   onSignOut,
 }: AccountTabProps) {
-  const [phone, setPhone] = useState(formatPhilippinePhone(account.accountPhone));
+  const [phone, setPhone] = useState(mobileFieldOf(account.accountPhone));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string>();
   const [saved, setSaved] = useState(false);
 
-  const unchanged = parsePhilippinePhone(phone) === account.accountPhone;
+  const unchanged = parsePhilippineMobile(typedMobile(phone)) === account.accountPhone;
 
   const save = async () => {
     setSaved(false);
-    if (!parsePhilippinePhone(phone)) {
-      setError(PHILIPPINE_PHONE_HINT);
+    if (!parsePhilippineMobile(typedMobile(phone))) {
+      setError(PHILIPPINE_MOBILE_HINT);
       return;
     }
     setError(undefined);
     setSaving(true);
     try {
-      const updated = await updateAccountPhone(client, phone);
+      const updated = await updateAccountPhone(client, typedMobile(phone));
       onAccountChange(updated);
-      setPhone(formatPhilippinePhone(updated.accountPhone));
+      setPhone(mobileFieldOf(updated.accountPhone));
       setSaved(true);
     } catch (failure) {
       setError(failure instanceof Error ? failure.message : String(failure));

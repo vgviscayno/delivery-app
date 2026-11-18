@@ -19,8 +19,9 @@ export type { DutyState } from "./duty.js";
 export { describeDuty } from "./duty.js";
 export type { Database, Json } from "./generated/database.types.js";
 export {
-  formatPhilippinePhone,
+  PHILIPPINE_MOBILE_HINT,
   PHILIPPINE_PHONE_HINT,
+  parsePhilippineMobile,
   parsePhilippinePhone,
 } from "./phone.js";
 export type {

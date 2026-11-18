@@ -29,14 +29,11 @@ select throws_ok(
   'an Account phone outside the Philippines is refused'
 );
 
-select lives_ok(
-  $$ do $do$ begin
-       perform tests.sign_up('{"account_phone": "+63281234567"}');
-       set constraints app.profiles_customer_has_account_phone immediate;
-     end $do$ $$,
-  'a landline is an Account phone too'
+select throws_ok(
+  $$ select tests.sign_up('{"account_phone": "+63281234567"}') $$,
+  '23514', null,
+  'a landline is not an Account phone: it is a mobile'
 );
-set constraints app.profiles_customer_has_account_phone deferred;
 
 -- The requirement is checked at commit, not at insert: a driver invite creates the
 -- profile as a customer and writes the driver role a statement later.

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatPhilippinePhone, parsePhilippinePhone } from "./phone.js";
+import { parsePhilippineMobile, parsePhilippinePhone } from "./phone.js";
 
 describe("parsePhilippinePhone", () => {
   it.each([
@@ -28,16 +28,24 @@ describe("parsePhilippinePhone", () => {
   });
 });
 
-describe("formatPhilippinePhone", () => {
+describe("parsePhilippineMobile", () => {
   it.each([
-    ["0917", "917"],
-    ["09171234567", "917 123 4567"],
-    ["917 123 4567", "917 123 4567"],
-    ["+639171234567", "917 123 4567"],
-    ["+63 917-123-4567", "917 123 4567"],
-    ["0281234567", "2 8123 4567"],
-    ["", ""],
-  ])("shows %j after +63 as %j", (text, shown) => {
-    expect(formatPhilippinePhone(text)).toBe(shown);
+    ["0917 123 4567", "+639171234567"],
+    ["+63 918-987-6543", "+639189876543"],
+    ["639171234567", "+639171234567"],
+    ["0909 123 4567", "+639091234567"],
+  ])("reads %j as %s", (text, e164) => {
+    expect(parsePhilippineMobile(text)).toBe(e164);
+  });
+
+  it.each([
+    "",
+    "(02) 8123 4567",
+    "+63281234567",
+    "0917 123",
+    "+1 202 555 0123",
+    "call us",
+  ])("refuses %j", (text) => {
+    expect(parsePhilippineMobile(text)).toBeNull();
   });
 });

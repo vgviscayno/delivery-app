@@ -1,4 +1,4 @@
-import { formatPhilippinePhone } from "@courier/domain";
+import { useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
@@ -7,37 +7,73 @@ import {
   TextInput,
   View,
 } from "react-native";
+import { editMobileField } from "./mobile-field";
 import { Tooltip } from "./Tooltip";
 
-type FieldKind = "email" | "password";
+export function EmailField({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <View style={formStyles.field}>
+      <Text>Email</Text>
+      <TextInput
+        style={formStyles.input}
+        value={value}
+        onChangeText={onChange}
+        accessibilityLabel="Email"
+        autoCapitalize="none"
+        autoCorrect={false}
+        keyboardType="email-address"
+        autoComplete="email"
+      />
+    </View>
+  );
+}
 
-export function Field({
+/** A password, hidden until the customer taps Show. */
+export function PasswordField({
   label,
   value,
   onChange,
-  kind,
+  isNew,
   error,
 }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
-  kind: FieldKind;
+  /** A password being chosen, so autofill offers to make one up, not a saved one. */
+  isNew: boolean;
   error?: string | undefined;
 }) {
+  const [shown, setShown] = useState(false);
+
   return (
     <View style={formStyles.field}>
       <Text>{label}</Text>
-      <TextInput
-        style={formStyles.input}
-        value={value}
-        onChangeText={onChange}
-        accessibilityLabel={label}
-        secureTextEntry={kind === "password"}
-        autoCapitalize="none"
-        autoCorrect={false}
-        keyboardType={kind === "email" ? "email-address" : "default"}
-        autoComplete={kind}
-      />
+      <View style={[formStyles.input, formStyles.inputRow]}>
+        <TextInput
+          style={formStyles.rowInput}
+          value={value}
+          onChangeText={onChange}
+          accessibilityLabel={label}
+          secureTextEntry={!shown}
+          autoCapitalize="none"
+          autoCorrect={false}
+          autoComplete={isNew ? "new-password" : "current-password"}
+        />
+        <Pressable
+          onPress={() => setShown(!shown)}
+          accessibilityRole="button"
+          accessibilityLabel={`${shown ? "Hide" : "Show"} ${label.toLowerCase()}`}
+          hitSlop={8}
+        >
+          <Text style={formStyles.linkText}>{shown ? "Hide" : "Show"}</Text>
+        </Pressable>
+      </View>
       <FieldError error={error} />
     </View>
   );
@@ -47,8 +83,8 @@ const ABOUT_PHONE =
   "The number the shop calls about your orders — for example, to approve a price change.";
 
 /**
- * The Account phone, labelled for the customer as their phone number. `+63` is fixed on
- * screen and the rest is grouped as they type; `value` is what they see, `917 123 4567`.
+ * The Account phone, labelled for the customer as their phone number: a mobile, so
+ * `09` is fixed on screen and `value` is the 9 digits after it, `17 123 4567`.
  */
 export function PhoneField({
   value,
@@ -59,27 +95,20 @@ export function PhoneField({
   onChange: (value: string) => void;
   error?: string | undefined;
 }) {
-  const change = (text: string) => {
-    // Backspacing over a space removes no digit, and regrouping would put the space
-    // straight back: take the digit before it instead.
-    const digits = (t: string) => t.replace(/\D/g, "");
-    const deletedSeparator = text.length < value.length && digits(text) === digits(value);
-    onChange(formatPhilippinePhone(deletedSeparator ? digits(text).slice(0, -1) : text));
-  };
-
   return (
     <View style={formStyles.field}>
       <View style={formStyles.labelRow}>
         <Text>Phone number</Text>
         <Tooltip label="About phone number" text={ABOUT_PHONE} />
       </View>
-      <View style={[formStyles.input, formStyles.phoneRow]}>
-        <Text style={formStyles.prefix}>+63</Text>
+      <View style={[formStyles.input, formStyles.inputRow, formStyles.flush]}>
+        <Text style={formStyles.prefix}>09</Text>
         <TextInput
-          style={formStyles.phoneInput}
+          style={formStyles.rowInput}
           value={value}
-          onChangeText={change}
-          accessibilityLabel="Phone number, after +63"
+          onChangeText={(text) => onChange(editMobileField(value, text))}
+          accessibilityLabel="Phone number, after 09"
+          placeholder="17 123 4567"
           keyboardType="phone-pad"
           autoComplete="tel"
           textContentType="telephoneNumber"
@@ -141,9 +170,11 @@ export const formStyles = StyleSheet.create({
   hint: { color: "#5f6670" },
   field: { gap: 4 },
   labelRow: { flexDirection: "row", alignItems: "center", gap: 6 },
-  phoneRow: { flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 0 },
-  prefix: { fontSize: 16, color: "#5f6670" },
-  phoneInput: { flex: 1, fontSize: 16, paddingVertical: 12 },
+  inputRow: { flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 0 },
+  // `09` reads as the start of the number, so nothing sits between it and the digits.
+  flush: { gap: 0 },
+  prefix: { fontSize: 16 },
+  rowInput: { flex: 1, fontSize: 16, paddingVertical: 12, paddingHorizontal: 0 },
   input: {
     borderWidth: 1,
     borderColor: "#c8ccd2",
