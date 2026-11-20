@@ -32,13 +32,13 @@ export type Database = {
                   ]
                 },"catalog_products": {
                   Row: {
-                    "description": string | null,"id": string | null,"name": string | null,"photo_path": string | null,"price_per_kg_centavos": number | null,"price_type": string | null,"tolerance_grams": number | null,"unit_price_centavos": number | null,"weight_step_grams": number | null
+                    "available": boolean | null,"description": string | null,"id": string | null,"name": string | null,"photo_path": string | null,"price_per_kg_centavos": number | null,"price_type": string | null,"tolerance_grams": number | null,"unit_price_centavos": number | null,"weight_step_grams": number | null
                   }
                   Insert: {
-                           "description"?: string | null,"id"?: string | null,"name"?: string | null,"photo_path"?: string | null,"price_per_kg_centavos"?: number | null,"price_type"?: never,"tolerance_grams"?: number | null,"unit_price_centavos"?: number | null,"weight_step_grams"?: number | null
+                           "available"?: boolean | null,"description"?: string | null,"id"?: string | null,"name"?: string | null,"photo_path"?: string | null,"price_per_kg_centavos"?: number | null,"price_type"?: never,"tolerance_grams"?: number | null,"unit_price_centavos"?: number | null,"weight_step_grams"?: number | null
                          }
                         Update: {
-                           "description"?: string | null,"id"?: string | null,"name"?: string | null,"photo_path"?: string | null,"price_per_kg_centavos"?: number | null,"price_type"?: never,"tolerance_grams"?: number | null,"unit_price_centavos"?: number | null,"weight_step_grams"?: number | null
+                           "available"?: boolean | null,"description"?: string | null,"id"?: string | null,"name"?: string | null,"photo_path"?: string | null,"price_per_kg_centavos"?: number | null,"price_type"?: never,"tolerance_grams"?: number | null,"unit_price_centavos"?: number | null,"weight_step_grams"?: number | null
                          }
                         Relationships: [
                     

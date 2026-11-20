@@ -123,13 +123,15 @@ select results_eq(
   'only the Products still listed remain in it'
 );
 
--- An unavailable Product keeps its place, but customers do not see it there.
+-- An unavailable Product keeps its place, and customers see it there, sold out.
 select public.set_product_available(current_setting('t.tocino')::uuid, false);
 reset role;
 select tests.authenticate_as(current_setting('t.customer')::uuid);
-select is_empty(
-  $$ select 1 from public.catalog_memberships where product_id = current_setting('t.tocino')::uuid $$,
-  'customers see no membership for a Product they cannot order'
+select results_eq(
+  $$ select category_id, position from public.catalog_memberships
+      where product_id = current_setting('t.tocino')::uuid $$,
+  $$ values (current_setting('t.pork')::uuid, 1) $$,
+  'customers see a sold-out Product in the place the dispatcher put it'
 );
 reset role;
 

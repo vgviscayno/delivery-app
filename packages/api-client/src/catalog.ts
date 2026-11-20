@@ -32,8 +32,9 @@ type NullableArgs<Name extends keyof Functions> = {
 };
 
 /**
- * What a customer can order: available, undeleted Products, every Category in display
- * order, and where each Product sits in each. Any signed-in account may read it.
+ * What a customer browses: undeleted Products, sold-out ones marked unavailable, every
+ * Category in display order, and where each Product sits in each. Any signed-in
+ * account may read it.
  */
 export async function fetchCatalog(client: CourierClient): Promise<Catalog> {
   const [products, categories, memberships] = await Promise.all([

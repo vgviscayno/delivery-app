@@ -32,6 +32,7 @@ const longganisaRow = {
   price_per_kg_centavos: null,
   weight_step_grams: null,
   tolerance_grams: null,
+  available: true,
 };
 
 const ribeyeRow = {
@@ -44,6 +45,7 @@ const ribeyeRow = {
   price_per_kg_centavos: 120000,
   weight_step_grams: 250,
   tolerance_grams: 250,
+  available: true,
 };
 
 const categoryRows = [
@@ -84,10 +86,10 @@ function fakeClient({ rpc = {}, views = {} }: Fake = {}) {
 }
 
 describe("fetchCatalog", () => {
-  it("reads the orderable Products, the Categories and their memberships", async () => {
+  it("reads the Products, sold-out ones marked, with the Categories and memberships", async () => {
     const { client, from } = fakeClient({
       views: {
-        catalog_products: ok([longganisaRow, ribeyeRow]),
+        catalog_products: ok([longganisaRow, { ...ribeyeRow, available: false }]),
         catalog_categories: ok(categoryRows),
         catalog_memberships: ok(membershipRows),
       },
@@ -108,7 +110,7 @@ describe("fetchCatalog", () => {
           name: "Ribeye",
           description: null,
           photoPath: "a1b2/large.webp",
-          available: true,
+          available: false,
           price: {
             type: "per_weight",
             pricePerKgCentavos: 120000,

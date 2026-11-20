@@ -33,7 +33,7 @@ export interface ProductEdits {
 
 export interface Product extends ProductEdits {
   readonly id: string;
-  /** A manual toggle, not a stock count. Always true in what customers read. */
+  /** A manual toggle, not a stock count. Customers see an unavailable one as sold out. */
   readonly available: boolean;
 }
 
@@ -68,16 +68,15 @@ export class CatalogError extends Error {
 /**
  * A Product row from `catalog_products` or `dispatcher_products`. The view types every
  * column as nullable and the RPC as present, so this reads both as nullable and checks.
- * A row from the view has no `available` column: everything in it is available.
  */
-export function toProduct(row: ProductRow & { available?: boolean | null }): Product {
+export function toProduct(row: ProductRow): Product {
   const name = required(row.name, "a Product's name");
   return {
     id: required(row.id, `the id of ${name}`),
     name,
     description: row.description,
     photoPath: row.photo_path,
-    available: row.available ?? true,
+    available: required(row.available, `whether ${name} is available`),
     price: toPrice(name, row),
   };
 }

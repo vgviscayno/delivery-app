@@ -1,8 +1,8 @@
--- Products: the dispatcher maintains them on the console; customers read the available,
--- undeleted ones through `public.catalog_products`.
+-- Products: the dispatcher maintains them on the console; customers read the undeleted
+-- ones through `public.catalog_products`, sold-out ones marked unavailable.
 
 begin;
-select plan(29);
+select plan(30);
 
 select set_config('t.dispatcher', tests.create_user('dispatcher')::text, true);
 select set_config('t.customer', tests.create_user('customer')::text, true);
@@ -100,8 +100,8 @@ select results_eq(
   'the edit replaces the old price rather than adding to it'
 );
 
--- Unavailable and deleted Products drop out of what customers see; the dispatcher
--- still sees an unavailable one, so it can be switched back on.
+-- A deleted Product drops out of what customers see; an unavailable one stays, marked
+-- sold out, and the dispatcher still sees it, so it can be switched back on.
 select lives_ok(
   $$ select public.set_product_available(current_setting('t.ribeye')::uuid, false) $$,
   'a dispatcher marks a Product unavailable'
@@ -142,15 +142,20 @@ select results_eq(
 );
 
 select tests.authenticate_as(current_setting('t.customer')::uuid);
+select results_eq(
+  $$ select available from public.catalog_products
+     where id = current_setting('t.ribeye')::uuid $$,
+  $$ values (false) $$,
+  'customers see an unavailable Product, marked unavailable, so it shows as sold out'
+);
 select is_empty(
-  $$ select 1 from public.catalog_products
-     where id in (current_setting('t.ribeye')::uuid, current_setting('t.sausages')::uuid) $$,
-  'customers see neither the unavailable Product nor the deleted one'
+  $$ select 1 from public.catalog_products where id = current_setting('t.sausages')::uuid $$,
+  'customers do not see a deleted Product'
 );
 select results_eq(
-  $$ select count(*)::integer from public.catalog_products where name = 'Pork belly' $$,
-  $$ values (1) $$,
-  'customers still see the ones that are available'
+  $$ select available from public.catalog_products where name = 'Pork belly' $$,
+  $$ values (true) $$,
+  'customers see the ones that are available as available'
 );
 
 -- Nobody but an active dispatcher writes the catalog or reads its hidden parts.
@@ -167,7 +172,7 @@ select throws_ok(
 select throws_ok(
   $$ select * from public.dispatcher_products() $$,
   '42501', null,
-  'a customer may not read the unavailable Products'
+  'a customer may not read the console''s list of Products'
 );
 select throws_ok(
   $$ update public.catalog_products set unit_price_centavos = 1 $$,
