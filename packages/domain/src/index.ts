@@ -24,6 +24,15 @@ export {
   parsePhilippineMobile,
   parsePhilippinePhone,
 } from "./phone.js";
+export {
+  estimatedPeso,
+  formatPeso,
+  formatWeight,
+  lineTotalCentavos,
+  shelfPrice,
+  stepWeight,
+  weightChips,
+} from "./pricing.js";
 export type {
   OrderingDay,
   ShopClosure,
