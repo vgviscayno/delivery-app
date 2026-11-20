@@ -14,14 +14,13 @@ import {
 import Mapbox from "@rnmapbox/maps";
 import { StatusBar } from "expo-status-bar";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { AppState, StyleSheet, Text, View } from "react-native";
+import { AppState, StyleSheet, Text } from "react-native";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import { AccountTab } from "./AccountTab";
 import { readAppBackend } from "./backend";
 import { customerMessage } from "./customer-message";
 import { sessionStorage } from "./device-storage";
-import { ShopClock } from "./ShopClock";
-import { ShopMap } from "./ShopMap";
+import { ShopTab } from "./ShopTab";
 import { SignIn } from "./SignIn";
 import { type Tab, Tabs } from "./Tabs";
 
@@ -31,10 +30,7 @@ export function App() {
       const { backend, mapboxToken } = readAppBackend();
       // Set once, before any map mounts. The style carries no token of its own.
       if (mapboxToken) Mapbox.setAccessToken(mapboxToken);
-      return {
-        client: createCourierClient(backend, { sessionStorage }),
-        hasMapToken: Boolean(mapboxToken),
-      };
+      return { client: createCourierClient(backend, { sessionStorage }) };
     } catch (error) {
       return { error: messageOf(error) };
     }
@@ -48,7 +44,7 @@ export function App() {
         {"error" in setup ? (
           <Text style={styles.error}>{setup.error}</Text>
         ) : (
-          <Session client={setup.client} hasMapToken={setup.hasMapToken} />
+          <Session client={setup.client} />
         )}
       </SafeAreaView>
     </SafeAreaProvider>
@@ -61,13 +57,7 @@ type SessionState =
 
 const REFUSED_NOTICE = "This account cannot use the customer app.";
 
-function Session({
-  client,
-  hasMapToken,
-}: {
-  client: CourierClient;
-  hasMapToken: boolean;
-}) {
+function Session({ client }: { client: CourierClient }) {
   const [session, setSession] = useState<SessionState>({ status: "checking" });
   const [busy, setBusy] = useState(false);
   const [tab, setTab] = useState<Tab>("Shop");
@@ -148,10 +138,7 @@ function Session({
   return (
     <Tabs current={tab} onChange={setTab}>
       {tab === "Shop" ? (
-        <View>
-          <ShopClock client={client} />
-          <ShopMap hasToken={hasMapToken} />
-        </View>
+        <ShopTab client={client} />
       ) : tab === "Orders" ? (
         <Text style={styles.detail}>No orders yet.</Text>
       ) : (
