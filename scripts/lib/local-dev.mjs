@@ -70,7 +70,7 @@ export function examplePath(surface) {
 }
 
 /** `KEY="value"` lines into an object. Comments and blank lines are skipped. */
-export function parseEnv(text) {
+function parseEnv(text) {
   const values = {};
   for (const line of text.split("\n")) {
     const match = line.match(/^\s*([A-Z0-9_]+)\s*=\s*(.*?)\s*$/);

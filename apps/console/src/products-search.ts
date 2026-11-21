@@ -10,7 +10,7 @@ export interface ProductsSearch extends ProductFilters {
 }
 
 /** The columns the grid sorts by: the plain values, not Categories, photos or actions. */
-export const SORTABLE = [
+const SORTABLE = [
   "name",
   "priceType",
   "price",

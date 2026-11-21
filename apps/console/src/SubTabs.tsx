@@ -1,7 +1,7 @@
 import { Link, type LinkProps } from "@tanstack/react-router";
 
 /** Any path a console link can go to, so a mistyped tab fails the typecheck. */
-export type ConsolePath = NonNullable<LinkProps["to"]>;
+type ConsolePath = NonNullable<LinkProps["to"]>;
 
 export interface Tab {
   readonly label: string;

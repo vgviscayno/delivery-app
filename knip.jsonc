@@ -1,0 +1,14 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  // Vendored skills, generated types, and Deno edge functions (a different runtime) are out of scope.
+  "ignore": [".agents/**", "packages/domain/src/generated/**", "supabase/functions/**"],
+  "workspaces": {
+    ".": {
+      "entry": ["scripts/**/*.{mjs,sh}"]
+    },
+    "apps/console": {
+      // Run through `pnpm --filter @courier/console exec wrangler` and the CI deploy step.
+      "ignoreDependencies": ["wrangler"]
+    }
+  }
+}

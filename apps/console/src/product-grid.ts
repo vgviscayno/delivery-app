@@ -29,7 +29,7 @@ export interface RowValues {
  */
 export type RowPhoto = StoredPhoto | DroppedPhoto;
 
-export interface StoredPhoto {
+interface StoredPhoto {
   /** Where the large photo is in the `product-photos` bucket. */
   readonly path: string;
 }

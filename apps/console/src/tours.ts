@@ -49,7 +49,7 @@ export function stepsOf(name: TourName, topic: TourTopic | null): readonly TourS
   return topic === null ? steps : steps.filter((step) => step.topics?.includes(topic));
 }
 
-export const TOURS: Record<TourName, readonly TourStep[]> = {
+const TOURS: Record<TourName, readonly TourStep[]> = {
   products: [
     {
       target: "add-row",
