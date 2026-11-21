@@ -20,7 +20,7 @@ A Handback is a **dispatcher-only** transition from `Picked up` to **`Unassigned
 
 ## Consequences
 
-- **`Picked up` now carries a stated invariant.** `CONTEXT.md` says in words that the status means one driver physically holds the goods. This is what makes the Handback necessary rather than merely convenient, and what rules out reassignment in place.
+- **`Picked up` now carries a stated invariant.** `GLOSSARY.md` says in words that the status means one driver physically holds the goods. This is what makes the Handback necessary rather than merely convenient, and what rules out reassignment in place.
 - **Prep status is untouched.** The goods are still packed and still priced, so a handed-back Delivery stays at `Ready`. Nothing re-enters `Preparing`. Prep and courier tracks remain independent, as ADR 0005 was careful to keep them.
 - **The Final price does not unfreeze.** ADR 0004 freezes it on reaching `Picked up`; it is frozen on the *first* `Picked up` and never releases. A Handback does not change what is in the box. Repacking after partial spoilage is therefore **not** a Handback — new packed weights mean a new Final price, which reopens Price approval, which ADR 0005 forbids after submission. Repacking is a cancellation plus a fresh Order. **An Order has exactly one Final price, set once.**
 - **Handback is not the only exit, and the choice is a human's.** This is a meat business, and product that sat in an unpowered van may not be fit to deliver. `Cancelled` remains reachable from `Picked up`. The dispatcher inspects the goods and picks a door; the system records which one was used and why. No spoilage state is modelled — inventory is not modelled at all (ticket 26 uses a manual availability toggle with no stock count).

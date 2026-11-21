@@ -3,7 +3,7 @@
 Own-fleet courier delivery system for a Philippine meat shop: a web dispatcher
 console, a driver app and a customer app over one Supabase backend.
 
-`CONTEXT.md` is the glossary — the words in this repo mean what it says they mean.
+`GLOSSARY.md` is the glossary — the words in this repo mean what it says they mean.
 `docs/adr/` holds the decisions of record. The MVP spec is issue #54.
 
 ## Layout
@@ -221,7 +221,7 @@ fills in a dozen placeholder Products across five Categories.
 ## The Shop clock
 
 There is one clock, `app.now()`, and one time zone, `Asia/Manila` — the Shop clock in
-`CONTEXT.md`. No
+`GLOSSARY.md`. No
 migration, RPC, view or trigger may call `now()`, `current_timestamp` or
 `clock_timestamp()` directly — every time rule reads the clock, so every time rule can
 be tested at its exact boundary by pinning it with `app.pin_clock()`.
