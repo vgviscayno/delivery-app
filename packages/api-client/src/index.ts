@@ -84,7 +84,6 @@ export {
 
 const SERVER_CLOCK = "server_clock";
 
-/** Reads the shop clock. The one call the walking skeleton makes end to end. */
 export async function fetchServerClock(client: CourierClient): Promise<ServerClock> {
   const { data, error } = await client.rpc(SERVER_CLOCK);
 

@@ -296,8 +296,6 @@ describe("the Products grid draft", () => {
       available: true,
       price: { type: "per_unit", unitPriceCentavos: 30000 },
     };
-    // Ribeye ₱1200.50/kg 250 g ±100 g · tocino ₱165 each, unavailable ·
-    // sirloin ₱900/kg 500 g ±50 g, unavailable · chicken ₱300 each.
     const many: Catalog = { ...catalog, products: [ribeye, tocino, sirloin, chicken] };
     const sorted = (draft: Draft, sort: Parameters<typeof sortRows>[1]) =>
       sortRows(draft.rows, sort).map((row) => row.key);

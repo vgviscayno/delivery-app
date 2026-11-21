@@ -1,10 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createChunkedStorage, type KeyValueStore } from "./chunked-storage.js";
 
-/**
- * SecureStore's shape, in memory, refusing any value over its 2048-byte limit. Each
- * call yields first, as the native call does, so overlapping operations can interleave.
- */
 function memoryStore(): KeyValueStore & { keys(): string[] } {
   const values = new Map<string, string>();
   const tick = () => new Promise((resolve) => setTimeout(resolve, 0));
@@ -29,7 +25,6 @@ function memoryStore(): KeyValueStore & { keys(): string[] } {
   };
 }
 
-/** About the size of a real supabase-js session: two JWTs and a user. */
 const session = JSON.stringify({
   access_token: "a".repeat(1200),
   refresh_token: "r".repeat(40),

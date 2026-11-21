@@ -14,14 +14,8 @@ type Load =
   | { readonly state: "ready"; readonly drivers: readonly DispatcherDriver[] }
   | { readonly state: "error"; readonly message: string };
 
-// Drivers go On and off duty from their phones, not from here, so the list is read
-// again every so often rather than only after the console's own writes.
 const REFRESH_MS = 30_000;
 
-/**
- * The drivers: who is On duty, inviting a new one by email, and deactivating one who
- * has left. Deactivation keeps the driver on the list, so it is never a deletion.
- */
 export function Drivers({ client }: { client: CourierClient }) {
   const [load, setLoad] = useState<Load>({ state: "loading" });
 

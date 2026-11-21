@@ -1,11 +1,6 @@
 import type { ProductPhotoFiles } from "@courier/api-client";
 
-/**
- * The large photo, for a Product's own page: 1600 px wide. The height bound only bites
- * on a photo more than twice as tall as wide, and keeps it under the bucket's 2 MiB.
- */
 const LARGE: Size = { width: 1600, height: 3200 };
-/** The thumbnail, for the grid and the shop's two-column list on a phone at 2x. */
 const THUMB: Size = { width: 480, height: 960 };
 const QUALITY = 0.82;
 
@@ -14,7 +9,6 @@ interface Size {
   readonly height: number;
 }
 
-/** The size to store a photo at: within `box`, its shape kept, and never enlarged. */
 export function scaledSize(size: Size, box: Size): Size {
   const scale = Math.min(1, box.width / size.width, box.height / size.height);
   if (scale === 1) return size;
@@ -24,11 +18,6 @@ export function scaledSize(size: Size, box: Size): Size {
   };
 }
 
-/**
- * Makes the large photo and the thumbnail from a dropped image, in the browser:
- * Supabase's own image transformations are on paid plans only. WebP where the browser
- * can encode it; JPEG where it cannot (Safari's canvas hands back PNG for WebP).
- */
 export async function resizePhoto(file: File): Promise<ProductPhotoFiles> {
   const image = await createImageBitmap(file, { imageOrientation: "from-image" });
   try {
@@ -53,7 +42,6 @@ async function draw(image: ImageBitmap, size: Size, type: string): Promise<Blob>
   return blobOf(canvas, type);
 }
 
-/** Whether the canvas really encodes this type, rather than quietly falling back. */
 async function encodes(type: string): Promise<boolean> {
   const canvas = document.createElement("canvas");
   canvas.width = 1;

@@ -1,7 +1,6 @@
 import { Pressable, StyleSheet, Text } from "react-native";
 import { type Cart, cartTotalLabel } from "./cart";
 
-/** Floats over the Shop grid with the running total; absent while the cart is empty. */
 export function CartButton({ cart, onOpen }: { cart: Cart; onOpen: () => void }) {
   if (cart.length === 0) return null;
   const total = cartTotalLabel(cart);

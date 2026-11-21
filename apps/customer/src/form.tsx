@@ -37,7 +37,6 @@ export function EmailField({
   );
 }
 
-/** A password, hidden until the customer taps Show. */
 export function PasswordField({
   label,
   value,
@@ -48,7 +47,6 @@ export function PasswordField({
   label: string;
   value: string;
   onChange: (value: string) => void;
-  /** A password being chosen, so autofill offers to make one up, not a saved one. */
   isNew: boolean;
   error?: string | undefined;
 }) {
@@ -85,10 +83,6 @@ export function PasswordField({
 const ABOUT_PHONE =
   "The number the shop calls about your orders — for example, to approve a price change.";
 
-/**
- * The Account phone, labelled for the customer as their phone number: a mobile, so
- * `09` is fixed on screen and `value` is the 9 digits after it, `17 123 4567`.
- */
 export function PhoneField({
   value,
   onChange,
@@ -174,7 +168,6 @@ export const formStyles = StyleSheet.create({
   field: { gap: 4 },
   labelRow: { flexDirection: "row", alignItems: "center", gap: 6 },
   inputRow: { flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 0 },
-  // `09` reads as the start of the number, so nothing sits between it and the digits.
   flush: { gap: 0 },
   prefix: { fontSize: 16 },
   rowInput: { flex: 1, fontSize: 16, paddingVertical: 12, paddingHorizontal: 0 },

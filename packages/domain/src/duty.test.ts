@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { describeDuty } from "./duty.js";
 
-// 23:30 UTC is 07:30 the next morning in Manila.
 const changedAt = "2026-11-05T23:30:00+00:00";
 
 describe("describeDuty", () => {

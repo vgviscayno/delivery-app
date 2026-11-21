@@ -11,20 +11,15 @@ import {
 
 describe("lineTotalCentavos", () => {
   it("prices a weight at the rate per kilogram", () => {
-    // ₱1,150/kg × 500 g = ₱575.
     expect(lineTotalCentavos(115000, 500)).toBe(57500);
   });
 
   it("rounds to the nearest centavo once, at the end", () => {
-    // ₱12.34/kg × 250 g = 308.5 centavos → 309, as Postgres rounds numeric halves.
     expect(lineTotalCentavos(1234, 250)).toBe(309);
-    // ₱12.33/kg × 250 g = 308.25 centavos → 308.
     expect(lineTotalCentavos(1233, 250)).toBe(308);
   });
 
   it("does not round a per-gram rate first", () => {
-    // ₱999.99/kg is 99.999 centavos a gram: rounding that to 100 first would make
-    // 3 kg ₱3,000.00, not ₱2,999.97.
     expect(lineTotalCentavos(99999, 3000)).toBe(299997);
   });
 });
@@ -59,7 +54,6 @@ describe("stepWeight", () => {
   });
 
   it("snaps a weight that is not a multiple of the step onto one", () => {
-    // A 1 kg chip picked before the dispatcher changed the step to 300 g.
     expect(stepWeight(1000, 300, 1)).toBe(1200);
     expect(stepWeight(1000, 300, -1)).toBe(900);
   });

@@ -2,11 +2,6 @@ import type { AsyncStorage } from "@courier/api-client";
 import type { Price } from "@courier/domain";
 import { type Cart, type CartLine, EMPTY_CART } from "./cart";
 
-/**
- * One slot on the phone, holding the cart and whose it is. A single slot rather than a
- * key per user, so signing out can always clear it: when the server ends a session,
- * the app no longer knows whose cart it would be clearing.
- */
 const KEY = "cart";
 
 interface Saved {
@@ -15,10 +10,8 @@ interface Saved {
 }
 
 export interface CartStore {
-  /** The cart this customer left on the phone; empty if it belongs to someone else. */
   load(userId: string): Promise<Cart>;
   save(userId: string, cart: Cart): Promise<void>;
-  /** On sign-out, however it happened. */
   clear(): Promise<void>;
 }
 
@@ -32,18 +25,12 @@ export function createCartStore(storage: AsyncStorage): CartStore {
       const saved: Saved = { owner: userId, lines: cart };
       return storage.setItem(KEY, JSON.stringify(saved));
     },
-    // Ordered after any save already under way: the storage runs a key's calls in turn.
     clear() {
       return storage.removeItem(KEY);
     },
   };
 }
 
-/**
- * What is in the slot, if it is a cart this build can price. Anything else (an older
- * format, a half-written value) is no cart at all: a customer re-adds a line more
- * easily than they spot one that came back wrong.
- */
 function parseSaved(raw: string | null): Saved | null {
   if (raw === null) return null;
   let value: unknown;
@@ -79,7 +66,6 @@ function isPrice(value: unknown): value is Price {
   );
 }
 
-/** Whole units, or a weight in whole steps of at least one. */
 function isAmount(amount: unknown, price: Price): boolean {
   if (!isPositiveInteger(amount)) return false;
   return price.type === "per_unit" || amount % price.weightStepGrams === 0;

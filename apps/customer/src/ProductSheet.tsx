@@ -4,11 +4,6 @@ import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
 import { AmountPicker } from "./AmountPicker";
 import { amountLabel, lineTotalLabel, startingAmount } from "./cart";
 
-/**
- * A Product, opened from the grid: what it is, how much, and a button that puts that
- * much in the cart. Opened on a Product already in the cart, it starts at the cart's
- * amount and updates that line rather than adding a second.
- */
 export function ProductSheet({
   product,
   inCart,
@@ -16,7 +11,6 @@ export function ProductSheet({
   onClose,
 }: {
   product: Product;
-  /** How much of it the cart already holds, if any. */
   inCart: number | undefined;
   onPut: (amount: number) => void;
   onClose: () => void;

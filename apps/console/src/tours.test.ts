@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { hasSeenTour, markTourSeen } from "./tours.js";
 
-/** A browser's storage, held in a map. */
 function memoryStorage(): () => Storage {
   const items = new Map<string, string>();
   const storage = {
@@ -11,7 +10,6 @@ function memoryStorage(): () => Storage {
   return () => storage;
 }
 
-/** Site data blocked: even reaching the storage throws. */
 const blocked = (): Storage => {
   throw new DOMException("The operation is insecure.", "SecurityError");
 };

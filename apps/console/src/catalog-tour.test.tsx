@@ -41,8 +41,6 @@ const catalog: Catalog = {
   memberships: [{ productId: "p-ribeye", categoryId: "c-beef", position: 1 }],
 };
 
-// Stubbed at the package boundary, as in router.test.tsx: the real router, sections and
-// driver.js run, without a Supabase behind them.
 vi.mock("@courier/api-client", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@courier/api-client")>()),
   resumeConsoleSession: vi.fn(async () => ({
@@ -61,7 +59,6 @@ vi.mock("@courier/api-client", async (importOriginal) => ({
   deleteCategory: vi.fn(async () => {}),
 }));
 
-// jsdom has no object URLs; the grid shows a dropped photo through one.
 URL.createObjectURL = () => "blob:dropped";
 URL.revokeObjectURL = () => {};
 
@@ -81,11 +78,9 @@ function renderAt(path: string, { strict = false } = {}) {
   return router;
 }
 
-/** The tour's popover, once it shows the step with this title. */
 const step = (title: string) => screen.findByRole("dialog", { name: title });
 const noTour = () => expect(screen.queryByRole("dialog")).toBeNull();
 const pressEscape = () => fireEvent.keyUp(window, { key: "Escape" });
-/** driver.js ignores keys until a step has finished arriving, one frame without motion. */
 const frame = () =>
   new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
 const press = async (key: "ArrowRight" | "ArrowLeft") => {
@@ -93,12 +88,10 @@ const press = async (key: "ArrowRight" | "ArrowLeft") => {
   fireEvent.keyUp(window, { key });
 };
 const showMeAround = () => screen.getByRole("button", { name: "Show me around" });
-/** Presses "Show me around", once the open section has named its tour to it. */
 const pressShowMeAround = async () => {
   await waitFor(() => expect(showMeAround()).toHaveProperty("disabled", false));
   fireEvent.click(showMeAround());
 };
-/** Opens the topic menu and picks one. */
 const pick = async (topic: string) => {
   await pressShowMeAround();
   fireEvent.click(screen.getByRole("menuitem", { name: topic }));
@@ -114,7 +107,6 @@ beforeEach(() => {
   localStorage.clear();
   recordActivity();
   vi.spyOn(window, "scrollTo").mockImplementation(() => {});
-  // The tour moves without animating for those who ask for less motion, as tests do.
   window.matchMedia = vi.fn(
     (query: string) => ({ matches: query.includes("reduce") }) as MediaQueryList,
   );
@@ -204,7 +196,6 @@ describe("the Products tour", () => {
     await step("Add row");
     const table = screen.getByRole("table", { name: "Products" });
     expect(within(table).getByRole("row", { name: "Sample Product" })).toBeTruthy();
-    // The tour's row is no edit of the dispatcher's: there is nothing to Save.
     expect(screen.getByRole("button", { name: "Save" })).toHaveProperty("disabled", true);
 
     pressEscape();
@@ -238,7 +229,6 @@ describe("the Products tour", () => {
     progress("13 of 14");
     expect(screen.getByRole("complementary", { name: "Sample Product" })).toBeTruthy();
 
-    // Back closes the panel the step opened.
     await press("ArrowLeft");
     await step("Change ticked rows");
     expect(screen.queryByRole("complementary")).toBeNull();
@@ -267,7 +257,6 @@ describe("the Products tour", () => {
     await step("Details");
     await screen.findByRole("complementary", { name: "Sample Product" });
 
-    // Esc as the keyboard sends it: down where focus is, then up.
     fireEvent.keyDown(document.activeElement ?? document.body, { key: "Escape" });
     pressEscape();
     await waitFor(noTour);

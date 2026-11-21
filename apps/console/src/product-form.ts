@@ -1,24 +1,16 @@
 import type { Price, PriceType, Product, ProductEdits } from "@courier/domain";
 import { type Parsed, parsePesos } from "./parse.js";
 
-/** The tolerance a per-weight Product starts with, and gets when left blank. */
 const DEFAULT_TOLERANCE_GRAMS = 250;
 
 const STEP_ERROR = "Enter the step in whole grams.";
 
-/**
- * The Product form as the dispatcher types it: pesos rather than centavos, and grams.
- * Both price types' fields are kept while the form is open, so switching back and
- * forth loses nothing; only the chosen type's are read.
- */
 export interface ProductForm {
   readonly name: string;
   readonly description: string;
-  /** Not typed in: the path of a photo already in Storage, carried through as it is. */
   readonly photoPath: string | null;
   readonly priceType: PriceType;
   readonly unitPricePesos: string;
-  /** Per kilogram. */
   readonly pricePerKgPesos: string;
   readonly weightStepGrams: string;
   readonly toleranceGrams: string;
@@ -30,12 +22,10 @@ export type ProductFormResult =
   | {
       readonly ok: true;
       readonly edits: ProductEdits;
-      /** Worth a second look, but no reason to refuse the save. */
       readonly warnings: ProductFormMessages;
     }
   | { readonly ok: false; readonly errors: ProductFormMessages };
 
-/** The form for an existing Product, or a blank one (per unit) for a new Product. */
 export function formFromProduct(product: Product | null): ProductForm {
   const price = product?.price;
   return {
@@ -52,10 +42,6 @@ export function formFromProduct(product: Product | null): ProductForm {
   };
 }
 
-/**
- * Reads the whole form, naming every field that is wrong at once. The checks repeat the
- * server's to say what is wrong in words; the server still has the last say.
- */
 export function readProductForm(form: ProductForm): ProductFormResult {
   const errors: ProductFormMessages = {};
   const check = <T>(name: keyof ProductForm, parsed: Parsed<T>): T | undefined => {
@@ -122,7 +108,6 @@ export function readProductForm(form: ProductForm): ProductFormResult {
   };
 }
 
-/** A price in pesos, required and more than zero, as whole centavos. */
 function parsePrice(text: string): Parsed<number> {
   const parsed = parsePesos(text);
   if (!parsed.ok) return parsed;
@@ -132,7 +117,6 @@ function parsePrice(text: string): Parsed<number> {
   return { ok: true, value: parsed.value };
 }
 
-/** Whole grams, at least `min`. Blank is `null`. */
 function parseGrams(text: string, min: number, error: string): Parsed<number | null> {
   const cleaned = text.trim();
   if (cleaned === "") return { ok: true, value: null };
@@ -147,7 +131,6 @@ function notBlank<T>(parsed: Parsed<T | null>, error: string): Parsed<T> {
   return { ok: true, value: parsed.value };
 }
 
-/** Whole centavos as pesos to two places: `120050` → `1200.50`. */
 function pesos(centavos: number): string {
   return (centavos / 100).toFixed(2);
 }

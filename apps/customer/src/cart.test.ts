@@ -43,7 +43,6 @@ describe("cart", () => {
   it("counts a per-weight line at its estimated weight, which makes the total an estimate", () => {
     const cart = putLine(putLine(EMPTY_CART, tocino, 3), ribeye, 375);
 
-    // ₱1,150/kg × 375 g = ₱431.25, plus 3 × ₱185.50.
     expect(cartTotal(cart)).toEqual({ centavos: 98775, estimated: true });
   });
 

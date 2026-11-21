@@ -6,11 +6,6 @@ import {
 } from "@courier/domain";
 import { type Parsed, parsePesos } from "./parse.js";
 
-/**
- * The settings form as the dispatcher types it: pesos rather than centavos, kilometres
- * rather than metres, a phone number however they are used to writing it. An empty
- * field is a setting nobody has agreed a value for yet.
- */
 export interface SettingsForm {
   readonly sameDayCutoffBufferMinutes: string;
   readonly deliveryRadiusKm: string;
@@ -45,11 +40,6 @@ export function formFromSettings(settings: ShopSettings): SettingsForm {
   };
 }
 
-/**
- * Reads the whole form, checking every field rather than stopping at the first, so the
- * dispatcher sees everything to fix in one go. The bounds repeat the server's checks to
- * say what is wrong in words; the server still has the last say.
- */
 export function readSettingsForm(form: SettingsForm): SettingsFormResult {
   const fields = {
     sameDayCutoffBufferMinutes: notEmpty(
@@ -88,7 +78,6 @@ export function readSettingsForm(form: SettingsForm): SettingsFormResult {
   };
 }
 
-/** The Shop phone, however it is written, into E.164. Blank is not agreed yet. */
 function parseShopPhone(text: string): Parsed<string | null> {
   if (text.trim() === "") return { ok: true, value: null };
 
@@ -96,7 +85,6 @@ function parseShopPhone(text: string): Parsed<string | null> {
   return e164 ? { ok: true, value: e164 } : { ok: false, error: PHILIPPINE_PHONE_HINT };
 }
 
-/** Kilometres, as typed, into whole metres. */
 function parseKilometres(text: string): Parsed<number | null> {
   const cleaned = text.trim();
   if (cleaned === "") return { ok: true, value: null };
@@ -119,7 +107,6 @@ function parseWholeNumber(text: string, min: number, max: number): Parsed<number
   return { ok: true, value };
 }
 
-/** `HH:MM`, as an `<input type="time">` gives it. */
 function parseTime(text: string): Parsed<string | null> {
   const cleaned = text.trim();
   if (cleaned === "") return { ok: true, value: null };
@@ -129,7 +116,6 @@ function parseTime(text: string): Parsed<string | null> {
   return { ok: true, value: cleaned };
 }
 
-/** For settings that always have a value: the business agreed one at the start. */
 function notEmpty<T>(parsed: Parsed<T | null>): Parsed<T> {
   if (!parsed.ok) return parsed;
   if (parsed.value === null) return { ok: false, error: "This setting cannot be empty." };

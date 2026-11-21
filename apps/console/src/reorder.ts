@@ -1,6 +1,5 @@
 import { useState } from "react";
 
-/** The list with the item at `from` moved to `to`, or null if nothing moved. */
 export function reordered(
   ids: readonly string[],
   from: number,
@@ -14,12 +13,6 @@ export function reordered(
   return next;
 }
 
-/**
- * A list order that follows the saved one, except while a drop is being saved: then it
- * shows the dropped order at once. `save` resolves once the write has settled and the
- * catalog has been read back (or the write failed), so dropping the override then shows
- * the saved order, which is the new order after a success and the old one after a failure.
- */
 export function useOptimisticOrder(
   saved: readonly string[],
   save: (ids: readonly string[]) => Promise<boolean>,

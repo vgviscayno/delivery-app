@@ -10,9 +10,6 @@ import {
 export function ShopClock({ client }: { client: CourierClient }) {
   const [view, setView] = useState<ClockView>(LOADING_CLOCK);
 
-  // Read once. The Shop clock only ever answers "what time is it now", and the console
-  // has nothing that watches it change -- a read per second per open console would be
-  // one call per second spent on a question nobody asked again.
   useEffect(() => {
     let live = true;
 

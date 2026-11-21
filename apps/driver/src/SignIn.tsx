@@ -20,11 +20,6 @@ export interface SignInProps {
   readonly onForget: (driver: RememberedDriver) => void;
 }
 
-/**
- * Who has used this phone, then a password. Signing in is going On duty, so the screen
- * says so. A driver new to this phone types their email once; a driver new to the shop
- * types the code from their invite email and chooses a password.
- */
 export function SignIn({
   remembered,
   notice,
@@ -34,7 +29,6 @@ export function SignIn({
   onForget,
 }: SignInProps) {
   const [chosen, setStep] = useState<Step>({ kind: "pick" });
-  // Worked out on every render, so removing the last name leaves the list at once.
   const step = stepShown(chosen, remembered);
   const back = remembered.length > 0 ? () => setStep({ kind: "pick" }) : undefined;
 

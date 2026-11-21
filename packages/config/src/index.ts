@@ -1,10 +1,5 @@
 import { z } from "zod";
 
-/**
- * The shop's only time zone. Server-side rules are judged by `app.now()`; this
- * constant is here so a client can name the zone it is rendering, never so it can
- * work out the current delivery day for itself.
- */
 export const TIME_ZONE = "Asia/Manila";
 
 const backendEnvSchema = z.object({
@@ -12,13 +7,8 @@ const backendEnvSchema = z.object({
   supabaseAnonKey: z.string().min(1, "must be the project's anon key"),
 });
 
-/** Which Supabase a surface talks to. Local, a PR's preview branch, or production. */
 export type BackendEnv = z.infer<typeof backendEnvSchema>;
 
-/**
- * The prefix a bundler inlines into client code. Vite inlines `VITE_*` for the console;
- * Expo inlines only `EXPO_PUBLIC_*` for the mobile apps. The rest of each name is shared.
- */
 export type BackendEnvPrefix = "VITE_" | "EXPO_PUBLIC_";
 
 const VARIABLE_SUFFIXES = {
@@ -40,12 +30,6 @@ export class BackendEnvError extends Error {
   }
 }
 
-/**
- * Reads the backend environment out of a bag of variables — `import.meta.env` in the
- * console, the inlined `process.env.EXPO_PUBLIC_*` values in a mobile app — and fails loudly rather than letting a surface
- * boot pointed at nothing. Errors name each variable with the caller's `prefix`, so
- * they point at the file the caller actually reads.
- */
 export function readBackendEnv(
   source: Record<string, string | undefined>,
   prefix: BackendEnvPrefix,

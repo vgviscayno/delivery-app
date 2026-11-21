@@ -2,11 +2,6 @@ import type { Price } from "@courier/domain";
 import { StyleSheet, Text, View } from "react-native";
 import { StepButton, WeightChips } from "./WeightChips";
 
-/**
- * How much of a Product: weight chips for a per-weight one, a quantity stepper for a
- * per-unit one. The Product sheet and the cart line both use this, so a customer edits
- * a line with the control they picked it with. Controlled; `amount` is units or grams.
- */
 export function AmountPicker({
   price,
   amount,
