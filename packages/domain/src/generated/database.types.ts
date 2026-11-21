@@ -62,8 +62,16 @@ export type Database = {
 "customer_account_phone":
 { Args: { "customer_id": string }; Returns: string
                            },
+"customer_addresses":
+{ Args: Record<PropertyKey, never>; Returns: {
+              "arrival_contact_name": string,"arrival_contact_phone": string,"created_at": string,"formatted_address": string,"id": string,"is_default": boolean,"label": string,"landmark": string,"latitude": number,"longitude": number,"unit": string
+            }[]
+                           },
 "deactivate_driver":
 { Args: { "driver_id": string }; Returns: undefined
+                           },
+"delete_address":
+{ Args: { "id": string }; Returns: undefined
                            },
 "delete_category":
 { Args: { "id": string }; Returns: undefined
@@ -112,6 +120,9 @@ export type Database = {
 "reorder_categories":
 { Args: { "ids": (string)[] }; Returns: undefined
                            },
+"save_address":
+{ Args: { "arrival_contact_name": string,"arrival_contact_phone": string,"formatted_address": string,"id": string,"label": string,"landmark": string,"latitude": number,"longitude": number,"unit": string }; Returns: string
+                           },
 "save_category":
 { Args: { "id": string,"name": string }; Returns: string
                            },
@@ -125,6 +136,9 @@ export type Database = {
                            },
 "set_category_products":
 { Args: { "category_id": string,"product_ids": (string)[] }; Returns: undefined
+                           },
+"set_default_address":
+{ Args: { "id": string }; Returns: undefined
                            },
 "set_ordering_day":
 { Args: { "closes_at": string,"opens_at": string,"weekday": number }; Returns: undefined

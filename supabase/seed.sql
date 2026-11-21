@@ -15,7 +15,7 @@
 --   * one dispatcher         -- ticket 57 (below)
 --   * two drivers            -- ticket 61 (below)
 --   * a customer             -- ticket 60 (below)
---     with sample Addresses  -- ticket 64
+--     with sample Addresses  -- ticket 64 (below)
 
 do $$
 begin
@@ -136,6 +136,26 @@ values (
   app.now()
 )
 on conflict (provider_id, provider) do nothing;
+
+-- The customer's sample Addresses: a default home and their mother's, both a short
+-- drive from the (placeholder) Shop pin. Written as if Mapbox had geocoded them; the
+-- addresses, names and phones are made up.
+insert into app.addresses (
+  id, customer_id, label, pin, formatted_address, unit, landmark,
+  arrival_contact_name, arrival_contact_phone, is_default, created_at, updated_at
+)
+values
+  ('d1500000-0000-4000-8000-000000000301', 'd1500000-0000-4000-8000-000000000201',
+   'Home', 'SRID=4326;POINT(120.9890 14.6042)',
+   '1021 Lacson Avenue, Sampaloc, Manila', 'Unit 3C', 'Above the bakery, blue gate',
+   'Lia Santos', '+639171234567', true,
+   '2026-11-01 09:00:00+08', '2026-11-01 09:00:00+08'),
+  ('d1500000-0000-4000-8000-000000000302', 'd1500000-0000-4000-8000-000000000201',
+   'Mother''s', 'SRID=4326;POINT(120.9930 14.5880)',
+   '455 Pedro Gil Street, Paco, Manila', null, 'Beside the sari-sari store',
+   'Rosa Santos', '+63281234567', false,
+   '2026-11-02 09:00:00+08', '2026-11-02 09:00:00+08')
+on conflict (id) do nothing;
 
 -- Shop settings. The migrations already hold the values the business agreed on (the
 -- Same-day cutoff buffer, end of day, dark threshold, radius, fee, Time confirmation
