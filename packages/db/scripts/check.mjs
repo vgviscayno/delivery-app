@@ -111,7 +111,11 @@ await withClient(async (client) => {
   }
 });
 
-/** `supabase db lint` at error level, flattened to one row per issue. */
+/**
+ * `supabase db lint` at error level, flattened to one row per issue. The exit status is
+ * the verdict: a clean run may print only "No schema errors found" and no JSON (CI's
+ * runner does), so the report is read only when the lint has failed.
+ */
 function plpgsqlErrors() {
   const lint = supabase(
     [
@@ -124,23 +128,29 @@ function plpgsqlErrors() {
       "--level",
       "error",
       "--fail-on",
-      "none",
+      "error",
     ],
-    { stdio: "pipe" },
+    { stdio: "pipe", allowFailure: true },
   );
+  if (lint.status === 0) return [];
+
   const report = lint.stdout.split("\n").find((line) => line.startsWith('{"results"'));
-  if (!report) {
-    console.error(`supabase db lint printed no report:\n${lint.stdout}${lint.stderr}`);
+  const rows = report
+    ? JSON.parse(report).results.flatMap((result) =>
+        result.issues.map((issue) => ({
+          function: result.function,
+          line: issue.statement?.lineNumber ?? "",
+          message: issue.message,
+        })),
+      )
+    : [];
+  if (rows.length === 0) {
+    console.error(
+      `supabase db lint failed without a report:\n${lint.stdout}${lint.stderr}`,
+    );
     process.exit(2);
   }
-
-  return JSON.parse(report).results.flatMap((result) =>
-    result.issues.map((issue) => ({
-      function: result.function,
-      line: issue.statement?.lineNumber ?? "",
-      message: issue.message,
-    })),
-  );
+  return rows;
 }
 
 async function rowsOf(client, query) {
