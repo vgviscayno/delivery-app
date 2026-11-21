@@ -1,6 +1,6 @@
 # delivery-app
 
-Verify changes with `pnpm check` (Biome lint and format; `pnpm fix` applies safe fixes). See `docs/adr/0011-biome-for-lint-and-format.md`.
+Verify changes with `pnpm verify`, the same steps as CI's TypeScript job: Biome, Knip, build, typecheck, test. `pnpm fix` applies Biome's safe fixes. Database changes also need `pnpm test:db` and `pnpm db:lint`.
 
 ## Agent skills
 
