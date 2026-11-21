@@ -3,7 +3,6 @@ import { DragDropProvider } from "@dnd-kit/react";
 import { isSortable, useSortable } from "@dnd-kit/react/sortable";
 import type { ReactNode } from "react";
 
-/** What a sortable row carries, so announcements can say its name, not its id. */
 interface Row {
   readonly name: string;
 }
@@ -17,7 +16,6 @@ type Announcements = NonNullable<
   NonNullable<ConstructorParameters<typeof Accessibility>[1]>["announcements"]
 >;
 
-/** dnd-kit's announcements name rows by id; these name them as the dispatcher does. */
 const announcements: Announcements = {
   dragstart: ({ operation: { source } }) =>
     source ? `Picked up ${nameOf(source)}.` : undefined,
@@ -35,11 +33,6 @@ const announcements: Announcements = {
 
 const accessibility = Accessibility.configure({ announcements });
 
-/**
- * One list whose rows can be dragged into a new order by their handles. Each list has
- * its own drag manager, so a row can only ever land in the list it came from.
- * `onDrop` gets where the row started and where it was let go, which may be the same.
- */
 export function SortableList({
   onDrop,
   children,
@@ -63,10 +56,6 @@ export function SortableList({
   );
 }
 
-/**
- * A row of a SortableList: `ref` goes on the row, and `handle` is the only part that
- * starts a drag, so the row's own buttons and inputs keep working.
- */
 export function useSortableRow({
   id,
   name,

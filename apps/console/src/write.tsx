@@ -1,9 +1,5 @@
 import { useCallback, useState } from "react";
 
-/**
- * Runs one write: shows it as busy, reports a failure in words, and reads everything
- * back after a success.
- */
 export function useWrite(onSaved: () => Promise<void>) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();

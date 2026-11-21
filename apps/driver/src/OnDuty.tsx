@@ -8,7 +8,6 @@ export interface OnDutyProps {
   readonly onSignOut: () => void;
 }
 
-/** Who is signed in on this phone, and since when they have been On duty. */
 export function OnDuty({ driver, busy, onSignOut }: OnDutyProps) {
   return (
     <View style={styles.bar}>

@@ -29,7 +29,6 @@ export function App() {
   const setup = useMemo(() => {
     try {
       const { backend, mapboxToken } = readAppBackend();
-      // Set once, before any map mounts. The style carries no token of its own.
       if (mapboxToken) Mapbox.setAccessToken(mapboxToken);
       return { client: createCourierClient(backend, { sessionStorage }) };
     } catch (error) {
@@ -68,17 +67,13 @@ function Session({ client }: { client: CourierClient }) {
 
   useEffect(() => refreshWhileActive(client, AppState), [client]);
 
-  // The session survives a relaunch: it is read back from SecureStore here.
   useEffect(() => {
     let live = true;
     void resumeCustomerSession(client)
       .then((access) => {
-        // Found signed out: whoever left a cart here has gone, so it goes too.
         if (access.status !== "customer") clearCart();
         return access;
       })
-      // A resume that failed (offline, say) is not a sign-out: the cart stays, and
-      // only its owner will see it again.
       .catch(
         (error): SessionState => ({
           status: "signed-out",
@@ -93,8 +88,6 @@ function Session({ client }: { client: CourierClient }) {
     };
   }, [client]);
 
-  // The server can end the session (deactivation, signing out everywhere); the screen
-  // follows supabase-js when it lets go.
   useEffect(
     () =>
       onSignedOut(client, () => {
@@ -171,7 +164,6 @@ function withRefusedNotice(access: SessionState): SessionState {
   return access.status === "refused" ? { ...access, notice: REFUSED_NOTICE } : access;
 }
 
-/** Only for a build missing its configuration, which only a developer sees. */
 function messageOf(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }

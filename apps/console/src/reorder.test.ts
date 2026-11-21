@@ -19,7 +19,6 @@ describe("reordered", () => {
   });
 });
 
-/** A save that stays in flight until the test settles it. */
 function pendingSave() {
   let settle: (saved: boolean) => void = () => {};
   const save = vi.fn(

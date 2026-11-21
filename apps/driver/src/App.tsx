@@ -36,7 +36,6 @@ export function App() {
   const setup = useMemo(() => {
     try {
       const { backend, mapboxToken } = readAppBackend();
-      // Set once, before any map mounts. The style carries no token of its own.
       if (mapboxToken) Mapbox.setAccessToken(mapboxToken);
       return {
         client: createCourierClient(backend, { sessionStorage }),
@@ -100,8 +99,6 @@ function Session({
     };
   }, [client]);
 
-  // The server can end the session (deactivation, signing out everywhere); the screen
-  // follows supabase-js when it lets go.
   useEffect(
     () =>
       onSignedOut(client, () =>
@@ -157,7 +154,6 @@ function Session({
       await signOutAsDriver(client);
       setSession({ status: "signed-out" });
     } catch (error) {
-      // Still signed in, and still On duty as far as the dispatcher can see.
       setSignOutError(
         `Could not sign out, so you are still On duty: ${messageOf(error)}`,
       );

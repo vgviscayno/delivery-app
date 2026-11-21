@@ -24,18 +24,10 @@ const SET_CATEGORY_PRODUCTS = "set_category_products";
 type Functions = Database["public"]["Functions"];
 type Args<Name extends keyof Functions> = Functions[Name]["Args"];
 
-// The generator types every RPC argument as required and non-null, because a function
-// signature does not say otherwise. These RPCs take null for a new row's id, and for the
-// price fields the other price type does not use.
 type NullableArgs<Name extends keyof Functions> = {
   [K in keyof Args<Name>]: Args<Name>[K] | null;
 };
 
-/**
- * What a customer browses: undeleted Products, sold-out ones marked unavailable, every
- * Category in display order, and where each Product sits in each. Any signed-in
- * account may read it.
- */
 export async function fetchCatalog(client: CourierClient): Promise<Catalog> {
   const [products, categories, memberships] = await Promise.all([
     client.from(CATALOG_PRODUCTS).select("*").order("name"),
@@ -54,10 +46,6 @@ export async function fetchCatalog(client: CourierClient): Promise<Catalog> {
   };
 }
 
-/**
- * The whole catalog as the dispatcher keeps it: unavailable Products too, in their
- * places in each Category. Active dispatchers only.
- */
 export async function fetchDispatcherCatalog(client: CourierClient): Promise<Catalog> {
   const [products, categories, memberships] = await Promise.all([
     client.rpc(DISPATCHER_PRODUCTS),
@@ -78,10 +66,6 @@ export async function fetchDispatcherCatalog(client: CourierClient): Promise<Cat
   };
 }
 
-/**
- * Adds a Product when `id` is null, or replaces every field of an existing one.
- * Returns its id. Active dispatchers only.
- */
 export async function saveProduct(
   client: CourierClient,
   id: string | null,
@@ -108,7 +92,6 @@ export async function saveProduct(
   return data;
 }
 
-/** Switches a Product on or off for customers. */
 export async function setProductAvailable(
   client: CourierClient,
   id: string,
@@ -117,12 +100,10 @@ export async function setProductAvailable(
   await callWrite(client, SET_PRODUCT_AVAILABLE, { id, available });
 }
 
-/** Soft-deletes a Product: gone from every list and Category, kept for placed Orders. */
 export async function deleteProduct(client: CourierClient, id: string): Promise<void> {
   await callWrite(client, DELETE_PRODUCT, { id });
 }
 
-/** Adds a Category at the end of the list when `id` is null, or renames one. */
 export async function saveCategory(
   client: CourierClient,
   id: string | null,
@@ -137,7 +118,6 @@ export async function saveCategory(
   return data;
 }
 
-/** Puts the Categories in this order. Every Category must be listed exactly once. */
 export async function reorderCategories(
   client: CourierClient,
   ids: readonly string[],
@@ -145,15 +125,10 @@ export async function reorderCategories(
   await callWrite(client, REORDER_CATEGORIES, { ids: [...ids] });
 }
 
-/** Deletes a Category. Its Products stay, in whatever other Categories they are in. */
 export async function deleteCategory(client: CourierClient, id: string): Promise<void> {
   await callWrite(client, DELETE_CATEGORY, { id });
 }
 
-/**
- * Sets a Category's Products in order, replacing what it held: a Product left out is
- * taken out of the Category.
- */
 export async function setCategoryProducts(
   client: CourierClient,
   categoryId: string,
@@ -165,7 +140,6 @@ export async function setCategoryProducts(
   });
 }
 
-/** Calls an RPC that changes something and returns nothing, throwing if it refuses. */
 async function callWrite<Name extends keyof Functions>(
   client: CourierClient,
   name: Name,

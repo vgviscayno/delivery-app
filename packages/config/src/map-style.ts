@@ -1,11 +1,3 @@
-/**
- * The one map style every surface draws: a Streets-type style over Mapbox's vector
- * tiles, written against the open style spec (version 8) so a move to MapLibre (ADR
- * 0013) is a source swap, not a restyle.
- *
- * No token lives here. `mapbox://` URLs are resolved by the native SDK with the token
- * the app sets at runtime (`EXPO_PUBLIC_MAPBOX_TOKEN`).
- */
 export interface MapStyle {
   readonly version: 8;
   readonly name: string;
@@ -26,7 +18,6 @@ export interface MapStyleLayer {
   readonly paint?: Readonly<Record<string, MapStyleValue>>;
 }
 
-/** Anything JSON can carry. Expressions are nested arrays of these. */
 export type MapStyleValue =
   | string
   | number

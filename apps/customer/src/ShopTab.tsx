@@ -23,14 +23,12 @@ type ShopState =
   | { readonly state: "ready"; readonly shelves: readonly Shelf[] }
   | { readonly state: "error"; readonly message: string };
 
-/** The Shop tab: the catalog, with the cart floating over it. */
 export function ShopTab({
   client,
   cart,
   onCartChange,
 }: {
   client: CourierClient;
-  /** Null until the saved cart has loaded. */
   cart: Cart | null;
   onCartChange: CartChange;
 }) {
@@ -41,7 +39,6 @@ export function ShopTab({
     <View style={styles.shop}>
       <CatalogGrid client={client} onOpen={setOpen} />
       {cart && <CartButton cart={cart} onOpen={() => setCartOpen(true)} />}
-      {/* Opened only once the cart has loaded, so it starts at the cart's amount. */}
       {open && cart && (
         <ProductSheet
           product={open}
@@ -61,7 +58,6 @@ export function ShopTab({
   );
 }
 
-/** A strip of Category tabs over a two-column photo grid. */
 function CatalogGrid({
   client,
   onOpen,
@@ -194,9 +190,7 @@ const styles = StyleSheet.create({
   categorySelected: { borderBottomColor: "#1f5fbf" },
   categoryLabel: { fontSize: 15, color: "#5f6670" },
   categoryLabelSelected: { color: "#1f5fbf", fontWeight: "600" },
-  // The floating cart button must never cover the last row.
   grid: { padding: 6, paddingBottom: 88 },
-  // Half the row each, never more: an odd last card keeps its column's width.
   cell: { width: "50%", padding: 6 },
   card: {
     borderRadius: 10,

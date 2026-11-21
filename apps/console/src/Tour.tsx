@@ -21,16 +21,13 @@ import {
   tourTarget,
 } from "./tours.js";
 
-/** One press of "Show me around": the whole tour (`topic: null`) or one topic of it. */
 interface Replay {
   readonly count: number;
   readonly topic: TourTopic | null;
 }
 
-/** What the page holding the sections shares with each section's tour. */
 interface TourHostValue {
   readonly replay: Replay;
-  /** The open section names its tour, and takes it back when it goes. */
   readonly here: (name: TourName) => () => void;
   readonly running: (on: boolean) => void;
 }
@@ -41,10 +38,6 @@ const TourHost = createContext<TourHostValue>({
   running: () => {},
 });
 
-/**
- * The tours of the sections a page shows: Catalog renders its sections inside
- * `<TourHost value={host.value}>` and gives `host` to `ShowMeAround`.
- */
 export function useTourHost() {
   const [replay, setReplay] = useState<Replay>({ count: 0, topic: null });
   const [current, setCurrent] = useState<TourName | null>(null);
@@ -71,10 +64,6 @@ export function useTourHost() {
 
 export { TourHost };
 
-/**
- * Replays the open section's tour: straight away where it has no topics, or from a menu
- * of the whole tour and each topic. Closed while a tour runs.
- */
 export function ShowMeAround({
   host,
   disabled,
@@ -170,30 +159,18 @@ export function ShowMeAround({
   );
 }
 
-/** What a section does to the page around its tour. */
 export interface TourHooks {
-  /** Sets up whatever the tour demonstrates on, before the first step. */
   readonly onStart?: () => void;
-  /** Takes it all away again, however the tour ended. */
   readonly onEnd?: () => void;
-  /** Opens Details on the tour's row for the step that needs it, and closes it after. */
   readonly onDetails?: (open: boolean) => void;
 }
 
-/** How long a step waits for its element, such as a panel the step has just opened. */
 const WAIT_MS = 1000;
 
-/**
- * Runs a sub-tab's tour: by itself on the first visit in this browser, and again, whole or
- * one topic, each time "Show me around" asks. It counts as seen as soon as it starts, so
- * leaving part-way does not bring it back.
- */
 export function useTour(name: TourName, hooks: TourHooks = {}) {
   const host = useContext(TourHost);
   const { replay, here, running } = host;
   const atMount = useRef(replay.count);
-  // Read once per mount, before the tour marks it seen: StrictMode runs the effect below
-  // twice, and the second run must still see a first visit.
   const [firstVisit] = useState(() => !hasSeenTour(name));
   const latest = useRef(hooks);
   useLayoutEffect(() => {
@@ -202,7 +179,6 @@ export function useTour(name: TourName, hooks: TourHooks = {}) {
 
   useEffect(() => here(name), [here, name]);
 
-  // `replay` is new on each press of Show me around, and only then.
   useEffect(() => {
     const replayed = replay.count !== atMount.current;
     if (!replayed && !firstVisit) return;
@@ -217,11 +193,9 @@ export function useTour(name: TourName, hooks: TourHooks = {}) {
       stop();
       running(false);
     };
-    // `replay` is new on each press of Show me around, and only then.
   }, [name, replay, firstVisit, running]);
 }
 
-/** Starts the tour, and returns what stops it early. */
 function runTour(
   name: TourName,
   topic: TourTopic | null,
@@ -231,8 +205,6 @@ function runTour(
   const steps = stepsOf(name, topic);
   markTourSeen(name);
 
-  // The tour only points. Whatever it highlights is inert while it does, so neither a
-  // click nor Tab reaches Save, Delete or a cell, whatever the stylesheet does.
   let pointedAt: Element | undefined;
   const release = () => {
     pointedAt?.removeAttribute("inert");
@@ -248,7 +220,6 @@ function runTour(
     hooks().onEnd?.();
     onStopped();
   };
-  // `destroy()` does not call `onDestroyStarted`, so whatever destroys the tour ends it too.
   const finish = () => {
     end();
     tour.destroy();
@@ -279,10 +250,8 @@ function runTour(
       pointedAt = element;
     },
     onDeselected: release,
-    // Next and Back, by button or arrow key, set the page up for the step first.
     onNextClick: () => go((tour.getActiveIndex() ?? 0) + 1),
     onPrevClick: () => go((tour.getActiveIndex() ?? 0) - 1),
-    // Close, Esc, a click outside, or Done.
     onDestroyStarted: finish,
   });
 
@@ -293,7 +262,6 @@ function runTour(
     tour.moveTo(index);
   }
 
-  // The first step may need Details too, when it is the Details topic on its own.
   hooks().onDetails?.(steps[0]?.opensDetails ?? false);
   tour.drive();
   return finish;

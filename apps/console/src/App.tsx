@@ -33,8 +33,6 @@ export function App({ client, idleTimeoutMs }: AppProps) {
 
   const idleNotice = `Signed out after ${formatMinutes(idleTimeoutMs)} without activity.`;
 
-  // A stored session is only resumed if it was used within the timeout. Otherwise a
-  // browser closed mid-shift would reopen straight into the console hours later.
   useEffect(() => {
     let live = true;
 
@@ -43,8 +41,6 @@ export function App({ client, idleTimeoutMs }: AppProps) {
       try {
         const lastActivity = readLastActivity();
         if (hasIdledOut(lastActivity, Date.now(), idleTimeoutMs)) {
-          // Every deliberate sign-out clears the mark, so one left behind belongs to a
-          // session that was abandoned while signed in.
           await signOutOfConsole(client);
           clearActivity();
           next = {
@@ -65,8 +61,6 @@ export function App({ client, idleTimeoutMs }: AppProps) {
     };
   }, [client, idleTimeoutMs, idleNotice]);
 
-  // A session can end without this tab asking: another tab signed out, or a refresh
-  // failed. The shell must not outlive it.
   useEffect(() => {
     const { data } = client.auth.onAuthStateChange((event) => {
       if (event === "SIGNED_OUT") {
@@ -118,7 +112,6 @@ export function App({ client, idleTimeoutMs }: AppProps) {
   );
 }
 
-/** Mounted only while a dispatcher is signed in, so the idle clock runs only then. */
 function SignedIn({
   timeoutMs,
   onIdle,
@@ -132,7 +125,6 @@ function SignedIn({
   return children;
 }
 
-/** Anything but a dispatcher leaves no activity mark behind for the next boot to find. */
 function settle(access: ConsoleAccess): Session {
   if (access.status === "dispatcher") return access;
   clearActivity();

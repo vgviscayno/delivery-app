@@ -1,10 +1,6 @@
 import { type ComponentRef, useRef, useState } from "react";
 import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
 
-/**
- * An ⓘ that explains the field beside it. A phone has no hover, so a tap opens the
- * bubble under the ⓘ and a tap anywhere closes it.
- */
 export function Tooltip({ label, text }: { label: string; text: string }) {
   const icon = useRef<ComponentRef<typeof View>>(null);
   const [anchor, setAnchor] = useState<{ x: number; y: number }>();

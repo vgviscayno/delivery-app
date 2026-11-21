@@ -6,7 +6,6 @@ import { INVALID_EMAIL_HINT, looksLikeEmail } from "./customer-message";
 import { EmailField, formStyles, Link, PasswordField, PhoneField, Submit } from "./form";
 import { typedMobile } from "./mobile-field";
 
-/** Auth's own minimum (`minimum_password_length`), checked here to say it plainly. */
 const MINIMUM_PASSWORD_LENGTH = 6;
 
 export interface SignInProps {
@@ -23,7 +22,6 @@ interface SignUpErrors {
   readonly phone?: string;
 }
 
-/** Signing in, or opening an Account: email, password twice, and the Account phone. */
 export function SignIn({ notice, busy, onSignIn, onSignUp }: SignInProps) {
   const [mode, setMode] = useState<"sign-in" | "sign-up">("sign-in");
   const [email, setEmail] = useState("");
