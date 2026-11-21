@@ -31,7 +31,7 @@ The user wants comments taken out of a slice of the codebase: the paths they nam
 - **Excuse:** explains why a shortcut is acceptable, such as a placeholder, "for now", "until X", a workaround for a tool's bug, string-matching on error text, or an override wider than the truth. File an issue, then delete it. A comment can be both an excuse and a decision record. When the trade-off is the point (orphaned files over broken links, say), record it in an ADR and file the clean-up as an issue.
 - **Decision record:** a non-obvious *why* that would be costly to rediscover: a constraint from a platform, a plan or a law, a trade-off that was weighed, or an ordering that matters. Move it to an ADR, then delete it.
 
-**Tool directives** (`biome-ignore`, `@ts-expect-error`, `@vitest-environment`, shebangs, `shellcheck`) are not comments. `check-comments.mjs` skips them, and they stay.
+**Tool directives** are not comments. ADR 0014 lists the exact forms. `check-comments.mjs` skips them, and they stay.
 
 ## Applied migrations
 

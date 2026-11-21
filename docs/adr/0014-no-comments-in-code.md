@@ -4,7 +4,7 @@ status: accepted
 
 # No comments in code
 
-Source files carry no comments. `scripts/check-comments.mjs` enforces it in `pnpm verify` and in CI, for TypeScript, JavaScript, SQL and shell. What a comment used to say goes somewhere that is checked or read on purpose:
+Source files carry no comments. `scripts/check-comments.mjs` enforces it in `pnpm verify` and in CI's `comments` job, for `.ts`, `.tsx`, `.mts`, `.cts`, `.js`, `.jsx`, `.mjs`, `.cjs`, `.sql` and `.sh` files. What a comment used to say goes somewhere that is checked or read on purpose:
 
 - **What the code does** goes in a name, a type or a test. If the code needs a comment to be understood, the code is the thing to change.
 - **Why it was built this way**, when that is not obvious and would be expensive to rediscover, goes in an ADR in `docs/adr/`.
@@ -13,9 +13,18 @@ Source files carry no comments. `scripts/check-comments.mjs` enforces it in `pnp
 
 **Why: comments in this repo are mostly written by agents, and agents read them back as truth.** A comment that explains a workaround makes the workaround look settled, and the next change copies it. A comment that has gone stale gets repeated as fact. An ADR has a date and a status and can be superseded. An issue can be closed. A comment can only go quietly wrong.
 
-**The rule is a ratchet, not a big-bang deletion.** `comments-baseline.json` holds the number of comment lines each file is allowed. `pnpm comments` fails if any file has more than its allowance, so no comment is ever added, and also fails if a file has fewer, so a deletion is locked in with `pnpm comments:update` in the same PR. A file that is not in the baseline is allowed none. The baseline only ever shrinks, and `/delete-comments` is the skill that shrinks it.
+**The rule is a ratchet, not a big-bang deletion.** `comments-baseline.json` holds the number of comment lines each file is allowed. `pnpm comments` fails if any file has more than its allowance, so no comment is ever added, and also fails if a file has fewer, so a deletion is locked in with `pnpm comments:update` in the same PR. A file that is not in the baseline is allowed none. The baseline only ever shrinks: `pnpm comments:update` refuses to raise any file's allowance, and CI runs `pnpm comments --against` the base commit, which fails a PR whose baseline allows more than the base's did. `/delete-comments` is the skill that shrinks it, using the script's `--list` and `--strip` modes.
 
-**Tool directives are not comments.** `biome-ignore` (which carries its reason, per ADR 0011), `@ts-expect-error`, `@vitest-environment`, shebangs and `shellcheck` directives tell a tool what to do, and they are allowed.
+**Every comment counts, wherever it sits.** TypeScript and JavaScript are read with the TypeScript parser. SQL and shell are read with a small scanner that steps over quoted strings (and shell heredocs), so a trailing `-- note`, a `/* block */` and an `echo hi # note` all count, and a comment inside a `$$` function body counts too. Untracked files that git doesn't ignore count as well, so `pnpm verify` catches a new file before it is committed. Scratch work belongs in the gitignored `.scratch/`.
+
+**Tool directives are not comments.** They tell a tool what to do, and these, and only these, are allowed:
+
+- `// biome-ignore…` and `/* biome-ignore… */`, including the JSX form `{/* biome-ignore… */}`. Each carries its reason, per ADR 0011.
+- `// @ts-expect-error`.
+- `// @vitest-environment`.
+- A shebang (`#!`) and `# shellcheck` directives.
+
+`@ts-ignore` and `@ts-nocheck` are not on the list, so they count as comments. `@ts-expect-error` does the same job and fails once the error it hides is gone.
 
 ## Considered options
 

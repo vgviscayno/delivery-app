@@ -38,7 +38,6 @@ jobs:
               - 'tsconfig.base.json'
               - 'biome.jsonc'
               - 'knip.jsonc'
-              - 'comments-baseline.json'
               - '.github/workflows/ci.yml'
               - '.github/actions/**'
             # What the console's own build reads. Narrower than `typescript`, so a change
@@ -62,6 +61,18 @@ jobs:
 
   # Package unit tests never need Docker: the database work lives in its own
   # workspace with its own task.
+  comments:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: ./.github/actions/setup
+      - run: pnpm comments:test
+      - run: pnpm comments --against "$BASE"
+        env:
+          BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+
   typescript:
     needs: changes
     if: needs.changes.outputs.typescript == 'true'
@@ -70,7 +81,6 @@ jobs:
       - uses: actions/checkout@v5
       - uses: ./.github/actions/setup
       - run: pnpm check:ci
-      - run: pnpm comments
       - run: pnpm knip
       - run: pnpm build
       - run: pnpm typecheck
@@ -86,7 +96,6 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - uses: ./.github/actions/setup
-      - run: pnpm comments
 
       - name: Start local Supabase
         run: pnpm db:start
