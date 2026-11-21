@@ -84,6 +84,31 @@ begin
 end
 $$;
 
+-- Become that user with the clock pinned at `at`, from whatever role the test is in.
+-- `app.pin_clock` is out of reach once a test has become `authenticated`, so moving the
+-- clock otherwise takes `reset role`, the pin, and `authenticate_as`, in that order.
+-- The `reset role` here works from any role because SET ROLE is checked against the
+-- session user, postgres. Invoker rights on purpose: a security-definer function may
+-- not change role.
+create or replace function tests.authenticate_as_at(user_id uuid, at timestamptz)
+returns void
+language plpgsql
+set search_path = ''
+as $$
+begin
+  reset role;
+  perform app.pin_clock(at);
+  perform tests.authenticate_as(user_id);
+end
+$$;
+
+-- Reachable mid-test, while the test is a customer, driver or dispatcher. The schema
+-- exists only in local and CI databases, and PostgREST never serves it.
+-- Only this helper: every other factory stays postgres-only.
+grant usage on schema tests to authenticated;
+revoke execute on function tests.authenticate_as_at(uuid, timestamptz) from public;
+grant execute on function tests.authenticate_as_at(uuid, timestamptz) to authenticated;
+
 -- Become a caller holding only the anon key.
 create or replace function tests.authenticate_as_anon()
 returns void
@@ -131,5 +156,21 @@ begin
    where u.id = user_id;
 
   return user_id;
+end
+$$;
+
+-- Postgres grants EXECUTE to PUBLIC on every new function. Now that `authenticated`
+-- can reach the schema, take that back from every factory but the one granted above.
+do $$
+declare
+  factory regprocedure;
+begin
+  for factory in
+    select p.oid::regprocedure from pg_catalog.pg_proc p
+    where p.pronamespace = 'tests'::regnamespace
+      and p.oid <> 'tests.authenticate_as_at(uuid, timestamptz)'::regprocedure
+  loop
+    execute format('revoke execute on function %s from public', factory);
+  end loop;
 end
 $$;

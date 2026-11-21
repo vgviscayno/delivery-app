@@ -10,10 +10,15 @@
 //
 // pgTAP itself, and the factory helpers in sql/test-factories.sql, are installed here
 // rather than in a migration, so neither ever reaches production.
+//
+// Test files named on the command line, relative to the repo root, run alone: the
+// red-green loop on one file, with the same reset and factories as the full suite.
+//
+//   pnpm --filter @courier/db test:db supabase/tests/customer_addresses_test.sql
 
 import { readFile } from "node:fs/promises";
 import path from "node:path";
-import { packageRoot, seed, supabase, withClient } from "./db.mjs";
+import { packageRoot, repoRoot, seed, supabase, withClient } from "./db.mjs";
 
 const factories = await readFile(
   path.join(packageRoot, "sql", "test-factories.sql"),
@@ -27,7 +32,8 @@ await withClient(async (client) => {
   await client.query(factories);
 });
 
-const tests = supabase(["test", "db"], { allowFailure: true });
+const only = process.argv.slice(2).map((file) => path.resolve(repoRoot, file));
+const tests = supabase(["test", "db", ...only], { allowFailure: true });
 
 try {
   await seed();

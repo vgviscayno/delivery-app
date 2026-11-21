@@ -1,6 +1,6 @@
 # delivery-app
 
-Verify changes with `pnpm verify`, the same steps as CI's TypeScript job: Biome, Knip, build, typecheck, test. `pnpm fix` applies Biome's safe fixes. Database changes also need `pnpm test:db` and `pnpm db:lint`.
+Verify changes with `pnpm verify`, the same steps as CI's TypeScript job: Biome, Knip, build, typecheck, test. `pnpm fix` applies Biome's safe fixes. Database changes also need `pnpm test:db` and `pnpm db:lint`. One pgTAP file alone: `pnpm --filter @courier/db test:db supabase/tests/<name>_test.sql`.
 
 ## Agent skills
 

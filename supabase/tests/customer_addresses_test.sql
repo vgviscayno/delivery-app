@@ -9,8 +9,7 @@ select plan(27);
 
 select set_config('t.lia', tests.create_user('customer')::text, true);
 
-select app.pin_clock('2026-11-21 09:00:00+08');
-select tests.authenticate_as(current_setting('t.lia')::uuid);
+select tests.authenticate_as_at(current_setting('t.lia')::uuid, '2026-11-21 09:00:00+08');
 
 select set_config('t.home', public.save_address(
   id => null,
@@ -36,9 +35,7 @@ select results_eq(
 );
 
 -- Saved later, so listed after the default whatever its age.
-reset role;
-select app.pin_clock('2026-11-21 09:05:00+08');
-select tests.authenticate_as(current_setting('t.lia')::uuid);
+select tests.authenticate_as_at(current_setting('t.lia')::uuid, '2026-11-21 09:05:00+08');
 select set_config('t.office', public.save_address(
   id => null, label => 'Office', latitude => 14.5866, longitude => 121.0566,
   formatted_address => null, unit => null, landmark => null,
@@ -60,9 +57,7 @@ select results_eq(
 );
 
 -- Deleting. Home (09:00) is the oldest, Mother's (09:10) the newest, Office the default.
-reset role;
-select app.pin_clock('2026-11-21 09:10:00+08');
-select tests.authenticate_as(current_setting('t.lia')::uuid);
+select tests.authenticate_as_at(current_setting('t.lia')::uuid, '2026-11-21 09:10:00+08');
 select set_config('t.mother', public.save_address(
   id => null, label => 'Mother''s', latitude => 14.6091, longitude => 121.0223,
   formatted_address => null, unit => null, landmark => null,
@@ -78,9 +73,7 @@ select results_eq(
 );
 
 -- Survivors of the next delete: Mother's (09:10), the oldest, and Home again (09:15).
-reset role;
-select app.pin_clock('2026-11-21 09:15:00+08');
-select tests.authenticate_as(current_setting('t.lia')::uuid);
+select tests.authenticate_as_at(current_setting('t.lia')::uuid, '2026-11-21 09:15:00+08');
 select set_config('t.home2', public.save_address(
   id => null, label => 'Home', latitude => 14.5547, longitude => 121.0244,
   formatted_address => null, unit => null, landmark => null,

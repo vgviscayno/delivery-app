@@ -15,7 +15,8 @@
     "lint:rls": "node scripts/check.mjs rls",
     "lint:matrix": "node scripts/check.mjs matrix",
     "lint:schemas": "node scripts/check.mjs schemas",
-    "lint:gates": "node scripts/check.mjs schemas rls matrix",
+    "lint:plpgsql": "node scripts/check.mjs plpgsql",
+    "lint:gates": "node scripts/check.mjs schemas rls matrix plpgsql",
     "test:db": "node scripts/test-db.mjs"
   },
   "devDependencies": {

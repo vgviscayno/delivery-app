@@ -3,7 +3,8 @@
 //   node scripts/check.mjs rls      -- no table in an exposed schema has row security off
 //   node scripts/check.mjs matrix   -- the role x resource matrix covers every reachable object
 //   node scripts/check.mjs schemas  -- the harness and PostgREST agree on what is exposed
-//   node scripts/check.mjs schemas rls matrix  -- all three, stopping at the first failure
+//   node scripts/check.mjs plpgsql  -- every PL/pgSQL body compiles (plpgsql_check)
+//   node scripts/check.mjs schemas rls matrix plpgsql  -- all four, stopping at the first failure
 //
 // The first two read the checks out of the database itself (see the security harness
 // migration), so CI and `supabase test db` can never drift apart. The third is the one
@@ -11,7 +12,11 @@
 
 import { readFile } from "node:fs/promises";
 import path from "node:path";
-import { printProblemRows, repoRoot, withClient } from "./db.mjs";
+import { databaseUrl, printProblemRows, repoRoot, supabase, withClient } from "./db.mjs";
+
+// The schemas our migrations put functions in. plpgsql_check reads these; Supabase's own
+// schemas are not ours to lint.
+const PROJECT_SCHEMAS = ["public", "app", "policies"];
 
 // Supabase's own GraphQL entrypoint. It holds none of our objects, so neither gate has
 // anything to say about it.
@@ -63,10 +68,21 @@ const checks = {
       `schema missing from it is silently unguarded.`,
     success: "Exposed schemas: config.toml and app.exposed_schemas() agree.",
   },
+
+  // A PL/pgSQL body is only parsed when it runs, so a name that resolves to nothing (a
+  // body variable qualified with the function's name, say) fails only on the branch a
+  // test happens to reach. plpgsql_check compiles every body without running it.
+  plpgsql: {
+    run: () => plpgsqlErrors(),
+    failure: (count) =>
+      `${count} error(s) in PL/pgSQL function bodies. They would raise the first time ` +
+      `that statement ran.`,
+    success: "PL/pgSQL: every function body in our schemas compiles.",
+  },
 };
 
-// Several at once, in the order given: `node scripts/check.mjs schemas rls matrix` is
-// the whole set, which is how CI and the production workflow run them.
+// Several at once, in the order given: `node scripts/check.mjs schemas rls matrix plpgsql`
+// is the whole set, which is how CI and the production workflow run them.
 const names = process.argv.slice(2);
 const unknown = names.filter((name) => !checks[name]);
 
@@ -94,6 +110,38 @@ await withClient(async (client) => {
     console.log(check.success);
   }
 });
+
+/** `supabase db lint` at error level, flattened to one row per issue. */
+function plpgsqlErrors() {
+  const lint = supabase(
+    [
+      "db",
+      "lint",
+      "--db-url",
+      databaseUrl(),
+      "--schema",
+      PROJECT_SCHEMAS.join(","),
+      "--level",
+      "error",
+      "--fail-on",
+      "none",
+    ],
+    { stdio: "pipe" },
+  );
+  const report = lint.stdout.split("\n").find((line) => line.startsWith('{"results"'));
+  if (!report) {
+    console.error(`supabase db lint printed no report:\n${lint.stdout}${lint.stderr}`);
+    process.exit(2);
+  }
+
+  return JSON.parse(report).results.flatMap((result) =>
+    result.issues.map((issue) => ({
+      function: result.function,
+      line: issue.statement?.lineNumber ?? "",
+      message: issue.message,
+    })),
+  );
+}
 
 async function rowsOf(client, query) {
   return (await client.query(query)).rows;
