@@ -23,6 +23,7 @@ import { sessionStorage } from "./device-storage";
 import { ShopTab } from "./ShopTab";
 import { SignIn } from "./SignIn";
 import { type Tab, Tabs } from "./Tabs";
+import { clearCart, useCart } from "./use-cart";
 
 export function App() {
   const setup = useMemo(() => {
@@ -61,6 +62,9 @@ function Session({ client }: { client: CourierClient }) {
   const [session, setSession] = useState<SessionState>({ status: "checking" });
   const [busy, setBusy] = useState(false);
   const [tab, setTab] = useState<Tab>("Shop");
+  const { cart, change: changeCart } = useCart(
+    session.status === "customer" ? session.account.id : null,
+  );
 
   useEffect(() => refreshWhileActive(client, AppState), [client]);
 
@@ -68,6 +72,13 @@ function Session({ client }: { client: CourierClient }) {
   useEffect(() => {
     let live = true;
     void resumeCustomerSession(client)
+      .then((access) => {
+        // Found signed out: whoever left a cart here has gone, so it goes too.
+        if (access.status !== "customer") clearCart();
+        return access;
+      })
+      // A resume that failed (offline, say) is not a sign-out: the cart stays, and
+      // only its owner will see it again.
       .catch(
         (error): SessionState => ({
           status: "signed-out",
@@ -86,11 +97,12 @@ function Session({ client }: { client: CourierClient }) {
   // follows supabase-js when it lets go.
   useEffect(
     () =>
-      onSignedOut(client, () =>
+      onSignedOut(client, () => {
+        clearCart();
         setSession((current) =>
           current.status === "customer" ? { status: "signed-out" } : current,
-        ),
-      ),
+        );
+      }),
     [client],
   );
 
@@ -121,6 +133,7 @@ function Session({ client }: { client: CourierClient }) {
     try {
       await signOutAsCustomer(client);
     } finally {
+      clearCart();
       setSession({ status: "signed-out" });
       setBusy(false);
     }
@@ -138,7 +151,7 @@ function Session({ client }: { client: CourierClient }) {
   return (
     <Tabs current={tab} onChange={setTab}>
       {tab === "Shop" ? (
-        <ShopTab client={client} />
+        <ShopTab client={client} cart={cart} onCartChange={changeCart} />
       ) : tab === "Orders" ? (
         <Text style={styles.detail}>No orders yet.</Text>
       ) : (

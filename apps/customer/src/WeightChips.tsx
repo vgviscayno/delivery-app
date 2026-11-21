@@ -82,7 +82,8 @@ function Chip({
   );
 }
 
-function StepButton({
+/** A round −/+ button, shared with the per-unit quantity stepper. */
+export function StepButton({
   label,
   accessibilityLabel,
   disabled = false,
