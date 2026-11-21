@@ -1,4 +1,4 @@
-import { type AsyncStorage, createChunkedStorage } from "@courier/api-client";
+import type { AsyncStorage } from "@courier/api-client";
 import type { Product } from "@courier/domain";
 import { describe, expect, it } from "vitest";
 import { EMPTY_CART, putLine } from "./cart";
@@ -17,29 +17,6 @@ function memoryStorage(): AsyncStorage & { readonly values: Map<string, string> 
       values.delete(key);
     },
   };
-}
-
-/**
- * SecureStore as the app uses it: chunked, so one save is several writes, each one
- * yielding as the real native call does. Overlapping saves can interleave there.
- */
-function chunkedPhone(): AsyncStorage {
-  const values = new Map<string, string>();
-  const tick = () => new Promise((resolve) => setTimeout(resolve, 0));
-  return createChunkedStorage({
-    getItemAsync: async (key) => {
-      await tick();
-      return values.get(key) ?? null;
-    },
-    setItemAsync: async (key, value) => {
-      await tick();
-      values.set(key, value);
-    },
-    deleteItemAsync: async (key) => {
-      await tick();
-      values.delete(key);
-    },
-  });
 }
 
 const liempo: Product = {
@@ -108,31 +85,6 @@ describe("cart store", () => {
   ])("starts an empty cart rather than trusting a saved one with %s", async (_, raw) => {
     const phone = memoryStorage();
     phone.values.set("cart", raw);
-
-    expect(await createCartStore(phone).load("ana")).toEqual([]);
-  });
-
-  it("keeps the last of several quick edits, saved one after another", async () => {
-    const phone = chunkedPhone();
-    const store = createCartStore(phone);
-    // Long enough to take several chunks.
-    const big = Array.from({ length: 12 }, (_, i) => i).reduce(
-      (lines, i) =>
-        putLine(lines, { ...liempo, id: `p${i}`, name: "Liempo ".repeat(15) }, 250),
-      EMPTY_CART,
-    );
-    const last = putLine(EMPTY_CART, liempo, 1000);
-
-    await Promise.all([store.save("ana", big), store.save("ana", last)]);
-
-    expect(await createCartStore(phone).load("ana")).toEqual(last);
-  });
-
-  it("never lets a save still under way bring a cart back after sign-out", async () => {
-    const phone = chunkedPhone();
-    const store = createCartStore(phone);
-
-    await Promise.all([store.save("ana", cart), store.clear()]);
 
     expect(await createCartStore(phone).load("ana")).toEqual([]);
   });

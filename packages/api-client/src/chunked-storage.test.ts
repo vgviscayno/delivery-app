@@ -1,14 +1,20 @@
 import { describe, expect, it } from "vitest";
 import { createChunkedStorage, type KeyValueStore } from "./chunked-storage.js";
 
-/** SecureStore's shape, in memory, refusing any value over its 2048-byte limit. */
+/**
+ * SecureStore's shape, in memory, refusing any value over its 2048-byte limit. Each
+ * call yields first, as the native call does, so overlapping operations can interleave.
+ */
 function memoryStore(): KeyValueStore & { keys(): string[] } {
   const values = new Map<string, string>();
+  const tick = () => new Promise((resolve) => setTimeout(resolve, 0));
   return {
     async getItemAsync(key) {
+      await tick();
       return values.get(key) ?? null;
     },
     async setItemAsync(key, value) {
+      await tick();
       if (!/^[\w.-]+$/.test(key)) throw new Error(`invalid key ${key}`);
       if (new TextEncoder().encode(value).length > 2048) {
         throw new Error(`value for ${key} is over 2048 bytes`);
@@ -16,6 +22,7 @@ function memoryStore(): KeyValueStore & { keys(): string[] } {
       values.set(key, value);
     },
     async deleteItemAsync(key) {
+      await tick();
       values.delete(key);
     },
     keys: () => [...values.keys()].sort(),
@@ -95,5 +102,22 @@ describe("createChunkedStorage", () => {
     await storage.setItem("sb:auth/token", "value");
 
     await expect(storage.getItem("sb:auth/token")).resolves.toBe("value");
+  });
+
+  it("keeps the last of two overlapping writes whole, never a mix of the two", async () => {
+    const storage = createChunkedStorage(memoryStore());
+    const later = "y".repeat(1200);
+
+    await Promise.all([storage.setItem("cart", session), storage.setItem("cart", later)]);
+
+    await expect(storage.getItem("cart")).resolves.toBe(later);
+  });
+
+  it("never lets a write under way land after a removal that followed it", async () => {
+    const storage = createChunkedStorage(memoryStore());
+
+    await Promise.all([storage.setItem("cart", session), storage.removeItem("cart")]);
+
+    await expect(storage.getItem("cart")).resolves.toBeNull();
   });
 });

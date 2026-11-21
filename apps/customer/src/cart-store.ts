@@ -23,29 +23,18 @@ export interface CartStore {
 }
 
 export function createCartStore(storage: AsyncStorage): CartStore {
-  // A chunked save is several writes. Run everything on the slot in turn, so two saves
-  // never interleave into a cart that will not parse, a save started before sign-out
-  // cannot land after the clear, and a load never reads a half-written cart.
-  let queue: Promise<unknown> = Promise.resolve();
-  const inTurn = <T>(task: () => Promise<T>): Promise<T> => {
-    const next = queue.then(task);
-    queue = next.catch(() => {});
-    return next;
-  };
-
   return {
-    load(userId) {
-      return inTurn(async () => {
-        const saved = parseSaved(await storage.getItem(KEY));
-        return saved?.owner === userId ? saved.lines : EMPTY_CART;
-      });
+    async load(userId) {
+      const saved = parseSaved(await storage.getItem(KEY));
+      return saved?.owner === userId ? saved.lines : EMPTY_CART;
     },
     save(userId, cart) {
       const saved: Saved = { owner: userId, lines: cart };
-      return inTurn(() => storage.setItem(KEY, JSON.stringify(saved)));
+      return storage.setItem(KEY, JSON.stringify(saved));
     },
+    // Ordered after any save already under way: the storage runs a key's calls in turn.
     clear() {
-      return inTurn(() => storage.removeItem(KEY));
+      return storage.removeItem(KEY);
     },
   };
 }

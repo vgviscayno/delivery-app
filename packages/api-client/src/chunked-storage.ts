@@ -5,6 +5,10 @@
  * what keeps the refresh token encrypted at rest. But it caps a value at 2048 bytes,
  * and a supabase-js session -- two JWTs and the user -- is larger. So each value is
  * split across numbered entries, and the entry under the key itself holds the count.
+ *
+ * One value is therefore several native calls, so the calls on each key run in turn:
+ * two writes never interleave into a value that reads back as nothing, and a write
+ * under way never lands after a removal that followed it.
  */
 
 /** The part of `expo-secure-store` this needs; in-memory in the tests. */
@@ -37,39 +41,60 @@ export function createChunkedStorage(store: KeyValueStore): AsyncStorage {
     }
   }
 
+  // The last call queued on each key, settled or not; a failed call never blocks the next.
+  const queues = new Map<string, Promise<unknown>>();
+  function inTurn<T>(key: string, task: () => Promise<T>): Promise<T> {
+    const next = (queues.get(key) ?? Promise.resolve()).then(task);
+    queues.set(
+      key,
+      next.catch(() => {}),
+    );
+    return next;
+  }
+
+  async function read(key: string): Promise<string | null> {
+    const count = await countOf(key);
+    if (count === 0) return null;
+
+    const chunks: string[] = [];
+    for (let index = 0; index < count; index++) {
+      const chunk = await store.getItemAsync(`${key}.${index}`);
+      // Half a session is not a session.
+      if (chunk === null) return null;
+      chunks.push(chunk);
+    }
+    return chunks.join("");
+  }
+
+  async function write(key: string, value: string): Promise<void> {
+    const previous = await countOf(key);
+    const chunks = split(value);
+
+    for (const [index, chunk] of chunks.entries()) {
+      await store.setItemAsync(`${key}.${index}`, chunk);
+    }
+    await store.setItemAsync(key, String(chunks.length));
+    await removeChunks(key, chunks.length, previous);
+  }
+
+  async function remove(key: string): Promise<void> {
+    const count = await countOf(key);
+    await store.deleteItemAsync(key);
+    await removeChunks(key, 0, count);
+  }
+
   return {
-    async getItem(name) {
+    getItem(name) {
       const key = safeKey(name);
-      const count = await countOf(key);
-      if (count === 0) return null;
-
-      const chunks: string[] = [];
-      for (let index = 0; index < count; index++) {
-        const chunk = await store.getItemAsync(`${key}.${index}`);
-        // Half a session is not a session.
-        if (chunk === null) return null;
-        chunks.push(chunk);
-      }
-      return chunks.join("");
+      return inTurn(key, () => read(key));
     },
-
-    async setItem(name, value) {
+    setItem(name, value) {
       const key = safeKey(name);
-      const previous = await countOf(key);
-      const chunks = split(value);
-
-      for (const [index, chunk] of chunks.entries()) {
-        await store.setItemAsync(`${key}.${index}`, chunk);
-      }
-      await store.setItemAsync(key, String(chunks.length));
-      await removeChunks(key, chunks.length, previous);
+      return inTurn(key, () => write(key, value));
     },
-
-    async removeItem(name) {
+    removeItem(name) {
       const key = safeKey(name);
-      const count = await countOf(key);
-      await store.deleteItemAsync(key);
-      await removeChunks(key, 0, count);
+      return inTurn(key, () => remove(key));
     },
   };
 }
