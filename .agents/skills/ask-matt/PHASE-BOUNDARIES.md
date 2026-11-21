@@ -50,6 +50,8 @@ Every move except **Continue** turns a **primary source** into a **secondary sou
 
 This is why question 1 comes first. You only pay the lossiness when staying costs more than it saves.
 
+The session log on disk stays a primary source after `/clear`. A next phase that reads the log rather than the conversation (`/retro <log path>` is the standard case) loses nothing to `/clear`: clear, then point it at the log.
+
 ## These are judgement calls
 
 The questions are not objective: each has taste in it, and the same boundary can go two ways on two days. The value is in asking them **in order**, at the boundary rather than in the middle of the work.
