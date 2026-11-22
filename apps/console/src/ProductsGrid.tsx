@@ -73,7 +73,6 @@ import { Failure, useWrite } from "./write.js";
 
 const route = getRouteApi("/catalog/products");
 
-/** The column labels, shared by the grid's header and the side panel. */
 const LABEL = {
   name: "Name",
   priceType: "Priced",
@@ -86,14 +85,12 @@ const LABEL = {
   description: "Description",
 } as const satisfies Record<GridField, string>;
 
-/** What the per-weight columns mean, in a tooltip beside their label. */
 const HINT = {
   step: "Customers order in steps of this, and at least one. E.g. 250 g: customers can order 250 g, 500 g, 750 g…",
   tolerance:
     "How far the packed weight may differ before the customer must approve the new price. E.g. ±30 g on a 500 g order: 470–530 g goes through as is; 540 g needs the customer's approval.",
 } as const;
 
-/** What follows each number cell, in the grid and the side panel alike. */
 const UNIT = { step: "g steps", tolerance: "g" } as const;
 
 const priceUnit = (type: PriceType) => (type === "per_unit" ? "each" : "/ kg");
@@ -105,7 +102,6 @@ const PRICE_TYPES: readonly { value: PriceType; label: string }[] = [
 
 const PRODUCT_GONE = "That Product no longer exists.";
 
-/** Navigating within the Products view (filters, the side panel) never asks. */
 const leavesProducts = ({
   current,
   next,
@@ -114,11 +110,6 @@ const leavesProducts = ({
   next: { pathname: string };
 }) => current.pathname !== next.pathname;
 
-/**
- * The Catalog mode's Products view: one row per Product, edited like a spreadsheet.
- * Every edit is a local draft until Save, which writes each valid changed row on its own,
- * so one bad row never holds back the rest.
- */
 export function ProductsSection() {
   const { client, catalog, onSaved } = useCatalog();
   const search = route.useSearch();
@@ -127,16 +118,13 @@ export function ProductsSection() {
   const [draft, setDraft] = useState<Draft>(() => draftFromCatalog(catalog));
   const [results, setResults] = useState<ReadonlyMap<string, RowResult>>(new Map());
   const [ticked, setTicked] = useState<RowSelectionState>({});
-  /** A row never saved has no id for the URL, so the panel follows it here instead. */
   const [openUnsaved, setOpenUnsaved] = useState<string | null>(null);
   const [notice, setNotice] = useState<string>();
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const saving = useWrite(onSaved);
   const deleting = useWrite(onSaved);
   const busy = saving.busy || deleting.busy;
-  /** Whether the tour has Details open on its own row, for the step about Details. */
   const [tourDetails, setTourDetails] = useState(false);
-  // The tour demonstrates on a row of its own, and takes it away however it ends.
   useTour("products", {
     onStart: () => setDraft(addTourRow),
     onEnd: () => {
@@ -146,8 +134,6 @@ export function ProductsSection() {
     onDetails: setTourDetails,
   });
 
-  // A dropped photo is shown from an object URL, which holds the whole file in memory
-  // until revoked. Each is let go once no row holds it: saved, replaced or discarded.
   const previews = useRef(new Set<string>());
   useEffect(() => {
     const held = new Set(
@@ -165,7 +151,6 @@ export function ProductsSection() {
     [],
   );
 
-  /** Where to show a row's photo from: the dropped file's preview, or Storage. */
   const photoSrc = (photo: RowPhoto | null, size: "large" | "thumb") => {
     const path = storedPath(photo);
     return path
@@ -173,10 +158,8 @@ export function ProductsSection() {
       : (droppedPhoto(photo)?.preview ?? null);
   };
 
-  // Each read of the catalog — after Save, after Delete — is folded into the draft.
   useEffect(() => setDraft((current) => syncDraft(current, catalog)), [catalog]);
 
-  // An id in the URL that is not in the catalog: an old link, or a Product deleted since.
   useEffect(() => {
     if (search.product && !catalog.products.some((each) => each.id === search.product)) {
       setNotice(PRODUCT_GONE);
@@ -184,11 +167,8 @@ export function ProductsSection() {
     }
   }, [search.product, catalog, navigate]);
 
-  /** The draft as the dispatcher made it, without the tour's row: what Save writes. */
   const ownDraft = withoutTourRow(draft);
   const dirty = isDirty(ownDraft);
-  // In-app navigation asks in the page; a refresh or a closed tab gets the browser's own
-  // prompt. Both only while there is something unsaved.
   const blocker = useBlocker({
     shouldBlockFn: leavesProducts,
     enableBeforeUnload: true,
@@ -228,8 +208,6 @@ export function ProductsSection() {
       setResults(saved);
       if (openUnsaved !== null) savedOpenId = productIdOf(saved.get(openUnsaved));
     });
-    // A new row open in the panel now has an id for the URL. Only once the catalog has
-    // been read back, or the URL would name a Product the page has not heard of yet.
     if (ok && savedOpenId !== null) {
       const product = savedOpenId;
       setOpenUnsaved(null);
@@ -237,7 +215,6 @@ export function ProductsSection() {
     }
   }
 
-  /** Deletes each ticked row on its own: those the server deletes go, even if some fail. */
   function deleteTicked() {
     setConfirmingDelete(false);
     const doomed = draft.rows.filter((row) => tickedRows.includes(row.key));
@@ -261,7 +238,6 @@ export function ProductsSection() {
     });
   }
 
-  /** The tour's row is never one of these, even when "Tick every row shown" ticks it. */
   const tickedRows = tickedKeys(ticked).filter((key) => key !== TOUR_ROW_KEY);
   const bulk = (change: (current: Draft) => Draft) => {
     setDraft(change);
@@ -352,13 +328,11 @@ export function ProductsSection() {
 
       {open && (
         <SidePanel
-          // A fresh panel for each row, so it takes focus as it opens.
           key={open.key}
           row={open}
           photo={photoSrc(open.values.photo, "large")}
           messages={messages(open, results.get(open.key))}
           disabled={busy}
-          // Opened by the tour, focus stays with the tour's popover.
           takeFocus={!tourDetails}
           onEdit={(edits) => edit(open.key, edits)}
           onClose={() => openRow(null)}
@@ -398,7 +372,6 @@ export function ProductsSection() {
 function Filters({ categories }: { categories: readonly Category[] }) {
   const search = route.useSearch();
   const navigate = route.useNavigate();
-  /** Changes some filters, dropping any left empty from the URL. */
   const set = (
     changes: { [K in keyof ProductFilters]?: ProductFilters[K] | undefined },
   ) =>
@@ -512,10 +485,8 @@ function BulkBar({
   );
 }
 
-/** What one row's cells need, worked out once per row rather than once per cell. */
 interface RowView {
   readonly row: DraftRow;
-  /** Its place among the rows shown, for Ctrl+D. */
   readonly index: number;
   readonly title: string;
   readonly changed: readonly GridField[];
@@ -523,17 +494,14 @@ interface RowView {
   readonly warnings: CellMessages;
   readonly result: RowResult | undefined;
   readonly categories: readonly Category[];
-  /** Where the photo cell shows the row's photo from; null for none. */
   readonly thumb: string | null;
   readonly onEdit: (edits: Partial<RowValues>) => void;
   readonly onDuplicate: () => void;
   readonly onOpen: () => void;
 }
 
-/** TanStack sizes columns in pixels; these are written in rem, as the stylesheet is. */
 const rem = (size: number) => size * 16;
 
-/** The cells that are a Product's values, and so can be highlighted and carry a message. */
 const VALUE_CELLS: ReadonlySet<string> = new Set<GridField>([
   "name",
   "priceType",
@@ -545,7 +513,6 @@ const VALUE_CELLS: ReadonlySet<string> = new Set<GridField>([
   "photo",
 ]);
 
-/** What every cell's control carries: where it is, for Ctrl+D, and its name. */
 const cellProps = (view: RowView, field: GridField) => ({
   "data-row": view.index,
   "data-field": field,
@@ -553,10 +520,6 @@ const cellProps = (view: RowView, field: GridField) => ({
   "aria-invalid": view.errors[field] ? true : undefined,
 });
 
-/**
- * A sortable column. Its value is only there so TanStack lets it sort: the rows arrive
- * already sorted by `sortRows`, which knows the grid's own rules.
- */
 const sortable = (
   field: SortColumn,
   def: Omit<ColumnDef<RowView, unknown>, "id">,
@@ -702,7 +665,6 @@ const COLUMNS: ColumnDef<RowView, unknown>[] = [
   },
 ];
 
-/** A column's set widths, for the columns that have them. */
 function widths(def: ColumnDef<RowView, unknown>): CSSProperties {
   return {
     ...(def.size !== undefined && { width: def.size }),
@@ -713,11 +675,6 @@ function widths(def: ColumnDef<RowView, unknown>): CSSProperties {
 
 const ARIA_SORT = { asc: "ascending", desc: "descending" } as const;
 
-/**
- * The rows shown, as TanStack lays them out: already filtered and sorted, since both
- * follow the URL and the draft's saved values. TanStack holds the columns, the ticks and
- * which header is sorted.
- */
 function Grid({
   rows,
   categories,
@@ -776,11 +733,7 @@ function Grid({
     state: { sorting, rowSelection: ticked },
     onRowSelectionChange: onTick,
     manualSorting: true,
-    // The rows are rebuilt on every render, and TanStack resets its paging each time
-    // they change: a state change, so another render, without end. This grid has no
-    // pages or expanded rows to reset.
     autoResetAll: false,
-    // Up, down, then back to the catalog's order — numbers as well as names.
     sortDescFirst: false,
     enableMultiSort: false,
     onSortingChange: (change) => {
@@ -789,7 +742,6 @@ function Grid({
     },
   });
 
-  // Spreadsheet keys, read off the cell that has focus.
   function onKeyDown(event: KeyboardEvent<HTMLTableElement>) {
     const cell = (event.target as HTMLElement).closest<HTMLElement>("[data-field]");
     if (!cell) return;
@@ -798,7 +750,6 @@ function Grid({
 
     if (event.key === "d" && (event.ctrlKey || event.metaKey)) {
       event.preventDefault();
-      // "Below" is below on screen, after sorting and filtering.
       const fill = fillDownTargets(
         rows.map((row) => row.key),
         index,
@@ -873,10 +824,6 @@ function Grid({
   );
 }
 
-/**
- * A row's photo: drop an image on it, or click to pick one. The dropped file is shown
- * from the browser's copy and only uploaded when Save writes the row.
- */
 function PhotoCell({ view }: { view: RowView }) {
   const [over, setOver] = useState(false);
   const { photo } = view.row.values;
@@ -897,7 +844,6 @@ function PhotoCell({ view }: { view: RowView }) {
       onDrop={(event) => {
         event.preventDefault();
         setOver(false);
-        // Saving disables the grid, and this with it, but a drop still arrives.
         if (event.currentTarget.matches(":disabled")) return;
         take(event.dataTransfer.files);
       }}
@@ -933,7 +879,6 @@ function PhotoCell({ view }: { view: RowView }) {
   );
 }
 
-/** The error on a cell, or else its warning, underneath its control. */
 function CellMessage({ view, field }: { view: RowView; field: GridField }) {
   const error = view.errors[field];
   if (error) return <span className="notice cell-message">{error}</span>;
@@ -941,7 +886,6 @@ function CellMessage({ view, field }: { view: RowView; field: GridField }) {
   return warning ? <span className="warning cell-message">{warning}</span> : null;
 }
 
-/** A header that sorts its column: up, down, then back to the catalog's order. */
 function SortButton({
   column,
   field,
@@ -964,11 +908,6 @@ function SortButton({
   );
 }
 
-/**
- * A "?" beside a label that shows its hint while hovered or focused. Hover is the
- * stylesheet's, so the pointer can move onto the hint without losing it. Escape hides it
- * without moving focus, and screen readers hear the hint as the button's description.
- */
 function HintTip({ field }: { field: keyof typeof HINT }) {
   const id = useId();
   const [focused, setFocused] = useState(false);
@@ -988,7 +927,6 @@ function HintTip({ field }: { field: keyof typeof HINT }) {
         onMouseEnter={() => setDismissed(false)}
         onKeyDown={(event) => {
           if (event.key === "Escape" && !dismissed) {
-            // Only this tooltip closes, not the side panel around it.
             event.stopPropagation();
             setDismissed(true);
           }
@@ -1059,10 +997,6 @@ type TextInputProps = {
   onChange: (value: string) => void;
 } & Omit<ComponentProps<"input">, "value" | "onChange">;
 
-/**
- * A name that wraps in its cell rather than scrolling out of sight, and grows to fit.
- * It is still one line of text: Enter adds no line, and a pasted line break is a space.
- */
 function NameInput({
   value,
   onChange,
@@ -1072,7 +1006,6 @@ function NameInput({
   onChange: (value: string) => void;
 } & Omit<ComponentProps<"textarea">, "value" | "onChange" | "rows">) {
   const ref = useRef<HTMLTextAreaElement>(null);
-  // Firefox has no `field-sizing: content` yet, so the height is measured here.
   // biome-ignore lint/correctness/useExhaustiveDependencies: it is the value that changes the height
   useLayoutEffect(() => {
     const element = ref.current;
@@ -1095,7 +1028,6 @@ function NameInput({
   );
 }
 
-/** The price, between "₱" and "each" or "/ kg", so it reads as it will be shown. */
 function PriceInput({
   priceType,
   value,
@@ -1118,7 +1050,6 @@ function PriceInput({
   );
 }
 
-/** A step or a tolerance, in grams: "250 g steps", "±30 g". */
 function GramsInput({
   field,
   value,
@@ -1149,10 +1080,6 @@ function CategoryOptions({ categories }: { categories: readonly Category[] }) {
   ));
 }
 
-/**
- * A multi-select of Categories that fits in a cell: the chosen ones as its summary, a
- * tick box per Category when opened.
- */
 function CategoryPicker({
   categories,
   chosen,
@@ -1196,10 +1123,6 @@ function CategoryPicker({
   );
 }
 
-/**
- * The open row in full, docked beside the grid: the long description, and the same cells
- * under the same labels, hints and units. It edits the same draft as the grid.
- */
 function SidePanel({
   row,
   photo,
@@ -1210,7 +1133,6 @@ function SidePanel({
   onClose,
 }: {
   row: DraftRow;
-  /** The large photo, or the dropped file's preview. */
   photo: string | null;
   messages: { errors: CellMessages; warnings: CellMessages };
   disabled: boolean;
@@ -1227,7 +1149,6 @@ function SidePanel({
   const title = rowTitle(row);
   const changed = changedFields(row);
 
-  /** A control under the same label as its column, with its error, warning or hint. */
   const field = (name: GridField, control: (id: string) => ReactNode, hint?: string) => {
     const id = `side-panel-${name}`;
     const message = errors[name] ?? warnings[name];
@@ -1324,10 +1245,6 @@ function SidePanel({
   );
 }
 
-/**
- * Errors show on a row once Save has refused it, and follow its cells as they are fixed.
- * Warnings show as soon as they apply.
- */
 function messages(
   row: DraftRow,
   result: RowResult | undefined,
@@ -1337,7 +1254,6 @@ function messages(
   return { errors: result?.status === "invalid" ? read.errors : {}, warnings: {} };
 }
 
-/** Drops the saved and failed results of rows edited since, keeping "fix these" ones. */
 function withoutSettled(
   results: ReadonlyMap<string, RowResult>,
   keys: readonly string[],
@@ -1350,17 +1266,14 @@ function withoutSettled(
   return next;
 }
 
-/** The keys of the ticked rows, shown or not. */
 function tickedKeys(ticked: RowSelectionState): string[] {
   return Object.keys(ticked).filter((key) => ticked[key]);
 }
 
-/** The Product a row's Save left it tied to, if Save got as far as making one. */
 function productIdOf(result: RowResult | undefined): string | null {
   return result && result.status !== "invalid" ? result.productId : null;
 }
 
-/** What a row is called in labels: its saved name, so a label holds still while typing. */
 function rowTitle(row: DraftRow): string {
   return row.saved?.name || row.values.name.trim() || "New Product";
 }

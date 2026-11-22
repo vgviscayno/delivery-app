@@ -2,7 +2,6 @@ import type { ConsoleCredentials } from "@courier/api-client";
 import { type FormEvent, useState } from "react";
 
 export interface SignInProps {
-  /** Why the dispatcher is looking at this screen, if it is not their first visit. */
   readonly notice?: string | undefined;
   readonly onSubmit: (credentials: ConsoleCredentials) => Promise<void>;
 }

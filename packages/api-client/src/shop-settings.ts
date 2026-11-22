@@ -16,17 +16,13 @@ const ADD_SHOP_CLOSURE = "add_shop_closure";
 const REMOVE_SHOP_CLOSURE = "remove_shop_closure";
 const SET_QR_PH_IMAGE = "set_qr_ph_image";
 
-// Storage steps, not RPCs: the names an ApiError gives when one of them fails.
 const UPLOAD_QR_PH_IMAGE_STEP = "upload_qr_ph_image";
 const SIGN_SHOP_IMAGE_STEP = "sign_shop_image";
 
-/** Long enough to load the image on screen; nobody should be keeping these links. */
 const SIGNED_LINK_SECONDS = 300;
 
-/** The private Storage bucket the QR Ph image lives in. */
 const SHOP_BUCKET = "shop";
 
-/** What the `shop` bucket accepts, and the extension each is stored under. */
 const QR_PH_IMAGE_TYPES: Record<string, string> = {
   "image/png": "png",
   "image/jpeg": "jpg",
@@ -36,17 +32,10 @@ const QR_PH_IMAGE_TYPES: Record<string, string> = {
 type Args<Name extends keyof Database["public"]["Functions"]> =
   Database["public"]["Functions"][Name]["Args"];
 
-// The generator types every RPC argument as required and non-null, because a function
-// signature does not say otherwise. These RPCs take null for a setting nobody has agreed
-// yet, or a weekday with no hours.
 type NullableArgs<Name extends keyof Database["public"]["Functions"]> = {
   [K in keyof Args<Name>]: Args<Name>[K] | null;
 };
 
-/**
- * Reads the shop's rules: the scalar settings, the Ordering window and the closures
- * still to come. Any signed-in account may; the three reads happen together.
- */
 export async function fetchShopSettings(client: CourierClient): Promise<ShopSettings> {
   const [settings, orderingWindow, closures] = await Promise.all([
     client.rpc(SHOP_SETTINGS),
@@ -68,7 +57,6 @@ export async function fetchShopSettings(client: CourierClient): Promise<ShopSett
   return toShopSettings(row, orderingWindow.data ?? [], closures.data ?? []);
 }
 
-/** Replaces every scalar setting but the QR Ph image. Active dispatchers only. */
 export async function saveShopSettings(
   client: CourierClient,
   edits: ShopSettingsEdits,
@@ -85,10 +73,6 @@ export async function saveShopSettings(
   await callWrite(client, UPDATE_SHOP_SETTINGS, args);
 }
 
-/**
- * Sets one weekday's hours, or closes it with `null`. ISO weekday: Monday is 1.
- * Active dispatchers only.
- */
 export async function setOrderingDay(
   client: CourierClient,
   weekday: number,
@@ -102,7 +86,6 @@ export async function setOrderingDay(
   await callWrite(client, SET_ORDERING_DAY, args);
 }
 
-/** Closes the shop on a date, or rewrites the note of one already closed. */
 export async function addShopClosure(
   client: CourierClient,
   closedOn: string,
@@ -112,7 +95,6 @@ export async function addShopClosure(
   await callWrite(client, ADD_SHOP_CLOSURE, args);
 }
 
-/** Reopens a closed date. */
 export async function removeShopClosure(
   client: CourierClient,
   closedOn: string,
@@ -120,14 +102,6 @@ export async function removeShopClosure(
   await callWrite(client, REMOVE_SHOP_CLOSURE, { closed_on: closedOn });
 }
 
-/**
- * Uploads a new QR Ph image and makes it the one customers pay against. Returns where
- * it was stored.
- *
- * Every upload takes a fresh name, so a phone that cached the old image never shows it
- * again. The image it replaces is removed afterwards; if that removal fails the old file
- * is merely orphaned, which is no reason to report a replacement that worked as failed.
- */
 export async function replaceQrPhImage(
   client: CourierClient,
   image: Blob,
@@ -158,10 +132,6 @@ export async function replaceQrPhImage(
   return path;
 }
 
-/**
- * A short-lived link to an image in the `shop` bucket, for showing it. The bucket is
- * private, so there is no permanent public URL.
- */
 export async function signShopImage(
   client: CourierClient,
   path: string,
@@ -173,7 +143,6 @@ export async function signShopImage(
   return data.signedUrl;
 }
 
-/** Calls an RPC that changes something and returns nothing, throwing if it refuses. */
 async function callWrite<Name extends keyof Database["public"]["Functions"]>(
   client: CourierClient,
   name: Name,

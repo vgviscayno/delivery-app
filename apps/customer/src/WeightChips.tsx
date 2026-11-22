@@ -2,11 +2,6 @@ import { formatWeight, stepWeight, weightChips } from "@courier/domain";
 import { useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
-/**
- * Picks a per-weight quantity: preset chips from the step, and `Custom…` for a stepper
- * that moves in the step and never goes below it. Controlled: the caller holds the
- * grams. A weight that is not a chip opens the stepper, however it was set.
- */
 export function WeightChips({
   stepGrams,
   grams,
@@ -82,7 +77,6 @@ function Chip({
   );
 }
 
-/** A round −/+ button, shared with the per-unit quantity stepper. */
 export function StepButton({
   label,
   accessibilityLabel,

@@ -1,37 +1,22 @@
-/**
- * The Catalog walkthrough, as data: one tour per sub-tab, each step pointing at a
- * `data-tour` attribute on the page rather than at a class name or text, so restyling or
- * rewording the page never loses a step.
- */
-
 export type TourName = "products" | "categories";
 
-/** A part of a tour that "Show me around" offers on its own. */
 export type TourTopic = "add" | "edit" | "duplicate" | "bulk" | "details";
 
 export interface TourStep {
-  /** The `data-tour` value of the element the step highlights. */
   readonly target: string;
   readonly title: string;
   readonly description: string;
-  /** Whether the step needs Details open on the tour's row. */
   readonly opensDetails?: boolean;
-  /** The topics the step is part of; the whole tour is every step, in order. */
   readonly topics?: readonly TourTopic[];
-  /** Passed over when there is nothing to point at, such as a Category list with none. */
   readonly optional?: boolean;
 }
 
-/** The selector for a step's element. */
 export const tourTarget = (target: string) => `[data-tour="${target}"]`;
 
-/** The `data-tour` value of the draft row the Products tour demonstrates on. */
 export const TOUR_ROW = "tour-row";
 
-/** The `data-tour` value of the "Show me around" button. */
 export const SHOW_ME_AROUND = "show-me-around";
 
-/** What "Show me around" offers besides the whole tour; a tour without topics just replays. */
 export const TOPICS: Record<TourName, readonly { topic: TourTopic; label: string }[]> = {
   products: [
     { topic: "add", label: "Add a Product" },
@@ -43,7 +28,6 @@ export const TOPICS: Record<TourName, readonly { topic: TourTopic; label: string
   categories: [],
 };
 
-/** The steps to run: the whole tour, or the steps of one topic. */
 export function stepsOf(name: TourName, topic: TourTopic | null): readonly TourStep[] {
   const steps = TOURS[name];
   return topic === null ? steps : steps.filter((step) => step.topics?.includes(topic));
@@ -180,13 +164,8 @@ const TOURS: Record<TourName, readonly TourStep[]> = {
   ],
 };
 
-/** Where the browser remembers a tour was seen: per browser, not per account. */
 const seenKey = (name: TourName) => `courier.console.tourSeen.${name}`;
 
-/**
- * Whether this browser has finished or closed the tour. Storage that is blocked or
- * throws counts as not seen, so the tour may just show again.
- */
 export function hasSeenTour(name: TourName, storage = browserStorage): boolean {
   try {
     return storage()?.getItem(seenKey(name)) === "1";
@@ -198,12 +177,9 @@ export function hasSeenTour(name: TourName, storage = browserStorage): boolean {
 export function markTourSeen(name: TourName, storage = browserStorage): void {
   try {
     storage()?.setItem(seenKey(name), "1");
-  } catch {
-    // Not remembered; the tour shows again next time.
-  }
+  } catch {}
 }
 
-/** Reading `localStorage` itself can throw where site data is blocked. */
 function browserStorage(): Storage | undefined {
   return typeof localStorage === "undefined" ? undefined : localStorage;
 }

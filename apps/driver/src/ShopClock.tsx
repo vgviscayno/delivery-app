@@ -8,7 +8,6 @@ type ClockState =
   | { readonly state: "ready"; readonly clock: ServerClock }
   | { readonly state: "error"; readonly message: string };
 
-/** The shop clock, read once from `server_clock`. Never the phone's own idea of now. */
 export function ShopClock({ client }: { client: CourierClient }) {
   const [view, setView] = useState<ClockState>({ state: "loading" });
 
@@ -51,7 +50,6 @@ export function ShopClock({ client }: { client: CourierClient }) {
   );
 }
 
-/** `2026-09-26T15:30:00` → `15:30:00`. The date is shown separately. */
 function timeOfDay(localTime: string): string {
   return localTime.split("T")[1] ?? localTime;
 }

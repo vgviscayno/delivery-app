@@ -16,7 +16,6 @@ export interface ShellProps {
   readonly onSignOut: () => void;
 }
 
-/** The signed-in console. The URL says which mode is open, and the route fills it in. */
 export function Shell({ client, dispatcher, onSignOut }: ShellProps) {
   const matchRoute = useMatchRoute();
   const mode = MODES.find((each) => matchRoute({ to: each.to, fuzzy: true }));

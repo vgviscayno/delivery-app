@@ -8,7 +8,6 @@ const SHOP_PIN_SHAPE = {
   geometry: { type: "Point" as const, coordinates: SHOP_CAMERA.centerCoordinate },
 };
 
-/** Proof of wiring: the shared style, centred on the Shop pin. */
 export function ShopMap({ hasToken }: { hasToken: boolean }) {
   if (!hasToken) {
     return (

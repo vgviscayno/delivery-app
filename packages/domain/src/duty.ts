@@ -1,19 +1,12 @@
 import { TIME_ZONE } from "@courier/config";
 
-/** What a screen needs to say where a driver stands with being On duty. */
 export interface DutyState {
   readonly onDuty: boolean;
-  /** When `onDuty` last changed, by the server clock. Null if never On duty. */
   readonly onDutyChangedAt: string | null;
-  /** Absent means active: the driver app only ever sees an active driver. */
   readonly active?: boolean;
   readonly deactivatedAt?: string | null;
 }
 
-/**
- * "On duty since 07:30", "Off duty" or "Deactivated 6 Nov 2026". Times and dates are
- * the shop's, whatever time zone the phone or browser is in.
- */
 export function describeDuty(driver: DutyState): string {
   if (driver.active === false) {
     return driver.deactivatedAt

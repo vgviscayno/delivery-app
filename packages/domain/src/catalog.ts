@@ -5,46 +5,35 @@ type ProductRow = Views["catalog_products"]["Row"];
 type CategoryRow = Views["catalog_categories"]["Row"];
 type MembershipRow = Views["catalog_memberships"]["Row"];
 
-/**
- * How a Product is priced. Every amount is whole centavos; a per-weight rate is per
- * kilogram, never per gram, because a per-gram rate in whole centavos would round.
- */
 export type Price =
   | { readonly type: "per_unit"; readonly unitPriceCentavos: number }
   | {
       readonly type: "per_weight";
       readonly pricePerKgCentavos: number;
-      /** The increment a customer estimates their weight in, and also the least they may ask for. */
       readonly weightStepGrams: number;
-      /** Symmetric: a shortfall counts the same as an excess. */
       readonly toleranceGrams: number;
     };
 
 export type PriceType = Price["type"];
 
-/** What the dispatcher edits about a Product, as one form. */
 export interface ProductEdits {
   readonly name: string;
   readonly description: string | null;
-  /** Where the large photo is in the `product-photos` bucket. Null for no photo. */
   readonly photoPath: string | null;
   readonly price: Price;
 }
 
 export interface Product extends ProductEdits {
   readonly id: string;
-  /** A manual toggle, not a stock count. Customers see an unavailable one as sold out. */
   readonly available: boolean;
 }
 
 export interface Category {
   readonly id: string;
   readonly name: string;
-  /** Display order, lowest first. */
   readonly position: number;
 }
 
-/** A Product's place within one Category. A Product may be in several, ranked in each. */
 export interface CategoryMembership {
   readonly productId: string;
   readonly categoryId: string;
@@ -53,7 +42,6 @@ export interface CategoryMembership {
 
 export interface Catalog {
   readonly products: readonly Product[];
-  /** In display order. */
   readonly categories: readonly Category[];
   readonly memberships: readonly CategoryMembership[];
 }
@@ -65,10 +53,6 @@ export class CatalogError extends Error {
   }
 }
 
-/**
- * A Product row from `catalog_products` or `dispatcher_products`. The view types every
- * column as nullable and the RPC as present, so this reads both as nullable and checks.
- */
 export function toProduct(row: ProductRow): Product {
   const name = required(row.name, "a Product's name");
   return {
@@ -119,7 +103,6 @@ export function toCategoryMembership(row: MembershipRow): CategoryMembership {
   };
 }
 
-/** The columns the tables declare `not null`, which views cannot say. */
 function required<T>(value: T | null, what: string): T {
   if (value === null) throw new CatalogError(`the server sent no value for ${what}`);
   return value;

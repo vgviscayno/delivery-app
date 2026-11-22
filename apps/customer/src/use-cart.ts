@@ -5,15 +5,9 @@ import { cartStore } from "./device-storage";
 interface Held {
   readonly owner: string;
   readonly cart: Cart;
-  /** Only an edit is saved: what was just read, or failed to be, stays as it is. */
   readonly edited: boolean;
 }
 
-/**
- * The signed-in customer's cart: read back from the phone once, then saved after each
- * edit. Null while it loads, and whenever no one is signed in. Clearing it on sign-out
- * is `clearCart`'s, since by then there is no customer to hold it for.
- */
 export function useCart(userId: string | null): {
   cart: Cart | null;
   change: CartChange;
@@ -25,7 +19,6 @@ export function useCart(userId: string | null): {
     let live = true;
     void cartStore
       .load(userId)
-      // A cart that cannot be read is one the customer rebuilds, not a broken shop.
       .catch(() => EMPTY_CART)
       .then((cart) => {
         if (live) setHeld({ owner: userId, cart, edited: false });
@@ -44,7 +37,6 @@ export function useCart(userId: string | null): {
     [],
   );
 
-  // Saved from here rather than inside `change`, so an updater stays pure.
   useEffect(() => {
     if (held?.edited) void cartStore.save(held.owner, held.cart).catch(() => {});
   }, [held]);
@@ -52,7 +44,6 @@ export function useCart(userId: string | null): {
   return { cart: held?.owner === userId ? held.cart : null, change };
 }
 
-/** On sign-out, by the customer or by the server. Not when a resume merely failed. */
 export function clearCart(): void {
   void cartStore.clear().catch(() => {});
 }

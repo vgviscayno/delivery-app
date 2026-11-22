@@ -18,7 +18,6 @@ export interface AccountTabProps {
   readonly onSignOut: () => void;
 }
 
-/** The email, read-only; the Account phone, editable; and signing out. */
 export function AccountTab({
   client,
   account,

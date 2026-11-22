@@ -19,17 +19,11 @@ import {
   Settings,
 } from "./Settings.js";
 
-/** What every route can reach without props: the server, and how long idle may last. */
 export interface ConsoleContext {
   readonly client: CourierClient;
   readonly idleTimeoutMs: number;
 }
 
-/**
- * The root renders the session gate. Signed out, it shows sign-in at whatever URL is
- * open and never reaches the matched route, so after signing in the dispatcher is
- * already where the URL says.
- */
 const rootRoute = createRootRouteWithContext<ConsoleContext>()({ component: Root });
 
 function Root() {
@@ -37,7 +31,6 @@ function Root() {
   return <App client={client} idleTimeoutMs={idleTimeoutMs} />;
 }
 
-/** A mode with no content yet says so. */
 function Placeholder() {
   return <p className="detail">Nothing here yet.</p>;
 }
@@ -50,7 +43,6 @@ const indexRoute = createRoute({
   },
 });
 
-/** Anything the console does not route, such as an old bookmark, lands on Dispatch. */
 const unknownRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "$",
@@ -159,7 +151,6 @@ const routeTree = rootRoute.addChildren([
 ]);
 
 export interface ConsoleRouterOptions extends ConsoleContext {
-  /** Browser history when omitted; tests pass a memory history. */
   readonly history?: RouterHistory;
 }
 

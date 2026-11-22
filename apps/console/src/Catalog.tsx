@@ -34,7 +34,6 @@ interface SectionProps {
   readonly onSaved: () => Promise<void>;
 }
 
-/** The catalog as last read, for whichever section the URL has open. */
 const CatalogContext = createContext<SectionProps | null>(null);
 
 export function useCatalog(): SectionProps {
@@ -43,11 +42,6 @@ export function useCatalog(): SectionProps {
   return section;
 }
 
-/**
- * The console's Catalog mode: Products of both price types, and the Categories customers
- * browse them by, one section at a time. The catalog is read once for both, and like
- * Settings, every change is read back from the server afterwards.
- */
 export function Catalog() {
   const client = useClient();
   const [load, setLoad] = useState<Load>({ state: "loading" });
@@ -96,11 +90,6 @@ export function Catalog() {
   );
 }
 
-/**
- * Categories down a sidebar, in the order customers browse them, and the open one's name,
- * moves and Products beside it. Opening a Category is local to the page; the first is
- * open until another is picked, and again after the open one is deleted.
- */
 export function CategoriesSection() {
   const { client, catalog, onSaved } = useCatalog();
   const [name, setName] = useState("");
@@ -118,7 +107,6 @@ export function CategoriesSection() {
     categories.findIndex((category) => category.id === openId),
   );
   const open = categories[openIndex];
-  // The tour only points: it neither drags nor moves anything.
   useTour("categories");
 
   async function add(event: FormEvent) {
@@ -174,7 +162,6 @@ export function CategoriesSection() {
         </div>
         {open && (
           <CategoryDetail
-            // A fresh detail whenever the name changes, so its input starts from it.
             key={`${open.id}-${open.name}`}
             client={client}
             catalog={catalog}

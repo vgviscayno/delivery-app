@@ -49,8 +49,6 @@ const catalog: Catalog = {
   memberships: [{ productId: "p-ribeye", categoryId: "c-beef", position: 1 }],
 };
 
-// Stubbed at the package boundary, as in router.test.tsx: the real router, shell and
-// grid run, without a Supabase behind them.
 vi.mock("@courier/api-client", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@courier/api-client")>()),
   resumeConsoleSession: vi.fn(async () => ({
@@ -70,14 +68,12 @@ vi.mock("@courier/api-client", async (importOriginal) => ({
   })),
 }));
 
-// jsdom has neither a canvas that encodes nor createImageBitmap.
 const resized = {
   large: new Blob(["large"], { type: "image/webp" }),
   thumb: new Blob(["thumb"], { type: "image/webp" }),
 };
 vi.mock("./photo-resize.js", () => ({ resizePhoto: vi.fn(async () => resized) }));
 
-// jsdom has no object URLs either; the grid shows a dropped photo through one.
 URL.createObjectURL = () => "blob:dropped";
 URL.revokeObjectURL = () => {};
 
@@ -87,7 +83,6 @@ const client = {
   },
 } as unknown as CourierClient;
 
-/** How many times React has committed the page since it was rendered. */
 let commits = 0;
 
 function renderAt(path: string) {
@@ -109,7 +104,6 @@ const grid = () => screen.findByRole("table", { name: "Products" });
 
 beforeEach(() => {
   recordActivity();
-  // The Catalog tours start on a first visit; catalog-tour.test.tsx covers them.
   markTourSeen("products");
   markTourSeen("categories");
   vi.spyOn(window, "scrollTo").mockImplementation(() => {});
@@ -127,7 +121,6 @@ describe("the Products grid", () => {
     const table = await grid();
 
     for (const header of ["Price", "Ordered in", "Weight tolerance"]) {
-      // Each header starts with its label; the per-weight ones go on with a hint.
       const name = new RegExp(`^${header}(?![a-z])`);
       expect(within(table).getByRole("columnheader", { name })).toBeTruthy();
     }

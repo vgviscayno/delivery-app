@@ -50,7 +50,6 @@ const catalog: Catalog = {
   ],
 };
 
-/** Records every write, and answers like the server. */
 function fakeWrites(
   fail: { saveProduct?: string; uploadPhoto?: boolean; removePhoto?: boolean } = {},
 ) {
@@ -283,8 +282,6 @@ describe("saving the Products grid", () => {
       expect(edits[0]?.photoPath).toBeNull();
     });
 
-    // The save may have reached the server with only the answer lost, so even the new
-    // upload might be what the Product now points at. An orphan is the safe outcome.
     it("on a failed save, deletes nothing, not even its own upload", async () => {
       let draft = draftFromCatalog(withPhoto);
       draft = editRows(draft, ["p-ribeye"], {

@@ -41,7 +41,6 @@ const catalog: Catalog = {
   ],
 };
 
-// Stubbed at the package boundary, as in router.test.tsx.
 vi.mock("@courier/api-client", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@courier/api-client")>()),
   resumeConsoleSession: vi.fn(async () => ({
@@ -71,7 +70,6 @@ function renderCategories() {
 
 beforeEach(() => {
   recordActivity();
-  // The Catalog tours start on a first visit; catalog-tour.test.tsx covers them.
   markTourSeen("products");
   markTourSeen("categories");
   vi.spyOn(window, "scrollTo").mockImplementation(() => {});

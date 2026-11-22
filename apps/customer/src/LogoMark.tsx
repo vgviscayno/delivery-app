@@ -1,10 +1,5 @@
 import { StyleSheet, View } from "react-native";
 
-/**
- * The shop's mark, standing in for a Product with no photo. It fills the photo's
- * square exactly, so a card without a photo is the same height as one with.
- * A placeholder drawing until the shop supplies its own brand asset.
- */
 export function LogoMark() {
   return (
     <View style={styles.tile} accessibilityLabel="No photo" accessible>

@@ -177,7 +177,6 @@ describe("signOutAsDriver", () => {
     await signOutAsDriver(client);
 
     expect(rpc).toHaveBeenCalledWith("go_off_duty");
-    // Global: a copied refresh token must not outlive signing out.
     expect(auth.signOut).toHaveBeenCalledWith({ scope: "global" });
     expect(rpc.mock.invocationCallOrder[0]).toBeLessThan(
       auth.signOut.mock.invocationCallOrder[0] ?? 0,

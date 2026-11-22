@@ -1,9 +1,5 @@
 import { type ReactNode, useEffect, useRef } from "react";
 
-/**
- * An in-page question that has to be answered before anything else: Leave without
- * saving, Delete. Focus starts on the safe answer, and Escape gives it.
- */
 export function Dialog({
   title,
   children,

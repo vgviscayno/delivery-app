@@ -4,7 +4,6 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 const TABS = ["Shop", "Orders", "Account"] as const;
 export type Tab = (typeof TABS)[number];
 
-/** The app shell: the chosen tab's screen above a bar of the three tabs. */
 export function Tabs({
   current,
   onChange,

@@ -11,10 +11,6 @@ import {
   removeLine,
 } from "./cart";
 
-/**
- * The cart, opened from its floating button: each line editable with the control it
- * was picked with, and removable. Checkout joins this screen later (#65).
- */
 export function CartScreen({
   cart,
   onChange,

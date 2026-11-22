@@ -1,6 +1,6 @@
 # delivery-app
 
-Verify changes with `pnpm verify`, the same steps as CI's TypeScript job: Biome, Knip, build, typecheck, test. `pnpm fix` applies Biome's safe fixes. Database changes also need `pnpm test:db` and `pnpm db:lint`. One pgTAP file alone: `pnpm --filter @courier/db test:db supabase/tests/<name>_test.sql`.
+Verify changes with `pnpm verify`, the same steps as CI's TypeScript job: Biome, the comment ratchet, Knip, build, typecheck, test. Code carries no comments (ADR 0014): `/delete-comments` shrinks `comments-baseline.json`, and `pnpm comments:update` locks a deletion in. `pnpm fix` applies Biome's safe fixes. Database changes also need `pnpm test:db` and `pnpm db:lint`. One pgTAP file alone: `pnpm --filter @courier/db test:db supabase/tests/<name>_test.sql`.
 
 ## Agent skills
 

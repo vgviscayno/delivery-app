@@ -63,10 +63,6 @@ interface Fake {
   views?: Record<string, Response>;
 }
 
-/**
- * A client whose RPCs and views answer from the given responses. A view query is a
- * chain — `from(view).select(...).order(...)` — that resolves to its response.
- */
 function fakeClient({ rpc = {}, views = {} }: Fake = {}) {
   const rpcFn = vi.fn((name: string) =>
     Promise.resolve(rpc[name] ?? { data: null, error: null }),

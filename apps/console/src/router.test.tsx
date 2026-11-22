@@ -7,8 +7,6 @@ import { createConsoleRouter } from "./router.js";
 import { markTourSeen } from "./tours.js";
 import { clearActivity, recordActivity } from "./use-idle-sign-out.js";
 
-// The console's only way out to the server. Stubbed at the package boundary, so these
-// tests drive the real router, shell and sections without a Supabase behind them.
 vi.mock("@courier/api-client", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@courier/api-client")>()),
   resumeConsoleSession: vi.fn(async () => ({
@@ -41,7 +39,6 @@ vi.mock("@courier/api-client", async (importOriginal) => ({
   fetchDrivers: vi.fn(async () => []),
 }));
 
-/** Only what the console touches on the client itself; the rest goes through the stubs. */
 const client = {
   auth: {
     onAuthStateChange: () => ({ data: { subscription: { unsubscribe() {} } } }),
@@ -60,10 +57,8 @@ function renderAt(path: string) {
 
 beforeEach(() => {
   recordActivity();
-  // The Catalog tours start on a first visit; catalog-tour.test.tsx covers them.
   markTourSeen("products");
   markTourSeen("categories");
-  // jsdom has no layout, and the router resets scroll on every navigation.
   vi.spyOn(window, "scrollTo").mockImplementation(() => {});
 });
 
@@ -93,7 +88,6 @@ describe("console routes", () => {
   });
 
   it("signs in at /settings/drivers and stays there", async () => {
-    // No mark of recent use, so the stored session is not resumed.
     clearActivity();
     const router = renderAt("/settings/drivers");
 

@@ -4,7 +4,6 @@ import { describe, expect, it } from "vitest";
 import { EMPTY_CART, putLine } from "./cart";
 import { createCartStore } from "./cart-store";
 
-/** The phone's storage, in memory; one instance outlives any number of app launches. */
 function memoryStorage(): AsyncStorage & { readonly values: Map<string, string> } {
   const values = new Map<string, string>();
   return {

@@ -49,7 +49,6 @@ interface SectionProps {
   readonly onSaved: () => Promise<void>;
 }
 
-/** The settings as last read, for whichever section the URL has open. */
 interface LoadedSettings extends SectionProps {
   readonly settings: ShopSettings;
 }
@@ -62,12 +61,6 @@ function useSettings(): LoadedSettings {
   return section;
 }
 
-/**
- * The console's settings surface: the shop's rules, the Ordering window, closure dates,
- * the QR Ph image and the drivers, one section at a time. The settings are read once for
- * all of them. Every change goes to the server and the settings are read back afterwards,
- * so what is shown is always what customers and drivers now see.
- */
 export function Settings() {
   const client = useClient();
   const [load, setLoad] = useState<Load>({ state: "loading" });
@@ -217,7 +210,6 @@ export function OrderingWindowSection() {
             const day = settings.orderingWindow.find((each) => each.weekday === weekday);
             return (
               <OrderingDayRow
-                // A fresh row whenever the saved hours change, so its inputs start from them.
                 key={`${weekday}-${day?.opensAt}-${day?.closesAt}`}
                 client={client}
                 weekday={weekday}
@@ -361,7 +353,6 @@ export function QrPhSection() {
   const [file, setFile] = useState<File>();
   const { busy, error, run } = useWrite(onSaved);
 
-  // The bucket is private, so the image is shown through a short-lived signed link.
   useEffect(() => {
     let live = true;
     setUrl(undefined);
